@@ -17,7 +17,7 @@ VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Build targets  
-.PHONY: all build clean install uninstall test test-coverage test-race test-short test-bench test-ci test-clean fmt vet deps cross-compile help
+.PHONY: all build clean install uninstall test test-coverage test-race test-short test-bench test-ci test-clean fmt vet deps cross-compile simulator help
 
 # Default target
 all: clean deps fmt vet test-coverage build
@@ -30,6 +30,16 @@ build:
 		-ldflags="-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME)" \
 		-o $(BINARY_DIR)/$(BINARY_NAME) ./$(CMD_DIR)
 	@echo "Build complete: $(BINARY_DIR)/$(BINARY_NAME)"
+
+# Build and run the LED matrix simulator
+simulator: deps
+	@echo "Building and running LED matrix simulator..."
+	@mkdir -p $(BINARY_DIR)
+	CGO_ENABLED=$(CGO_ENABLED) go build $(GO_BUILD_FLAGS) \
+		-o $(BINARY_DIR)/framework-led-simulator ./cmd/simulator
+	@echo "Starting simulator (Press Ctrl+C to stop)..."
+	@echo "Try: make simulator ARGS='-mode activity -metric cpu -duration 60s'"
+	./$(BINARY_DIR)/framework-led-simulator $(ARGS)
 
 # Clean build artifacts
 clean:
@@ -240,6 +250,7 @@ help:
 	@echo "Available targets:"
 	@echo "  all                - Build, format, vet, test with coverage (default)"
 	@echo "  build              - Build the binary"
+	@echo "  simulator          - Build and run LED matrix simulator (no hardware needed)"
 	@echo "  clean              - Clean build artifacts"
 	@echo ""
 	@echo "Testing:"
