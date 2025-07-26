@@ -18,7 +18,7 @@ A cross-platform Go daemon that displays real-time system statistics on Framewor
 
 ```bash
 # Clone the repository
-git clone https://github.com/timfa/framework-led-matrix-daemon
+git clone https://github.com/timfallmk/framework-led-matrix-daemon
 cd framework-led-matrix-daemon
 
 # Build the daemon
@@ -118,7 +118,7 @@ display:
 # Install make (usually pre-installed on Linux/macOS)
 
 # Clone and build
-git clone https://github.com/timfa/framework-led-matrix-daemon
+git clone https://github.com/timfallmk/framework-led-matrix-daemon
 cd framework-led-matrix-daemon
 make deps
 make build

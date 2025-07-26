@@ -174,6 +174,10 @@ func (m *MockClient) ClearCommands() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.commands = m.commands[:0]
+	m.lastPercentage = 0
+	m.lastPattern = ""
+	m.brightness = 0
+	m.animationEnabled = false
 }
 
 func TestNewDisplayManager(t *testing.T) {
@@ -233,6 +237,9 @@ func TestDisplayManagerUpdatePercentage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient.ClearCommands()
+			
+			// Sleep to ensure update rate is satisfied
+			time.Sleep(2 * time.Millisecond)
 			
 			err := dm.UpdatePercentage(tt.key, tt.percent)
 			if err != nil {
@@ -342,6 +349,9 @@ func TestDisplayManagerShowActivity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient.ClearCommands()
 			
+			// Sleep to ensure update rate is satisfied
+			time.Sleep(2 * time.Millisecond)
+			
 			err := dm.ShowActivity(tt.active)
 			if err != nil {
 				t.Errorf("ShowActivity() error = %v", err)
@@ -446,8 +456,11 @@ func TestDisplayManagerGetCurrentState(t *testing.T) {
 	
 	// Set some state
 	dm.UpdatePercentage("cpu", 75.0)
+	time.Sleep(2 * time.Millisecond)
 	dm.SetBrightness(128)
+	time.Sleep(2 * time.Millisecond)
 	dm.ShowActivity(true)
+	time.Sleep(2 * time.Millisecond)
 	dm.ShowStatus("warning")
 	
 	state := dm.GetCurrentState()

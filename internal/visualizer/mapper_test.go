@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timfa/framework-led-matrix-daemon/internal/config"
-	"github.com/timfa/framework-led-matrix-daemon/internal/stats"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
 )
 
 // MockDisplayManager implements a mock display manager for testing

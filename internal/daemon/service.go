@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/takama/daemon"
-	"github.com/timfa/framework-led-matrix-daemon/internal/config"
-	"github.com/timfa/framework-led-matrix-daemon/internal/matrix"
-	"github.com/timfa/framework-led-matrix-daemon/internal/stats"
-	"github.com/timfa/framework-led-matrix-daemon/internal/visualizer"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/matrix"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/visualizer"
 )
 
 type Service struct {

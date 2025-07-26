@@ -6,8 +6,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/timfa/framework-led-matrix-daemon/internal/config"
-	"github.com/timfa/framework-led-matrix-daemon/internal/stats"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
 )
 
 // DisplayManagerInterface defines the interface for display managers

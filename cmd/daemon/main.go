@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/timfa/framework-led-matrix-daemon/internal/config"
-	"github.com/timfa/framework-led-matrix-daemon/internal/daemon"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/daemon"
 )
 
 const (
