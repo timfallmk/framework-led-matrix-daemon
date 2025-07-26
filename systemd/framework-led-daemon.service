@@ -1,0 +1,56 @@
+[Unit]
+Description=Framework LED Matrix System Statistics Display
+Documentation=https://github.com/timfa/framework-led-matrix-daemon
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/bin/framework-led-daemon run
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Resource limits
+LimitNOFILE=1024
+LimitNPROC=1024
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log /var/run
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictNamespaces=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Device access for serial ports
+DeviceAllow=/dev/ttyACM* rw
+DeviceAllow=/dev/ttyUSB* rw
+DevicePolicy=closed
+
+# Environment
+Environment=HOME=/var/lib/framework-led-daemon
+Environment=XDG_CONFIG_HOME=/etc/framework-led-daemon
+WorkingDirectory=/var/lib/framework-led-daemon
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=framework-led-daemon
+
+[Install]
+WantedBy=multi-user.target

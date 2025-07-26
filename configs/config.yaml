@@ -1,0 +1,46 @@
+# Framework LED Matrix Daemon Configuration
+
+matrix:
+  port: ""                    # Auto-discover if empty
+  baud_rate: 115200          # Serial communication baud rate
+  auto_discover: true        # Automatically find LED matrix port
+  timeout: 1s                # Serial communication timeout
+  brightness: 100            # LED brightness (0-255)
+
+stats:
+  collect_interval: 2s       # How often to collect system statistics
+  enable_cpu: true           # Enable CPU monitoring
+  enable_memory: true        # Enable memory monitoring
+  enable_disk: true          # Enable disk monitoring
+  enable_network: false      # Enable network monitoring
+  thresholds:
+    cpu_warning: 70.0        # CPU usage warning threshold (%)
+    cpu_critical: 90.0       # CPU usage critical threshold (%)
+    memory_warning: 80.0     # Memory usage warning threshold (%)
+    memory_critical: 95.0    # Memory usage critical threshold (%)
+    disk_warning: 80.0       # Disk usage warning threshold (%)
+    disk_critical: 95.0      # Disk usage critical threshold (%)
+
+display:
+  update_rate: 1s            # How often to update the display
+  mode: "percentage"         # Display mode: percentage, gradient, activity, status, custom
+  primary_metric: "cpu"      # Primary metric to display: cpu, memory, disk, network
+  show_activity: true        # Show activity indicators
+  enable_animation: false    # Enable pattern animations
+  custom_patterns: {}        # Custom pattern configurations
+
+daemon:
+  name: "framework-led-daemon"
+  description: "Framework LED Matrix System Statistics Display"
+  user: ""                   # Run as specific user (empty for current user)
+  group: ""                  # Run as specific group (empty for current group)
+  pid_file: "/var/run/framework-led-daemon.pid"
+  log_file: "/var/log/framework-led-daemon.log"
+
+logging:
+  level: "info"              # Log level: debug, info, warn, error
+  file: ""                   # Log file path (empty for stdout)
+  max_size: 10               # Maximum log file size in MB
+  max_backups: 3             # Number of old log files to retain
+  max_age: 28                # Maximum age of log files in days
+  compress: true             # Compress old log files
