@@ -95,10 +95,255 @@ display:
 
 ## Display Modes
 
-- **Percentage**: Shows metric as a progress bar (0-100%)
-- **Gradient**: Static gradient pattern with optional animation
-- **Activity**: Shows activity indicators for disk/network I/O
-- **Status**: Color-coded status based on system health (normal/warning/critical)
+The Framework LED Matrix (9x34 pixels) supports multiple visualization modes for system monitoring. Each mode provides different insights into your system's performance.
+
+### 1. **Percentage Mode** (`display_mode: "percentage"`)
+
+Shows system metrics as dynamic progress bars across the LED matrix:
+
+```
+CPU Usage (75%):
+┌─────────────────────────────────┐
+│████████████████████████░░░░░░░░│ ← 75% filled
+└─────────────────────────────────┘
+
+Memory Usage (50%):
+┌─────────────────────────────────┐
+│█████████████████░░░░░░░░░░░░░░░░│ ← 50% filled
+└─────────────────────────────────┘
+
+Network Activity (25%):
+┌─────────────────────────────────┐
+│████████░░░░░░░░░░░░░░░░░░░░░░░░░│ ← 25% filled
+└─────────────────────────────────┘
+```
+
+**Best for:** Real-time monitoring of specific metrics, development workstations, compile progress tracking.
+
+**Configuration Example:**
+```yaml
+display:
+  mode: "percentage"
+  primary_metric: "cpu"        # cpu, memory, disk, network
+  update_rate: 1s
+  brightness: 200
+```
+
+### 2. **Gradient Mode** (`display_mode: "gradient"`)
+
+Displays smooth gradient patterns representing overall system load:
+
+```
+System Load Gradient:
+┌─────────────────────────────────┐
+│░░░▒▒▒▓▓▓███▓▓▓▒▒▒░░░▒▒▒▓▓▓███│ ← Gradient pattern
+│░░▒▒▓▓███████████▓▓▒▒░░▒▒▓▓███│   representing
+│▒▒▓▓███████████████▓▓▒▒▓▓██████│   overall system
+│▓▓███████████████████▓▓████████│   activity level
+└─────────────────────────────────┘
+```
+
+**Best for:** Ambient monitoring, aesthetic appeal, low-distraction environments.
+
+**Configuration Example:**
+```yaml
+display:
+  mode: "gradient"
+  brightness: 128
+  animation: true
+  update_rate: 3s
+```
+
+### 3. **Activity Mode** (`display_mode: "activity"`)
+
+Shows real-time system activity with dynamic patterns that change based on system load:
+
+**High Activity (Zig-Zag Pattern):**
+```
+High CPU/Disk/Network Activity:
+┌─────────────────────────────────┐
+│█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█│ ← Animated zig-zag
+│░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░│   pattern shows
+│█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█│   system is active
+│░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░│
+└─────────────────────────────────┘
+```
+
+**Low Activity (Smooth Gradient):**
+```
+Low System Activity:
+┌─────────────────────────────────┐
+│░░░░▒▒▒▒▓▓▓▓████▓▓▓▓▒▒▒▒░░░░│ ← Calm gradient
+│░░▒▒▒▓▓▓██████████▓▓▓▒▒▒░░│   shows system
+│▒▒▓▓████████████████▓▓▒▒│   is idle
+│▓▓██████████████████▓▓│
+└─────────────────────────────────┘
+```
+
+**Best for:** Gaming setups, performance monitoring, understanding system behavior patterns.
+
+**Configuration Example:**
+```yaml
+display:
+  mode: "activity"
+  brightness: 255
+  animation: true
+  update_rate: 1s
+stats:
+  thresholds:
+    cpu_warning: 60.0    # Lower threshold for more sensitive activity detection
+```
+
+### 4. **Status Mode** (`display_mode: "status"`)
+
+Color-coded system health indicators with distinct patterns for each status level:
+
+**Normal Status (Green):**
+```
+System Health: NORMAL
+┌─────────────────────────────────┐
+│    ░░░░░░░░░░░░░░░░░░░░░░░░    │ ← Soft gradient
+│  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │   (low intensity)
+│░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│   
+│  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
+└─────────────────────────────────┘
+```
+
+**Warning Status (Orange):**
+```
+System Health: WARNING
+┌─────────────────────────────────┐
+│█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█│ ← Zig-zag pattern
+│░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░│   (medium intensity)
+│█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█│   
+│░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░│
+└─────────────────────────────────┘
+```
+
+**Critical Status (Red):**
+```
+System Health: CRITICAL
+┌─────────────────────────────────┐
+│███████████████████████████████│ ← Solid pattern
+│███████████████████████████████│   (high intensity)
+│███████████████████████████████│   
+│███████████████████████████████│
+└─────────────────────────────────┘
+```
+
+**Best for:** Server monitoring, system administration, alert-focused environments.
+
+**Configuration Example:**
+```yaml
+display:
+  mode: "status"
+  brightness: 180
+  animation: false
+stats:
+  thresholds:
+    cpu_warning: 70.0
+    cpu_critical: 85.0
+    memory_warning: 80.0
+    memory_critical: 95.0
+```
+
+## Configuration Examples by Use Case
+
+### 🎮 Gaming Setup
+Bright, responsive activity monitoring for performance awareness:
+
+```yaml
+matrix:
+  brightness: 255
+  auto_discover: true
+
+display:
+  mode: "activity"
+  primary_metric: "cpu"
+  update_rate: 1s
+  animation: true
+
+stats:
+  collect_interval: 1s
+  thresholds:
+    cpu_warning: 70
+    cpu_critical: 85
+    memory_warning: 75
+    memory_critical: 90
+```
+**Visual Result:** Animated zig-zag patterns during gaming sessions, smooth gradients during idle periods.
+
+### 🖥️ Server Monitoring
+Reliable status indicators for system health:
+
+```yaml
+matrix:
+  brightness: 128
+  auto_discover: true
+
+display:
+  mode: "status"
+  primary_metric: "memory"
+  update_rate: 5s
+  animation: false
+
+stats:
+  collect_interval: 3s
+  thresholds:
+    memory_warning: 80
+    memory_critical: 95
+    cpu_warning: 80
+    cpu_critical: 95
+```
+**Visual Result:** Steady status indicators - green for normal operation, orange for resource pressure, red for critical states.
+
+### 💻 Development Workstation
+Real-time progress bars for compilation and system load:
+
+```yaml
+matrix:
+  brightness: 200
+  auto_discover: true
+
+display:
+  mode: "percentage"
+  primary_metric: "cpu"
+  update_rate: 2s
+  animation: true
+
+stats:
+  collect_interval: 2s
+  enable_cpu: true
+  enable_memory: true
+  enable_disk: true
+```
+**Visual Result:** Dynamic CPU usage bars that update every 2 seconds, perfect for monitoring compile times and system responsiveness.
+
+### 🌙 Ambient Monitoring
+Subtle, aesthetic system awareness:
+
+```yaml
+matrix:
+  brightness: 80
+  auto_discover: true
+
+display:
+  mode: "gradient"
+  update_rate: 10s
+  animation: true
+
+stats:
+  collect_interval: 5s
+```
+**Visual Result:** Gentle gradient patterns that subtly shift based on system load, providing awareness without distraction.
+
+## Display Features
+
+- **Brightness Control:** 0-255 intensity levels for any lighting condition
+- **Animation Support:** Pulsing, scrolling, and pattern transitions
+- **Update Rates:** 1-30 second intervals for smooth or battery-friendly operation
+- **Auto-Discovery:** Automatically detects Framework LED Matrix hardware
+- **Hot Configuration:** Changes apply immediately without service restart
 
 ## System Requirements
 
