@@ -1,6 +1,6 @@
-module github.com/timfa/framework-led-matrix-daemon
+module github.com/timfallmk/framework-led-matrix-daemon
 
-go 1.21
+go 1.24.5
 
 require (
 	github.com/shirou/gopsutil/v3 v3.24.5

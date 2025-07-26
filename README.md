@@ -103,7 +103,7 @@ display:
 ## System Requirements
 
 - Framework Laptop with LED Matrix input module
-- Go 1.21 or later (for building)
+- Go 1.24.5 or later (for building)
 - Serial port access permissions
 - Linux: `udev` rules or user in `dialout` group
 - Windows: Administrator privileges for service installation
@@ -114,7 +114,7 @@ display:
 ### Prerequisites
 
 ```bash
-# Install Go 1.21+
+# Install Go 1.24.5+
 # Install make (usually pre-installed on Linux/macOS)
 
 # Clone and build
