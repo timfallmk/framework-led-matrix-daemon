@@ -1,6 +1,6 @@
 [Unit]
 Description=Framework LED Matrix System Statistics Display
-Documentation=https://github.com/timfa/framework-led-matrix-daemon
+Documentation=https://github.com/timfallmk/framework-led-matrix-daemon
 After=network.target
 Wants=network.target
 

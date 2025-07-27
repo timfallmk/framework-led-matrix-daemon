@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
@@ -46,8 +45,8 @@ func main() {
 	cfg.Display.PrimaryMetric = *metric
 
 	// Initialize components
-	collector := stats.NewCollector()
-	visualizer := visualizer.New(&MockDisplayManager{}, cfg)
+	collector := stats.NewCollector(time.Second)
+	viz := visualizer.NewVisualizer(&MockDisplayManager{}, cfg)
 
 	fmt.Println("Starting simulation...")
 	fmt.Println("Press Ctrl+C to stop")
@@ -67,15 +66,22 @@ func main() {
 				continue
 			}
 
+			// Create summary from system stats
+			summary, err := collector.GetSummary()
+			if err != nil {
+				log.Printf("Error getting summary: %v", err)
+				continue
+			}
+
 			// Update display
-			err = visualizer.UpdateDisplay(systemStats)
+			err = viz.UpdateDisplay(summary)
 			if err != nil {
 				log.Printf("Error updating display: %v", err)
 				continue
 			}
 
 			// Print current state
-			printSimulatedDisplay(systemStats, cfg)
+			printSimulatedDisplay(summary, systemStats, cfg)
 
 		default:
 			if time.Since(start) > *duration {
@@ -136,6 +142,10 @@ func (m *MockDisplayManager) GetCurrentState() map[string]interface{} {
 	}
 }
 
+func (m *MockDisplayManager) SetUpdateRate(rate time.Duration) {
+	// Mock implementation - no-op
+}
+
 // Helper functions to create patterns
 func createProgressBar(percentage float64) []byte {
 	pattern := make([]byte, LEDWidth*LEDHeight)
@@ -189,16 +199,16 @@ func abs(x int) int {
 }
 
 // Print ASCII representation of the LED matrix
-func printSimulatedDisplay(stats *stats.SystemStats, cfg *config.Config) {
+func printSimulatedDisplay(summary *stats.StatsSummary, systemStats *stats.SystemStats, cfg *config.Config) {
 	fmt.Printf("\r\033[2J\033[H") // Clear screen
 
 	fmt.Printf("⏰ %s | Mode: %s | Metric: %s\n", 
 		time.Now().Format("15:04:05"), cfg.Display.Mode, cfg.Display.PrimaryMetric)
 	
-	fmt.Printf("📊 CPU: %.1f%% | Memory: %.1f%% | Disk: %.1f MB/s | Network: %.1f MB/s\n\n",
-		stats.CPU.UsagePercent, stats.Memory.UsagePercent, 
-		stats.Disk.ReadRate+stats.Disk.WriteRate, 
-		stats.Network.ReceiveRate+stats.Network.SendRate)
+	fmt.Printf("📊 CPU: %.1f%% | Memory: %.1f%% | Disk: %.1f KB/s | Network: %.1f KB/s\n\n",
+		summary.CPUUsage, summary.MemoryUsage, 
+		summary.DiskActivity/1024, 
+		summary.NetworkActivity/1024)
 
 	// Simulate the LED matrix display
 	fmt.Println("🔲 LED Matrix Simulation (34x9):")
@@ -210,20 +220,20 @@ func printSimulatedDisplay(stats *stats.SystemStats, cfg *config.Config) {
 		var percentage float64
 		switch cfg.Display.PrimaryMetric {
 		case "cpu":
-			percentage = stats.CPU.UsagePercent
+			percentage = summary.CPUUsage
 		case "memory":
-			percentage = stats.Memory.UsagePercent
+			percentage = summary.MemoryUsage
 		case "disk":
-			percentage = (stats.Disk.ReadRate + stats.Disk.WriteRate) / 10.0 // Scale for display
+			percentage = (summary.DiskActivity / (10 * 1024 * 1024)) * 100 // Scale for display
 		case "network":
-			percentage = (stats.Network.ReceiveRate + stats.Network.SendRate) / 10.0 // Scale for display
+			percentage = (summary.NetworkActivity / (10 * 1024 * 1024)) * 100 // Scale for display
 		}
 		pattern = createProgressBar(percentage)
 		
 	case "activity":
-		isActive := stats.CPU.UsagePercent > 30 || 
-					(stats.Disk.ReadRate+stats.Disk.WriteRate) > 1.0 ||
-					(stats.Network.ReceiveRate+stats.Network.SendRate) > 1.0
+		isActive := summary.CPUUsage > 30 || 
+					summary.DiskActivity > 1024*1024 ||
+					summary.NetworkActivity > 1024*1024
 		if isActive {
 			pattern = createZigZagPattern()
 		} else {
@@ -231,12 +241,7 @@ func printSimulatedDisplay(stats *stats.SystemStats, cfg *config.Config) {
 		}
 		
 	case "status":
-		status := "normal"
-		if stats.CPU.UsagePercent > 80 || stats.Memory.UsagePercent > 90 {
-			status = "critical"
-		} else if stats.CPU.UsagePercent > 60 || stats.Memory.UsagePercent > 75 {
-			status = "warning"
-		}
+		status := summary.Status.String()
 		
 		switch status {
 		case "normal":
