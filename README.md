@@ -1,14 +1,16 @@
 # Framework LED Matrix Daemon
 
-A cross-platform Go daemon that displays real-time system statistics on Framework Laptop LED matrices. Monitor CPU usage, memory consumption, disk activity, and system status directly on your laptop's LED matrix input modules.
+A cross-platform Go daemon that displays real-time system statistics on Framework Laptop LED matrices. Monitor CPU usage, memory consumption, disk activity, and system status directly on your laptop's LED matrix input modules. Supports both single and dual matrix configurations for enhanced monitoring capabilities.
 
 ## Features
 
 - **Real-time System Monitoring**: CPU, memory, disk I/O, and network statistics
+- **Dual Matrix Support**: Configure up to two LED matrices with different display modes
 - **Multiple Display Modes**: Percentage bars, gradients, activity indicators, and status displays
 - **Cross-platform Support**: Linux, Windows, macOS with automated service management
 - **Configurable Thresholds**: Customizable warning and critical levels
 - **Automatic Port Discovery**: Finds Framework LED matrices automatically
+- **Flexible Matrix Modes**: Mirror, split, extended, and independent dual matrix configurations
 - **Daemonizable**: Full systemd integration with proper service management
 - **YAML Configuration**: Flexible configuration with command-line overrides
 
@@ -24,7 +26,7 @@ cd framework-led-matrix-daemon
 # Build the daemon
 make build
 
-# Test LED matrix connection
+# Test LED matrix connection (single or dual)
 ./bin/framework-led-daemon test
 
 # Run in foreground for testing
@@ -39,16 +41,15 @@ sudo systemctl start framework-led-daemon
 ### Usage Examples
 
 ```bash
-# Run with custom configuration
+# Single Matrix Examples
 framework-led-daemon -config /path/to/config.yaml run
-
-# Run with command-line overrides
 framework-led-daemon -port /dev/ttyACM0 -brightness 128 run
-
-# Display memory usage instead of CPU
 framework-led-daemon -metric memory -mode percentage run
 
-# Install and manage as system service
+# Dual Matrix Examples (requires dual matrix configuration)
+framework-led-daemon -config /path/to/dual-matrix-config.yaml run
+
+# Service Management
 framework-led-daemon install
 framework-led-daemon start
 framework-led-daemon status
@@ -66,7 +67,9 @@ The daemon uses YAML configuration files with the following search order:
 4. `/etc/framework-led-daemon/config.yaml`
 5. `./configs/config.yaml`
 
-### Configuration Options
+### Single Matrix Configuration
+
+For single matrix setups (default):
 
 ```yaml
 matrix:
@@ -92,6 +95,58 @@ display:
   primary_metric: "cpu"      # Primary metric: cpu, memory, disk, network
   show_activity: true        # Show activity indicators
 ```
+
+### Dual Matrix Configuration
+
+For dual matrix setups with two LED matrices:
+
+```yaml
+matrix:
+  # Legacy single matrix settings (used as fallback)
+  port: ""                    # Auto-discover if empty
+  baud_rate: 115200          # Serial communication baud rate
+  auto_discover: true        # Automatically find LED matrix port
+  brightness: 100            # Default brightness (0-255)
+  
+  # Dual matrix configuration
+  dual_mode: "split"         # Dual matrix mode: mirror, split, extended, independent
+  matrices:
+    - name: "primary"        # Primary matrix (left side)
+      port: ""               # Auto-discover if empty
+      role: "primary"        # Matrix role: primary, secondary
+      brightness: 100        # Individual brightness control
+      metrics: ["cpu", "memory"]  # Metrics to display on this matrix
+    - name: "secondary"      # Secondary matrix (right side)
+      port: ""               # Auto-discover if empty  
+      role: "secondary"      # Matrix role: primary, secondary
+      brightness: 100        # Individual brightness control
+      metrics: ["disk", "network"]  # Metrics to display on this matrix
+
+stats:
+  collect_interval: 2s       # How often to collect system statistics
+  enable_cpu: true           # Enable CPU monitoring
+  enable_memory: true        # Enable memory monitoring
+  enable_disk: true          # Enable disk monitoring
+  enable_network: true       # Enable network monitoring (recommended for dual matrix)
+  thresholds:
+    cpu_warning: 70.0        # CPU usage warning threshold (%)
+    cpu_critical: 90.0       # CPU usage critical threshold (%)
+    memory_warning: 80.0     # Memory usage warning threshold (%)
+    memory_critical: 95.0    # Memory usage critical threshold (%)
+
+display:
+  update_rate: 1s            # How often to update the display
+  mode: "percentage"         # Display mode: percentage, gradient, activity, status
+  primary_metric: "cpu"      # Primary metric: cpu, memory, disk, network
+  show_activity: true        # Show activity indicators
+```
+
+### Dual Matrix Modes
+
+- **Mirror Mode** (`dual_mode: "mirror"`): Both matrices display identical content
+- **Split Mode** (`dual_mode: "split"`): Each matrix displays different metrics (default)
+- **Extended Mode** (`dual_mode: "extended"`): Wide visualization across both matrices
+- **Independent Mode** (`dual_mode: "independent"`): Completely separate configurations
 
 ## Display Modes
 
@@ -337,6 +392,55 @@ stats:
 ```
 **Visual Result:** Gentle gradient patterns that subtly shift based on system load, providing awareness without distraction.
 
+### 🖥️💻 Dual Matrix Power User
+Enhanced monitoring with two matrices showing different metrics:
+
+```yaml
+matrix:
+  # Enable dual matrix mode
+  dual_mode: "split"
+  matrices:
+    - name: "primary"
+      role: "primary"
+      brightness: 200
+      metrics: ["cpu", "memory"]    # Left matrix: CPU and Memory
+    - name: "secondary"
+      role: "secondary"
+      brightness: 200
+      metrics: ["disk", "network"]  # Right matrix: Disk and Network
+
+display:
+  mode: "percentage"
+  update_rate: 1s
+  animation: true
+
+stats:
+  collect_interval: 1s
+  enable_cpu: true
+  enable_memory: true
+  enable_disk: true
+  enable_network: true
+```
+**Visual Result:** Left matrix shows CPU/Memory bars, right matrix shows Disk/Network activity - complete system visibility at a glance.
+
+### 🖥️🖥️ Dual Matrix Mirror Mode
+Identical content on both matrices for enhanced visibility:
+
+```yaml
+matrix:
+  dual_mode: "mirror"
+  matrices:
+    - name: "primary"
+      brightness: 255
+    - name: "secondary"
+      brightness: 255
+
+display:
+  mode: "activity"
+  update_rate: 1s
+```
+**Visual Result:** Both matrices display the same activity patterns, perfect for wide viewing angles or presentations.
+
 ## Display Features
 
 - **Brightness Control:** 0-255 intensity levels for any lighting condition
@@ -347,7 +451,9 @@ stats:
 
 ## System Requirements
 
-- Framework Laptop with LED Matrix input module
+- Framework Laptop with LED Matrix input module(s)
+  - Single matrix: Works with one LED matrix module
+  - Dual matrix: Supports up to two LED matrix modules simultaneously
 - Go 1.24.5 or later (for building)
 - Serial port access permissions
 - Linux: `udev` rules or user in `dialout` group

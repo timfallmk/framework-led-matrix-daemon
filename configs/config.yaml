@@ -1,11 +1,26 @@
 # Framework LED Matrix Daemon Configuration
 
 matrix:
+  # Legacy single matrix configuration
   port: ""                    # Auto-discover if empty
   baud_rate: 115200          # Serial communication baud rate
   auto_discover: true        # Automatically find LED matrix port
   timeout: 1s                # Serial communication timeout
   brightness: 100            # LED brightness (0-255)
+  
+  # Dual matrix configuration (leave empty for single matrix mode)
+  dual_mode: "split"         # Dual matrix mode: mirror, split, extended, independent
+  matrices:
+    - name: "primary"        # Primary matrix (left side)
+      port: ""               # Auto-discover if empty
+      role: "primary"        # Matrix role: primary, secondary
+      brightness: 100        # Individual brightness control
+      metrics: ["cpu", "memory"]  # Metrics to display on this matrix
+    - name: "secondary"      # Secondary matrix (right side)
+      port: ""               # Auto-discover if empty  
+      role: "secondary"      # Matrix role: primary, secondary
+      brightness: 100        # Individual brightness control
+      metrics: ["disk", "network"]  # Metrics to display on this matrix
 
 stats:
   collect_interval: 2s       # How often to collect system statistics

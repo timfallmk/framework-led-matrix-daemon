@@ -174,3 +174,169 @@ func abs(x float64) float64 {
 	}
 	return x
 }
+
+// MultiDisplayManager manages multiple DisplayManagers for dual matrix support
+type MultiDisplayManager struct {
+	displays    map[string]*DisplayManager
+	multiClient *MultiClient
+	dualMode    string
+	mu          sync.RWMutex
+}
+
+func NewMultiDisplayManager(multiClient *MultiClient, dualMode string) *MultiDisplayManager {
+	mdm := &MultiDisplayManager{
+		displays:    make(map[string]*DisplayManager),
+		multiClient: multiClient,
+		dualMode:    dualMode,
+	}
+	
+	for name, client := range multiClient.GetClients() {
+		mdm.displays[name] = NewDisplayManager(client)
+	}
+	
+	return mdm
+}
+
+func (mdm *MultiDisplayManager) UpdateMetric(metricName string, value float64, stats map[string]float64) error {
+	mdm.mu.RLock()
+	defer mdm.mu.RUnlock()
+	
+	switch mdm.dualMode {
+	case "mirror":
+		return mdm.updateMirrorMode(metricName, value)
+	case "split":
+		return mdm.updateSplitMode(metricName, value, stats)
+	case "extended":
+		return mdm.updateExtendedMode(metricName, value, stats)
+	case "independent":
+		return mdm.updateIndependentMode(metricName, value, stats)
+	default:
+		return mdm.updateSplitMode(metricName, value, stats) // Default to split mode
+	}
+}
+
+func (mdm *MultiDisplayManager) updateMirrorMode(metricName string, value float64) error {
+	// Show the same content on all matrices
+	var lastErr error
+	for _, display := range mdm.displays {
+		if err := display.UpdatePercentage(metricName, value); err != nil {
+			lastErr = err
+			log.Printf("Error updating mirror display: %v", err)
+		}
+	}
+	return lastErr
+}
+
+func (mdm *MultiDisplayManager) updateSplitMode(metricName string, value float64, stats map[string]float64) error {
+	// Each matrix shows different metrics based on configuration
+	var lastErr error
+	
+	for name, display := range mdm.displays {
+		matrixConfig := mdm.multiClient.GetConfig(name)
+		if matrixConfig == nil {
+			continue
+		}
+		
+		// Check if this matrix should display the current metric
+		shouldDisplay := false
+		for _, assignedMetric := range matrixConfig.Metrics {
+			if assignedMetric == metricName {
+				shouldDisplay = true
+				break
+			}
+		}
+		
+		if shouldDisplay {
+			if err := display.UpdatePercentage(metricName, value); err != nil {
+				lastErr = err
+				log.Printf("Error updating split display %s with %s: %v", name, metricName, err)
+			} else {
+				log.Printf("Updated matrix %s with %s: %.1f%%", name, metricName, value)
+			}
+		} else {
+			// If this matrix has no assigned metrics, show primary metric
+			if len(matrixConfig.Metrics) == 0 && metricName == "cpu" {
+				if err := display.UpdatePercentage(metricName, value); err != nil {
+					lastErr = err
+					log.Printf("Error updating fallback display %s with %s: %v", name, metricName, err)
+				}
+			}
+		}
+	}
+	return lastErr
+}
+
+func (mdm *MultiDisplayManager) updateExtendedMode(metricName string, value float64, stats map[string]float64) error {
+	// Show a wider visualization across both matrices
+	// For now, treat it like split mode but could be enhanced later
+	return mdm.updateSplitMode(metricName, value, stats)
+}
+
+func (mdm *MultiDisplayManager) updateIndependentMode(metricName string, value float64, stats map[string]float64) error {
+	// Each matrix operates completely independently
+	// This would require more sophisticated configuration
+	return mdm.updateSplitMode(metricName, value, stats)
+}
+
+func (mdm *MultiDisplayManager) UpdateActivity(active bool) error {
+	mdm.mu.RLock()
+	defer mdm.mu.RUnlock()
+	
+	var lastErr error
+	for name, display := range mdm.displays {
+		if err := display.ShowActivity(active); err != nil {
+			lastErr = err
+			log.Printf("Error updating activity on display %s: %v", name, err)
+		}
+	}
+	return lastErr
+}
+
+func (mdm *MultiDisplayManager) UpdateStatus(status string) error {
+	mdm.mu.RLock()
+	defer mdm.mu.RUnlock()
+	
+	var lastErr error
+	for name, display := range mdm.displays {
+		if err := display.ShowStatus(status); err != nil {
+			lastErr = err
+			log.Printf("Error updating status on display %s: %v", name, err)
+		}
+	}
+	return lastErr
+}
+
+func (mdm *MultiDisplayManager) SetBrightness(level byte) error {
+	mdm.mu.RLock()
+	defer mdm.mu.RUnlock()
+	
+	var lastErr error
+	for name, display := range mdm.displays {
+		if err := display.SetBrightness(level); err != nil {
+			lastErr = err
+			log.Printf("Error setting brightness on display %s: %v", name, err)
+		}
+	}
+	return lastErr
+}
+
+func (mdm *MultiDisplayManager) SetUpdateRate(rate time.Duration) {
+	mdm.mu.RLock()
+	defer mdm.mu.RUnlock()
+	
+	for _, display := range mdm.displays {
+		display.SetUpdateRate(rate)
+	}
+}
+
+func (mdm *MultiDisplayManager) GetDisplayManager(name string) *DisplayManager {
+	mdm.mu.RLock()
+	defer mdm.mu.RUnlock()
+	return mdm.displays[name]
+}
+
+func (mdm *MultiDisplayManager) HasMultipleDisplays() bool {
+	mdm.mu.RLock()
+	defer mdm.mu.RUnlock()
+	return len(mdm.displays) > 1
+}

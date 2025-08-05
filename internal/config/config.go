@@ -18,11 +18,16 @@ type Config struct {
 }
 
 type MatrixConfig struct {
+	// Legacy single matrix support
 	Port         string        `yaml:"port"`
 	BaudRate     int           `yaml:"baud_rate"`
 	AutoDiscover bool          `yaml:"auto_discover"`
 	Timeout      time.Duration `yaml:"timeout"`
 	Brightness   byte          `yaml:"brightness"`
+	
+	// Multi-matrix support - using external type to avoid import cycles
+	Matrices     []map[string]interface{} `yaml:"matrices"`
+	DualMode     string                  `yaml:"dual_mode"` // "mirror", "split", "extended", "independent"
 }
 
 type StatsConfig struct {
@@ -78,11 +83,16 @@ type LoggingConfig struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Matrix: MatrixConfig{
+			// Legacy single matrix support
 			Port:         "",
 			BaudRate:     115200,
 			AutoDiscover: true,
 			Timeout:      1 * time.Second,
 			Brightness:   100,
+			
+			// Multi-matrix defaults - empty by default, user can configure
+			DualMode: "",
+			Matrices: []map[string]interface{}{},
 		},
 		Stats: StatsConfig{
 			CollectInterval: 2 * time.Second,
@@ -215,7 +225,83 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("memory_warning threshold must be less than memory_critical")
 	}
 
+	// Validate dual matrix configuration
+	validDualModes := map[string]bool{
+		"mirror":      true,
+		"split":       true,
+		"extended":    true,
+		"independent": true,
+	}
+	if c.Matrix.DualMode != "" && !validDualModes[c.Matrix.DualMode] {
+		return fmt.Errorf("invalid dual_mode: %s", c.Matrix.DualMode)
+	}
+
+	// Validate individual matrix configurations
+	for i, matrix := range c.Matrix.Matrices {
+		if role, ok := matrix["role"].(string); ok && role != "" {
+			if role != "primary" && role != "secondary" {
+				return fmt.Errorf("matrix[%d] invalid role: %s", i, role)
+			}
+		}
+		
+		if metrics, ok := matrix["metrics"].([]interface{}); ok {
+			for _, metric := range metrics {
+				if metricStr, ok := metric.(string); ok {
+					if !validMetrics[metricStr] {
+						return fmt.Errorf("matrix[%d] invalid metric: %s", i, metricStr)
+					}
+				}
+			}
+		}
+	}
+
 	return nil
+}
+
+// ConvertMatrices converts the generic matrix configuration to SingleMatrixConfig structs
+func (c *Config) ConvertMatrices() []SingleMatrixConfig {
+	var matrices []SingleMatrixConfig
+	
+	for _, m := range c.Matrix.Matrices {
+		matrix := SingleMatrixConfig{}
+		
+		if name, ok := m["name"].(string); ok {
+			matrix.Name = name
+		}
+		if port, ok := m["port"].(string); ok {
+			matrix.Port = port
+		}
+		if role, ok := m["role"].(string); ok {
+			matrix.Role = role
+		}
+		if brightness, ok := m["brightness"].(int); ok {
+			matrix.Brightness = byte(brightness)
+		} else if brightness, ok := m["brightness"].(float64); ok {
+			matrix.Brightness = byte(brightness)
+		}
+		
+		if metrics, ok := m["metrics"].([]interface{}); ok {
+			for _, metric := range metrics {
+				if metricStr, ok := metric.(string); ok {
+					matrix.Metrics = append(matrix.Metrics, metricStr)
+				}
+			}
+		}
+		
+		matrices = append(matrices, matrix)
+	}
+	
+	return matrices
+}
+
+// SingleMatrixConfig represents configuration for a single matrix
+// This is a separate type to avoid import cycles with the matrix package
+type SingleMatrixConfig struct {
+	Name       string   `yaml:"name"`
+	Port       string   `yaml:"port"`
+	Role       string   `yaml:"role"`
+	Brightness byte     `yaml:"brightness"`
+	Metrics    []string `yaml:"metrics"`
 }
 
 func getDefaultConfigPath() string {

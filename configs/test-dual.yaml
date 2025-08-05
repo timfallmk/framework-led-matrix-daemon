@@ -1,0 +1,41 @@
+# Test configuration for dual matrix mode
+matrix:
+  # Legacy single matrix settings (fallback)
+  port: ""
+  baud_rate: 115200
+  auto_discover: true
+  brightness: 100
+  
+  # Dual matrix configuration
+  dual_mode: "split"
+  matrices:
+    - name: "primary"
+      port: ""               # Auto-discover first matrix
+      role: "primary"
+      brightness: 150
+      metrics: ["cpu", "memory"]
+    - name: "secondary"
+      port: ""               # Auto-discover second matrix  
+      role: "secondary"
+      brightness: 150
+      metrics: ["disk", "network"]
+
+stats:
+  collect_interval: 1s       # Faster updates for demo
+  enable_cpu: true
+  enable_memory: true
+  enable_disk: true
+  enable_network: true       # Enable network for dual matrix demo
+
+display:
+  update_rate: 1s
+  mode: "percentage"
+  primary_metric: "cpu"
+  show_activity: true
+
+daemon:
+  name: "framework-led-daemon"
+  description: "Framework LED Matrix System Statistics Display"
+
+logging:
+  level: "debug"             # More verbose logging

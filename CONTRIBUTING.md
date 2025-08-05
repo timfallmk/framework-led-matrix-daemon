@@ -9,6 +9,7 @@ Thank you for your interest in contributing to the Framework LED Matrix Daemon! 
 - [Project Structure](#project-structure)
 - [Development Workflow](#development-workflow)
 - [Code Standards](#code-standards)
+- [Dual Matrix Development](#dual-matrix-development)
 - [Testing](#testing)
 - [Debugging](#debugging)
 - [Submitting Changes](#submitting-changes)
@@ -252,6 +253,77 @@ var ErrDeviceNotFound = errors.New("LED matrix device not found")
 func UpdatePercentage(key string, percent float64) error {
     // implementation
 }
+```
+
+## Dual Matrix Development
+
+### Architecture Overview
+
+The dual matrix support is built with backward compatibility in mind:
+
+- **Single Matrix**: Uses `matrix.Client` and `matrix.DisplayManager` (legacy path)
+- **Dual Matrix**: Uses `matrix.MultiClient` and `matrix.MultiDisplayManager` (new path)
+- **Service Layer**: Automatically detects and initializes the appropriate mode
+
+### Key Components
+
+1. **MultiClient** (`internal/matrix/client.go`):
+   - Manages multiple LED matrix connections
+   - Handles port discovery for multiple devices
+   - Provides individual client access by name
+
+2. **MultiDisplayManager** (`internal/matrix/display.go`):
+   - Coordinates display updates across multiple matrices
+   - Implements different dual modes: mirror, split, extended, independent
+
+3. **Configuration** (`internal/config/config.go`):
+   - Supports both legacy single matrix and new dual matrix config
+   - Validates dual matrix configurations
+   - Converts between config formats to avoid import cycles
+
+### Dual Matrix Modes
+
+- **Mirror Mode**: Both matrices show identical content
+- **Split Mode**: Each matrix shows different metrics (e.g., CPU+Memory vs Disk+Network)
+- **Extended Mode**: Wide visualization spanning both matrices
+- **Independent Mode**: Completely separate configurations per matrix
+
+### Development Guidelines
+
+When working on dual matrix features:
+
+1. **Maintain Compatibility**: Always ensure single matrix mode continues to work
+2. **Graceful Fallback**: If dual matrix setup fails, fall back to single matrix
+3. **Configuration Validation**: Validate dual matrix configs in `config.Validate()`
+4. **Testing**: Use the simulator to test dual matrix visualizations
+5. **Error Handling**: Log warnings for matrix-specific failures, don't crash the daemon
+
+### Testing Dual Matrix Features
+
+```bash
+# Test with dual matrix configuration
+./bin/framework-led-daemon -config configs/dual-matrix-example.yaml run
+
+# Use simulator to visualize dual matrix layouts
+make simulator ARGS='-mode percentage -metric cpu'
+
+# Test port discovery for multiple matrices
+./bin/framework-led-daemon test
+```
+
+### Adding New Dual Matrix Modes
+
+To add a new dual matrix mode:
+
+1. Add the mode to `validDualModes` in `config.Validate()`
+2. Implement the mode in `MultiDisplayManager.UpdateMetric()`
+3. Add configuration example to README.md
+4. Add tests for the new mode
+
+Example:
+```go
+case "my_new_mode":
+    return mdm.updateMyNewMode(metricName, value, stats)
 ```
 
 ## Testing

@@ -1,0 +1,27 @@
+# Test configuration for single matrix mode
+matrix:
+  port: ""                    # Auto-discover
+  baud_rate: 115200
+  auto_discover: true
+  brightness: 100
+  # No dual matrix config = single matrix mode
+
+stats:
+  collect_interval: 2s
+  enable_cpu: true
+  enable_memory: true
+  enable_disk: true
+  enable_network: false
+
+display:
+  update_rate: 1s
+  mode: "percentage"
+  primary_metric: "cpu"
+  show_activity: true
+
+daemon:
+  name: "framework-led-daemon"
+  description: "Framework LED Matrix System Statistics Display"
+
+logging:
+  level: "info"

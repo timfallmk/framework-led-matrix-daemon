@@ -20,16 +20,39 @@ type DisplayManagerInterface interface {
 	SetUpdateRate(rate time.Duration)
 }
 
+// MultiDisplayManagerInterface defines the interface for multi-display managers
+type MultiDisplayManagerInterface interface {
+	UpdateMetric(metricName string, value float64, stats map[string]float64) error
+	UpdateActivity(active bool) error
+	UpdateStatus(status string) error
+	SetBrightness(level byte) error
+	SetUpdateRate(rate time.Duration)
+	HasMultipleDisplays() bool
+}
+
 type Visualizer struct {
 	display    DisplayManagerInterface
 	config     *config.Config
 	lastUpdate time.Time
 }
 
+type MultiVisualizer struct {
+	multiDisplay MultiDisplayManagerInterface
+	config       *config.Config
+	lastUpdate   time.Time
+}
+
 func NewVisualizer(display DisplayManagerInterface, cfg *config.Config) *Visualizer {
 	return &Visualizer{
 		display: display,
 		config:  cfg,
+	}
+}
+
+func NewMultiVisualizer(multiDisplay MultiDisplayManagerInterface, cfg *config.Config) *MultiVisualizer {
+	return &MultiVisualizer{
+		multiDisplay: multiDisplay,
+		config:       cfg,
 	}
 }
 
@@ -202,6 +225,125 @@ func (v *Visualizer) SetBrightness(level byte) error {
 
 func (v *Visualizer) GetCurrentState() map[string]interface{} {
 	return v.display.GetCurrentState()
+}
+
+// MultiVisualizer methods for dual matrix support
+func (mv *MultiVisualizer) UpdateDisplay(summary *stats.StatsSummary) error {
+	if time.Since(mv.lastUpdate) < mv.config.Display.UpdateRate {
+		return nil
+	}
+
+	switch mv.config.Display.Mode {
+	case "percentage":
+		return mv.updatePercentageMode(summary)
+	case "gradient":
+		return mv.updateGradientMode(summary)
+	case "activity":
+		return mv.updateActivityMode(summary)
+	case "status":
+		return mv.updateStatusMode(summary)
+	default:
+		return mv.updatePercentageMode(summary)
+	}
+}
+
+func (mv *MultiVisualizer) updatePercentageMode(summary *stats.StatsSummary) error {
+	// Create stats map for all metrics
+	statsMap := map[string]float64{
+		"cpu":     summary.CPUUsage,
+		"memory":  summary.MemoryUsage,
+		"disk":    mv.normalizeActivity(summary.DiskActivity),
+		"network": mv.normalizeActivity(summary.NetworkActivity),
+	}
+
+	// Update each configured metric
+	var lastErr error
+	for metric, value := range statsMap {
+		if err := mv.multiDisplay.UpdateMetric(metric, value, statsMap); err != nil {
+			lastErr = err
+			log.Printf("Error updating metric %s: %v", metric, err)
+		}
+	}
+
+	mv.lastUpdate = time.Now()
+	return lastErr
+}
+
+func (mv *MultiVisualizer) updateGradientMode(summary *stats.StatsSummary) error {
+	if err := mv.multiDisplay.UpdateStatus("normal"); err != nil {
+		return fmt.Errorf("failed to show gradient: %w", err)
+	}
+
+	mv.lastUpdate = time.Now()
+	return nil
+}
+
+func (mv *MultiVisualizer) updateActivityMode(summary *stats.StatsSummary) error {
+	active := mv.isSystemActive(summary)
+	
+	if err := mv.multiDisplay.UpdateActivity(active); err != nil {
+		return fmt.Errorf("failed to update activity: %w", err)
+	}
+
+	mv.lastUpdate = time.Now()
+	return nil
+}
+
+func (mv *MultiVisualizer) updateStatusMode(summary *stats.StatsSummary) error {
+	status := mv.determineSystemStatus(summary)
+	
+	if err := mv.multiDisplay.UpdateStatus(status); err != nil {
+		return fmt.Errorf("failed to update status: %w", err)
+	}
+
+	mv.lastUpdate = time.Now()
+	return nil
+}
+
+func (mv *MultiVisualizer) normalizeActivity(activity float64) float64 {
+	if activity <= 0 {
+		return 0.0
+	}
+
+	maxActivityMB := 100.0 * 1024 * 1024
+	normalized := (activity / maxActivityMB) * 100.0
+	
+	if normalized > 100.0 {
+		return 100.0
+	}
+	
+	return normalized
+}
+
+func (mv *MultiVisualizer) isSystemActive(summary *stats.StatsSummary) bool {
+	activityThreshold := 1024.0
+
+	if summary.DiskActivity > activityThreshold ||
+		summary.NetworkActivity > activityThreshold {
+		return true
+	}
+
+	if summary.CPUUsage > 10.0 {
+		return true
+	}
+
+	return false
+}
+
+func (mv *MultiVisualizer) determineSystemStatus(summary *stats.StatsSummary) string {
+	thresholds := mv.config.Stats.Thresholds
+
+	if summary.CPUUsage > thresholds.CPUCritical ||
+		summary.MemoryUsage > thresholds.MemoryCritical {
+		return "critical"
+	}
+
+	if summary.CPUUsage > thresholds.CPUWarning ||
+		summary.MemoryUsage > thresholds.MemoryWarning {
+		return "warning"
+	}
+
+	return "normal"
 }
 
 func (v *Visualizer) UpdateConfig(cfg *config.Config) {

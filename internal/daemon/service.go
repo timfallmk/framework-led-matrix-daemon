@@ -19,15 +19,21 @@ import (
 
 type Service struct {
 	daemon.Daemon
-	config     *config.Config
-	matrix     *matrix.Client
-	display    *matrix.DisplayManager
-	collector  *stats.Collector
-	visualizer *visualizer.Visualizer
-	ctx        context.Context
-	cancel     context.CancelFunc
-	wg         sync.WaitGroup
-	stopCh     chan struct{}
+	config         *config.Config
+	// Legacy single matrix support
+	matrix         *matrix.Client
+	display        *matrix.DisplayManager
+	// Multi-matrix support
+	multiClient    *matrix.MultiClient
+	multiDisplay   *matrix.MultiDisplayManager
+	collector      *stats.Collector
+	visualizer     *visualizer.Visualizer
+	multiVisualizer *visualizer.MultiVisualizer
+	ctx            context.Context
+	cancel         context.CancelFunc
+	wg             sync.WaitGroup
+	stopCh         chan struct{}
+	usingMultiple  bool
 }
 
 func NewService(cfg *config.Config) (*Service, error) {
@@ -52,6 +58,17 @@ func NewService(cfg *config.Config) (*Service, error) {
 func (s *Service) Initialize() error {
 	log.Printf("Initializing Framework LED Matrix daemon...")
 
+	// Determine if we should use multi-matrix mode
+	if len(s.config.Matrix.Matrices) > 0 && s.config.Matrix.DualMode != "" {
+		return s.initializeMultiMatrix()
+	} else {
+		return s.initializeSingleMatrix()
+	}
+}
+
+func (s *Service) initializeSingleMatrix() error {
+	log.Printf("Initializing single matrix mode...")
+	
 	s.matrix = matrix.NewClient()
 	if err := s.matrix.Connect(s.config.Matrix.Port); err != nil {
 		return fmt.Errorf("failed to connect to LED matrix: %w", err)
@@ -64,6 +81,8 @@ func (s *Service) Initialize() error {
 		log.Printf("Warning: failed to set brightness: %v", err)
 	}
 
+	s.usingMultiple = false
+	
 	s.collector = stats.NewCollector(s.config.Stats.CollectInterval)
 	s.collector.SetThresholds(stats.Thresholds{
 		CPUWarning:     s.config.Stats.Thresholds.CPUWarning,
@@ -76,8 +95,66 @@ func (s *Service) Initialize() error {
 
 	s.visualizer = visualizer.NewVisualizer(s.display, s.config)
 
-	log.Printf("Daemon initialized successfully")
+	log.Printf("Single matrix daemon initialized successfully")
 	return nil
+}
+
+func (s *Service) initializeMultiMatrix() error {
+	log.Printf("Initializing multi-matrix mode with %d configured matrices...", len(s.config.Matrix.Matrices))
+	
+	// Convert config matrices to proper type
+	matrices := s.convertConfigMatrices(s.config.ConvertMatrices())
+	
+	s.multiClient = matrix.NewMultiClient()
+	if err := s.multiClient.DiscoverAndConnect(matrices, s.config.Matrix.BaudRate); err != nil {
+		// Fallback to single matrix mode if multi-matrix setup fails
+		log.Printf("Multi-matrix initialization failed, falling back to single matrix: %v", err)
+		return s.initializeSingleMatrix()
+	}
+
+	s.multiDisplay = matrix.NewMultiDisplayManager(s.multiClient, s.config.Matrix.DualMode)
+	s.multiDisplay.SetUpdateRate(s.config.Display.UpdateRate)
+	
+	// Set brightness for all matrices (will use individual brightness settings from config)
+	if err := s.multiDisplay.SetBrightness(s.config.Matrix.Brightness); err != nil {
+		log.Printf("Warning: failed to set brightness on some matrices: %v", err)
+	}
+
+	s.usingMultiple = true
+	
+	s.collector = stats.NewCollector(s.config.Stats.CollectInterval)
+	s.collector.SetThresholds(stats.Thresholds{
+		CPUWarning:     s.config.Stats.Thresholds.CPUWarning,
+		CPUCritical:    s.config.Stats.Thresholds.CPUCritical,
+		MemoryWarning:  s.config.Stats.Thresholds.MemoryWarning,
+		MemoryCritical: s.config.Stats.Thresholds.MemoryCritical,
+		DiskWarning:    s.config.Stats.Thresholds.DiskWarning,
+		DiskCritical:   s.config.Stats.Thresholds.DiskCritical,
+	})
+
+	// Create multi-visualizer for dual matrix mode
+	s.multiVisualizer = visualizer.NewMultiVisualizer(s.multiDisplay, s.config)
+
+	log.Printf("Multi-matrix daemon initialized successfully with %d matrices", len(s.multiClient.GetClients()))
+	return nil
+}
+
+// convertConfigMatrices converts config.SingleMatrixConfig to matrix.SingleMatrixConfig
+func (s *Service) convertConfigMatrices(configMatrices []config.SingleMatrixConfig) []matrix.SingleMatrixConfig {
+	var matrices []matrix.SingleMatrixConfig
+	
+	for _, cm := range configMatrices {
+		matrix := matrix.SingleMatrixConfig{
+			Name:       cm.Name,
+			Port:       cm.Port,
+			Role:       cm.Role,
+			Brightness: cm.Brightness,
+			Metrics:    cm.Metrics,
+		}
+		matrices = append(matrices, matrix)
+	}
+	
+	return matrices
 }
 
 func (s *Service) Start() error {
@@ -108,7 +185,12 @@ func (s *Service) Stop() error {
 
 	s.wg.Wait()
 
-	if s.matrix != nil {
+	// Disconnect from matrices
+	if s.usingMultiple && s.multiClient != nil {
+		if err := s.multiClient.Disconnect(); err != nil {
+			log.Printf("Warning: failed to disconnect from multi-matrices: %v", err)
+		}
+	} else if s.matrix != nil {
 		if err := s.matrix.Disconnect(); err != nil {
 			log.Printf("Warning: failed to disconnect from matrix: %v", err)
 		}
@@ -166,8 +248,15 @@ func (s *Service) runDisplayUpdater() {
 				continue
 			}
 
-			if err := s.visualizer.UpdateDisplay(summary); err != nil {
-				log.Printf("Warning: failed to update display: %v", err)
+			// Use appropriate visualizer based on mode
+			if s.usingMultiple && s.multiVisualizer != nil {
+				if err := s.multiVisualizer.UpdateDisplay(summary); err != nil {
+					log.Printf("Warning: failed to update multi display: %v", err)
+				}
+			} else if s.visualizer != nil {
+				if err := s.visualizer.UpdateDisplay(summary); err != nil {
+					log.Printf("Warning: failed to update display: %v", err)
+				}
 			}
 		}
 	}
