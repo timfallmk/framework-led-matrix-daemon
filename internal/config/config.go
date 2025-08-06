@@ -24,10 +24,10 @@ type MatrixConfig struct {
 	AutoDiscover bool          `yaml:"auto_discover"`
 	Timeout      time.Duration `yaml:"timeout"`
 	Brightness   byte          `yaml:"brightness"`
-	
+
 	// Multi-matrix support - using external type to avoid import cycles
-	Matrices     []map[string]interface{} `yaml:"matrices"`
-	DualMode     string                  `yaml:"dual_mode"` // "mirror", "split", "extended", "independent"
+	Matrices []map[string]interface{} `yaml:"matrices"`
+	DualMode string                   `yaml:"dual_mode"` // "mirror", "split", "extended", "independent"
 }
 
 type StatsConfig struct {
@@ -89,7 +89,7 @@ func DefaultConfig() *Config {
 			AutoDiscover: true,
 			Timeout:      1 * time.Second,
 			Brightness:   100,
-			
+
 			// Multi-matrix defaults - empty by default, user can configure
 			DualMode: "",
 			Matrices: []map[string]interface{}{},
@@ -243,7 +243,7 @@ func (c *Config) Validate() error {
 				return fmt.Errorf("matrix[%d] invalid role: %s", i, role)
 			}
 		}
-		
+
 		if metrics, ok := matrix["metrics"].([]interface{}); ok {
 			for _, metric := range metrics {
 				if metricStr, ok := metric.(string); ok {
@@ -261,10 +261,10 @@ func (c *Config) Validate() error {
 // ConvertMatrices converts the generic matrix configuration to SingleMatrixConfig structs
 func (c *Config) ConvertMatrices() []SingleMatrixConfig {
 	var matrices []SingleMatrixConfig
-	
+
 	for _, m := range c.Matrix.Matrices {
 		matrix := SingleMatrixConfig{}
-		
+
 		if name, ok := m["name"].(string); ok {
 			matrix.Name = name
 		}
@@ -279,7 +279,7 @@ func (c *Config) ConvertMatrices() []SingleMatrixConfig {
 		} else if brightness, ok := m["brightness"].(float64); ok {
 			matrix.Brightness = byte(brightness)
 		}
-		
+
 		if metrics, ok := m["metrics"].([]interface{}); ok {
 			for _, metric := range metrics {
 				if metricStr, ok := metric.(string); ok {
@@ -287,10 +287,10 @@ func (c *Config) ConvertMatrices() []SingleMatrixConfig {
 				}
 			}
 		}
-		
+
 		matrices = append(matrices, matrix)
 	}
-	
+
 	return matrices
 }
 

@@ -10,50 +10,50 @@ import (
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	
+
 	if cfg == nil {
 		t.Fatal("DefaultConfig() returned nil")
 	}
-	
+
 	// Verify matrix defaults
 	if cfg.Matrix.BaudRate != 115200 {
 		t.Errorf("Expected baud rate 115200, got %d", cfg.Matrix.BaudRate)
 	}
-	
+
 	if !cfg.Matrix.AutoDiscover {
 		t.Error("Expected auto discover to be true")
 	}
-	
+
 	if cfg.Matrix.Brightness != 100 {
 		t.Errorf("Expected brightness 100, got %d", cfg.Matrix.Brightness)
 	}
-	
+
 	// Verify stats defaults
 	if cfg.Stats.CollectInterval != 2*time.Second {
 		t.Errorf("Expected collect interval 2s, got %v", cfg.Stats.CollectInterval)
 	}
-	
+
 	if !cfg.Stats.EnableCPU || !cfg.Stats.EnableMemory || !cfg.Stats.EnableDisk {
 		t.Error("Expected CPU, Memory, and Disk monitoring to be enabled by default")
 	}
-	
+
 	if cfg.Stats.EnableNetwork {
 		t.Error("Expected Network monitoring to be disabled by default")
 	}
-	
+
 	// Verify display defaults
 	if cfg.Display.Mode != "percentage" {
 		t.Errorf("Expected display mode 'percentage', got %s", cfg.Display.Mode)
 	}
-	
+
 	if cfg.Display.PrimaryMetric != "cpu" {
 		t.Errorf("Expected primary metric 'cpu', got %s", cfg.Display.PrimaryMetric)
 	}
-	
+
 	// Verify thresholds
 	thresholds := cfg.Stats.Thresholds
 	if thresholds.CPUWarning != 70.0 || thresholds.CPUCritical != 90.0 {
-		t.Errorf("Expected CPU thresholds 70/90, got %.1f/%.1f", 
+		t.Errorf("Expected CPU thresholds 70/90, got %.1f/%.1f",
 			thresholds.CPUWarning, thresholds.CPUCritical)
 	}
 }
@@ -133,7 +133,7 @@ func TestConfigValidation(t *testing.T) {
 			errMsg:  "memory_warning threshold must be less than memory_critical",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.config.Validate()
@@ -155,7 +155,7 @@ func TestLoadConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
-	
+
 	tests := []struct {
 		name     string
 		yamlData string
@@ -215,7 +215,7 @@ matrix:
 			wantErr: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create temporary config file
@@ -224,13 +224,13 @@ matrix:
 			if err != nil {
 				t.Fatal(err)
 			}
-			
+
 			cfg, err := LoadConfig(configFile)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LoadConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr && tt.validate != nil {
 				if err := tt.validate(cfg); err != nil {
 					t.Error(err)
@@ -245,11 +245,11 @@ func TestLoadConfigNonExistentFile(t *testing.T) {
 	if err != nil {
 		t.Errorf("LoadConfig() with non-existent file should return default config, got error: %v", err)
 	}
-	
+
 	if cfg == nil {
 		t.Error("LoadConfig() should return default config when file doesn't exist")
 	}
-	
+
 	// Should be equivalent to default config
 	defaultCfg := DefaultConfig()
 	if !reflect.DeepEqual(cfg, defaultCfg) {
@@ -263,33 +263,33 @@ func TestSaveConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
-	
+
 	cfg := DefaultConfig()
 	cfg.Matrix.BaudRate = 9600
 	cfg.Display.Mode = "gradient"
-	
+
 	configFile := filepath.Join(tmpDir, "saved_config.yaml")
-	
+
 	err = cfg.SaveConfig(configFile)
 	if err != nil {
 		t.Fatalf("SaveConfig() failed: %v", err)
 	}
-	
+
 	// Verify file was created
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		t.Error("SaveConfig() did not create config file")
 	}
-	
+
 	// Load the saved config and verify
 	loadedCfg, err := LoadConfig(configFile)
 	if err != nil {
 		t.Fatalf("Failed to load saved config: %v", err)
 	}
-	
+
 	if loadedCfg.Matrix.BaudRate != 9600 {
 		t.Errorf("Expected saved baud rate 9600, got %d", loadedCfg.Matrix.BaudRate)
 	}
-	
+
 	if loadedCfg.Display.Mode != "gradient" {
 		t.Errorf("Expected saved display mode 'gradient', got %s", loadedCfg.Display.Mode)
 	}
@@ -297,11 +297,11 @@ func TestSaveConfig(t *testing.T) {
 
 func TestGetConfigPaths(t *testing.T) {
 	paths := GetConfigPaths()
-	
+
 	if len(paths) == 0 {
 		t.Error("GetConfigPaths() should return at least one path")
 	}
-	
+
 	// Should include common paths
 	found := false
 	for _, path := range paths {
@@ -310,7 +310,7 @@ func TestGetConfigPaths(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Error("GetConfigPaths() should include config.yaml files")
 	}
@@ -323,16 +323,16 @@ func TestFindConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
-	
+
 	// Change to temp directory
 	originalDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.Chdir(originalDir)
-	
+
 	os.Chdir(tmpDir)
-	
+
 	// Create configs directory and file
 	os.MkdirAll("configs", 0755)
 	configFile := "configs/config.yaml"
@@ -340,16 +340,16 @@ func TestFindConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	foundPath, err := FindConfig()
 	if err != nil {
 		t.Errorf("FindConfig() failed: %v", err)
 	}
-	
+
 	if !filepath.IsAbs(foundPath) {
 		t.Errorf("FindConfig() should return absolute path, got %s", foundPath)
 	}
-	
+
 	if filepath.Base(foundPath) != "config.yaml" {
 		t.Errorf("FindConfig() should find config.yaml, got %s", filepath.Base(foundPath))
 	}
@@ -362,16 +362,16 @@ func TestFindConfigNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
-	
+
 	// Change to temp directory
 	originalDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.Chdir(originalDir)
-	
+
 	os.Chdir(tmpDir)
-	
+
 	_, err = FindConfig()
 	if err == nil {
 		t.Error("FindConfig() should return error when no config file is found")
@@ -388,12 +388,12 @@ func TestConfigEnvironmentVariables(t *testing.T) {
 			os.Unsetenv("XDG_CONFIG_HOME")
 		}
 	}()
-	
+
 	testDir := "/tmp/test_xdg"
 	os.Setenv("XDG_CONFIG_HOME", testDir)
-	
+
 	paths := GetConfigPaths()
-	
+
 	expectedPath := filepath.Join(testDir, "framework-led-daemon", "config.yaml")
 	if len(paths) == 0 || paths[0] != expectedPath {
 		t.Errorf("Expected first path to be %s, got %v", expectedPath, paths)
@@ -410,7 +410,7 @@ func BenchmarkDefaultConfig(b *testing.B) {
 func BenchmarkConfigValidation(b *testing.B) {
 	cfg := DefaultConfig()
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		cfg.Validate()
 	}
@@ -423,7 +423,7 @@ func BenchmarkLoadConfig(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer os.Remove(tmpFile.Name())
-	
+
 	yamlData := `
 matrix:
   baud_rate: 115200
@@ -435,12 +435,12 @@ display:
   mode: "percentage"
   primary_metric: "cpu"
 `
-	
+
 	tmpFile.WriteString(yamlData)
 	tmpFile.Close()
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		LoadConfig(tmpFile.Name())
 	}

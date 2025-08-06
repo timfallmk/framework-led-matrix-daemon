@@ -136,9 +136,9 @@ func (m *MockDisplayManager) SetBrightness(level byte) error {
 
 func (m *MockDisplayManager) GetCurrentState() map[string]interface{} {
 	return map[string]interface{}{
-		"brightness":    m.brightness,
-		"last_update":   m.lastUpdate,
-		"pattern_size":  len(m.currentPattern),
+		"brightness":   m.brightness,
+		"last_update":  m.lastUpdate,
+		"pattern_size": len(m.currentPattern),
 	}
 }
 
@@ -151,7 +151,7 @@ func createProgressBar(percentage float64) []byte {
 	pattern := make([]byte, LEDWidth*LEDHeight)
 	totalPixels := LEDWidth * LEDHeight
 	pixelsToFill := int((percentage / 100.0) * float64(totalPixels))
-	
+
 	for i := 0; i < pixelsToFill && i < len(pattern); i++ {
 		pattern[i] = 1
 	}
@@ -202,18 +202,18 @@ func abs(x int) int {
 func printSimulatedDisplay(summary *stats.StatsSummary, systemStats *stats.SystemStats, cfg *config.Config) {
 	fmt.Printf("\r\033[2J\033[H") // Clear screen
 
-	fmt.Printf("⏰ %s | Mode: %s | Metric: %s\n", 
+	fmt.Printf("⏰ %s | Mode: %s | Metric: %s\n",
 		time.Now().Format("15:04:05"), cfg.Display.Mode, cfg.Display.PrimaryMetric)
-	
+
 	fmt.Printf("📊 CPU: %.1f%% | Memory: %.1f%% | Disk: %.1f KB/s | Network: %.1f KB/s\n\n",
-		summary.CPUUsage, summary.MemoryUsage, 
-		summary.DiskActivity/1024, 
+		summary.CPUUsage, summary.MemoryUsage,
+		summary.DiskActivity/1024,
 		summary.NetworkActivity/1024)
 
 	// Simulate the LED matrix display
 	fmt.Println("🔲 LED Matrix Simulation (34x9):")
 	fmt.Println("┌──────────────────────────────────┐")
-	
+
 	var pattern []byte
 	switch cfg.Display.Mode {
 	case "percentage":
@@ -229,20 +229,20 @@ func printSimulatedDisplay(summary *stats.StatsSummary, systemStats *stats.Syste
 			percentage = (summary.NetworkActivity / (10 * 1024 * 1024)) * 100 // Scale for display
 		}
 		pattern = createProgressBar(percentage)
-		
+
 	case "activity":
-		isActive := summary.CPUUsage > 30 || 
-					summary.DiskActivity > 1024*1024 ||
-					summary.NetworkActivity > 1024*1024
+		isActive := summary.CPUUsage > 30 ||
+			summary.DiskActivity > 1024*1024 ||
+			summary.NetworkActivity > 1024*1024
 		if isActive {
 			pattern = createZigZagPattern()
 		} else {
 			pattern = createGradientPattern()
 		}
-		
+
 	case "status":
 		status := summary.Status.String()
-		
+
 		switch status {
 		case "normal":
 			pattern = createGradientPattern()
@@ -251,11 +251,11 @@ func printSimulatedDisplay(summary *stats.StatsSummary, systemStats *stats.Syste
 		case "critical":
 			pattern = createSolidPattern()
 		}
-		
+
 	default: // gradient
 		pattern = createGradientPattern()
 	}
-	
+
 	// Render the pattern
 	for row := 0; row < LEDHeight; row++ {
 		fmt.Print("│")
@@ -268,8 +268,8 @@ func printSimulatedDisplay(summary *stats.StatsSummary, systemStats *stats.Syste
 		}
 		fmt.Println("│")
 	}
-	
+
 	fmt.Println("└──────────────────────────────────┘")
-	fmt.Printf("\n💡 Brightness: %d/255 | Updates: %s\n", 
+	fmt.Printf("\n💡 Brightness: %d/255 | Updates: %s\n",
 		cfg.Matrix.Brightness, cfg.Display.UpdateRate)
 }

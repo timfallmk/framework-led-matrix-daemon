@@ -38,11 +38,11 @@ func (m *MockPort) Read(buffer []byte) (int, error) {
 	if m.readError != nil {
 		return 0, m.readError
 	}
-	
+
 	if m.readIndex >= len(m.readData) {
 		return 0, errors.New("no more data to read")
 	}
-	
+
 	n := copy(buffer, m.readData[m.readIndex:])
 	m.readIndex += n
 	return n, nil
@@ -113,19 +113,19 @@ func (m *MockPort) IsClosed() bool {
 
 func TestNewClient(t *testing.T) {
 	client := NewClient()
-	
+
 	if client == nil {
 		t.Fatal("NewClient() returned nil")
 	}
-	
+
 	if client.config == nil {
 		t.Error("NewClient() config is nil")
 	}
-	
+
 	if client.config.BaudRate != DefaultBaudRate {
 		t.Errorf("NewClient() baud rate = %d, want %d", client.config.BaudRate, DefaultBaudRate)
 	}
-	
+
 	if client.port != nil {
 		t.Error("NewClient() should not have an active port connection")
 	}
@@ -135,7 +135,7 @@ func TestClientSendCommand(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	tests := []struct {
 		name        string
 		command     Command
@@ -155,19 +155,19 @@ func TestClientSendCommand(t *testing.T) {
 			expectError: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockPort.writeData = nil // Reset write data
 			mockPort.SetWriteError(tt.writeError)
-			
+
 			err := client.SendCommand(tt.command)
-			
+
 			if (err != nil) != tt.expectError {
 				t.Errorf("SendCommand() error = %v, expectError %v", err, tt.expectError)
 				return
 			}
-			
+
 			if !tt.expectError {
 				expectedData := tt.command.ToBytes()
 				writtenData := mockPort.GetWrittenData()
@@ -182,12 +182,12 @@ func TestClientSendCommand(t *testing.T) {
 func TestClientSendCommandNoConnection(t *testing.T) {
 	client := NewClient()
 	// No port connection established
-	
+
 	err := client.SendCommand(VersionCommand())
 	if err == nil {
 		t.Error("SendCommand() should return error when not connected")
 	}
-	
+
 	if err.Error() != "not connected to any port" {
 		t.Errorf("SendCommand() error = %v, want 'not connected to any port'", err)
 	}
@@ -197,7 +197,7 @@ func TestClientReadResponse(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	tests := []struct {
 		name          string
 		readData      []byte
@@ -227,24 +227,24 @@ func TestClientReadResponse(t *testing.T) {
 			expectError:   false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockPort.SetReadData(tt.readData)
 			mockPort.SetReadError(tt.readError)
-			
+
 			result, err := client.ReadResponse(tt.expectedBytes)
-			
+
 			if (err != nil) != tt.expectError {
 				t.Errorf("ReadResponse() error = %v, expectError %v", err, tt.expectError)
 				return
 			}
-			
+
 			if !tt.expectError {
 				if len(result) != len(tt.readData) {
 					t.Errorf("ReadResponse() length = %d, want %d", len(result), len(tt.readData))
 				}
-				
+
 				if !reflect.DeepEqual(result, tt.readData) {
 					t.Errorf("ReadResponse() = %v, want %v", result, tt.readData)
 				}
@@ -257,22 +257,22 @@ func TestClientGetVersion(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	expectedVersion := []byte{1, 2, 3}
 	mockPort.SetReadData(expectedVersion)
-	
+
 	version, err := client.GetVersion()
 	if err != nil {
 		t.Fatalf("GetVersion() error = %v", err)
 	}
-	
+
 	// Check that version command was sent
 	writtenData := mockPort.GetWrittenData()
 	expectedCommand := VersionCommand().ToBytes()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
 		t.Errorf("GetVersion() sent %v, want %v", writtenData, expectedCommand)
 	}
-	
+
 	// Check returned version data
 	if !reflect.DeepEqual(version, expectedVersion) {
 		t.Errorf("GetVersion() = %v, want %v", version, expectedVersion)
@@ -283,13 +283,13 @@ func TestClientSetBrightness(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	level := byte(128)
 	err := client.SetBrightness(level)
 	if err != nil {
 		t.Fatalf("SetBrightness() error = %v", err)
 	}
-	
+
 	expectedCommand := BrightnessCommand(level).ToBytes()
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
@@ -301,13 +301,13 @@ func TestClientShowPercentage(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	percent := byte(75)
 	err := client.ShowPercentage(percent)
 	if err != nil {
 		t.Fatalf("ShowPercentage() error = %v", err)
 	}
-	
+
 	expectedCommand := PercentageCommand(percent).ToBytes()
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
@@ -319,12 +319,12 @@ func TestClientShowGradient(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	err := client.ShowGradient()
 	if err != nil {
 		t.Fatalf("ShowGradient() error = %v", err)
 	}
-	
+
 	expectedCommand := GradientCommand().ToBytes()
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
@@ -336,12 +336,12 @@ func TestClientShowZigZag(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	err := client.ShowZigZag()
 	if err != nil {
 		t.Fatalf("ShowZigZag() error = %v", err)
 	}
-	
+
 	expectedCommand := ZigZagCommand().ToBytes()
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
@@ -353,12 +353,12 @@ func TestClientShowFullBright(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	err := client.ShowFullBright()
 	if err != nil {
 		t.Fatalf("ShowFullBright() error = %v", err)
 	}
-	
+
 	expectedCommand := FullBrightCommand().ToBytes()
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
@@ -370,7 +370,7 @@ func TestClientSetAnimate(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	tests := []struct {
 		name   string
 		enable bool
@@ -378,16 +378,16 @@ func TestClientSetAnimate(t *testing.T) {
 		{"enable animation", true},
 		{"disable animation", false},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockPort.writeData = nil // Reset
-			
+
 			err := client.SetAnimate(tt.enable)
 			if err != nil {
 				t.Fatalf("SetAnimate() error = %v", err)
 			}
-			
+
 			expectedCommand := AnimateCommand(tt.enable).ToBytes()
 			writtenData := mockPort.GetWrittenData()
 			if !reflect.DeepEqual(writtenData, expectedCommand) {
@@ -401,17 +401,17 @@ func TestClientDrawBitmap(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	pixels := [39]byte{}
 	for i := range pixels {
 		pixels[i] = byte(i)
 	}
-	
+
 	err := client.DrawBitmap(pixels)
 	if err != nil {
 		t.Fatalf("DrawBitmap() error = %v", err)
 	}
-	
+
 	expectedCommand := DrawBWCommand(pixels).ToBytes()
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
@@ -423,18 +423,18 @@ func TestClientStageColumn(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	col := byte(5)
 	pixels := [34]byte{}
 	for i := range pixels {
 		pixels[i] = byte(i + 10)
 	}
-	
+
 	err := client.StageColumn(col, pixels)
 	if err != nil {
 		t.Fatalf("StageColumn() error = %v", err)
 	}
-	
+
 	expectedCommand := StageColCommand(col, pixels).ToBytes()
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
@@ -446,12 +446,12 @@ func TestClientFlushColumns(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	err := client.FlushColumns()
 	if err != nil {
 		t.Fatalf("FlushColumns() error = %v", err)
 	}
-	
+
 	expectedCommand := FlushColsCommand().ToBytes()
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
@@ -463,16 +463,16 @@ func TestClientDisconnect(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	err := client.Disconnect()
 	if err != nil {
 		t.Errorf("Disconnect() error = %v", err)
 	}
-	
+
 	if !mockPort.IsClosed() {
 		t.Error("Disconnect() should close the port")
 	}
-	
+
 	if client.port != nil {
 		t.Error("Disconnect() should set port to nil")
 	}
@@ -481,7 +481,7 @@ func TestClientDisconnect(t *testing.T) {
 func TestClientDisconnectNoConnection(t *testing.T) {
 	client := NewClient()
 	// No connection established
-	
+
 	err := client.Disconnect()
 	if err != nil {
 		t.Errorf("Disconnect() with no connection should not return error, got %v", err)
@@ -492,7 +492,7 @@ func TestConstants(t *testing.T) {
 	if DefaultBaudRate != 115200 {
 		t.Errorf("DefaultBaudRate = %d, want 115200", DefaultBaudRate)
 	}
-	
+
 	if DefaultTimeout != 1*time.Second {
 		t.Errorf("DefaultTimeout = %v, want 1s", DefaultTimeout)
 	}
@@ -503,7 +503,7 @@ func TestClientCommandSequence(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	// Sequence of commands
 	commands := []struct {
 		name    string
@@ -515,7 +515,7 @@ func TestClientCommandSequence(t *testing.T) {
 		{"show gradient", func() error { return client.ShowGradient() }},
 		{"disable animation", func() error { return client.SetAnimate(false) }},
 	}
-	
+
 	for _, cmd := range commands {
 		t.Run(cmd.name, func(t *testing.T) {
 			if err := cmd.execute(); err != nil {
@@ -523,13 +523,13 @@ func TestClientCommandSequence(t *testing.T) {
 			}
 		})
 	}
-	
+
 	// Verify that commands were sent in correct format
 	writtenData := mockPort.GetWrittenData()
 	if len(writtenData) == 0 {
 		t.Error("No data was written to port")
 	}
-	
+
 	// Each command should start with magic bytes
 	magicByteCount := 0
 	for i := 0; i < len(writtenData)-1; i++ {
@@ -537,7 +537,7 @@ func TestClientCommandSequence(t *testing.T) {
 			magicByteCount++
 		}
 	}
-	
+
 	if magicByteCount != len(commands) {
 		t.Errorf("Expected %d command sequences, found %d", len(commands), magicByteCount)
 	}
@@ -548,10 +548,10 @@ func BenchmarkClientSendCommand(b *testing.B) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	cmd := BrightnessCommand(128)
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		mockPort.writeData = nil // Reset
 		client.SendCommand(cmd)
@@ -562,9 +562,9 @@ func BenchmarkClientShowPercentage(b *testing.B) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		mockPort.writeData = nil // Reset
 		client.ShowPercentage(50)
@@ -575,14 +575,14 @@ func BenchmarkClientDrawBitmap(b *testing.B) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
-	
+
 	pixels := [39]byte{}
 	for i := range pixels {
 		pixels[i] = byte(i)
 	}
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		mockPort.writeData = nil // Reset
 		client.DrawBitmap(pixels)

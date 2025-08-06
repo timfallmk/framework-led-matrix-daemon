@@ -189,18 +189,18 @@ func NewMultiDisplayManager(multiClient *MultiClient, dualMode string) *MultiDis
 		multiClient: multiClient,
 		dualMode:    dualMode,
 	}
-	
+
 	for name, client := range multiClient.GetClients() {
 		mdm.displays[name] = NewDisplayManager(client)
 	}
-	
+
 	return mdm
 }
 
 func (mdm *MultiDisplayManager) UpdateMetric(metricName string, value float64, stats map[string]float64) error {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
-	
+
 	switch mdm.dualMode {
 	case "mirror":
 		return mdm.updateMirrorMode(metricName, value)
@@ -230,13 +230,13 @@ func (mdm *MultiDisplayManager) updateMirrorMode(metricName string, value float6
 func (mdm *MultiDisplayManager) updateSplitMode(metricName string, value float64, stats map[string]float64) error {
 	// Each matrix shows different metrics based on configuration
 	var lastErr error
-	
+
 	for name, display := range mdm.displays {
 		matrixConfig := mdm.multiClient.GetConfig(name)
 		if matrixConfig == nil {
 			continue
 		}
-		
+
 		// Check if this matrix should display the current metric
 		shouldDisplay := false
 		for _, assignedMetric := range matrixConfig.Metrics {
@@ -245,7 +245,7 @@ func (mdm *MultiDisplayManager) updateSplitMode(metricName string, value float64
 				break
 			}
 		}
-		
+
 		if shouldDisplay {
 			if err := display.UpdatePercentage(metricName, value); err != nil {
 				lastErr = err
@@ -281,7 +281,7 @@ func (mdm *MultiDisplayManager) updateIndependentMode(metricName string, value f
 func (mdm *MultiDisplayManager) UpdateActivity(active bool) error {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
-	
+
 	var lastErr error
 	for name, display := range mdm.displays {
 		if err := display.ShowActivity(active); err != nil {
@@ -295,7 +295,7 @@ func (mdm *MultiDisplayManager) UpdateActivity(active bool) error {
 func (mdm *MultiDisplayManager) UpdateStatus(status string) error {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
-	
+
 	var lastErr error
 	for name, display := range mdm.displays {
 		if err := display.ShowStatus(status); err != nil {
@@ -309,7 +309,7 @@ func (mdm *MultiDisplayManager) UpdateStatus(status string) error {
 func (mdm *MultiDisplayManager) SetBrightness(level byte) error {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
-	
+
 	var lastErr error
 	for name, display := range mdm.displays {
 		if err := display.SetBrightness(level); err != nil {
@@ -323,7 +323,7 @@ func (mdm *MultiDisplayManager) SetBrightness(level byte) error {
 func (mdm *MultiDisplayManager) SetUpdateRate(rate time.Duration) {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
-	
+
 	for _, display := range mdm.displays {
 		display.SetUpdateRate(rate)
 	}

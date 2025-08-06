@@ -280,7 +280,7 @@ func (mv *MultiVisualizer) updateGradientMode(summary *stats.StatsSummary) error
 
 func (mv *MultiVisualizer) updateActivityMode(summary *stats.StatsSummary) error {
 	active := mv.isSystemActive(summary)
-	
+
 	if err := mv.multiDisplay.UpdateActivity(active); err != nil {
 		return fmt.Errorf("failed to update activity: %w", err)
 	}
@@ -291,7 +291,7 @@ func (mv *MultiVisualizer) updateActivityMode(summary *stats.StatsSummary) error
 
 func (mv *MultiVisualizer) updateStatusMode(summary *stats.StatsSummary) error {
 	status := mv.determineSystemStatus(summary)
-	
+
 	if err := mv.multiDisplay.UpdateStatus(status); err != nil {
 		return fmt.Errorf("failed to update status: %w", err)
 	}
@@ -307,11 +307,11 @@ func (mv *MultiVisualizer) normalizeActivity(activity float64) float64 {
 
 	maxActivityMB := 100.0 * 1024 * 1024
 	normalized := (activity / maxActivityMB) * 100.0
-	
+
 	if normalized > 100.0 {
 		return 100.0
 	}
-	
+
 	return normalized
 }
 

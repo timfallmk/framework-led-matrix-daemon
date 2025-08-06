@@ -9,7 +9,6 @@ import (
 	"go.bug.st/serial/enumerator"
 )
 
-
 type Client struct {
 	port   serial.Port
 	config *serial.Mode
@@ -33,11 +32,11 @@ func (c *Client) DiscoverPort() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	if len(ports) == 0 {
 		return "", fmt.Errorf("no Framework LED matrix ports found")
 	}
-	
+
 	return ports[0], nil
 }
 
@@ -48,12 +47,12 @@ func (c *Client) DiscoverPorts() ([]string, error) {
 	}
 
 	var frameworkPorts []string
-	
+
 	for _, port := range ports {
 		if port.IsUSB {
 			log.Printf("Found USB port: %s (VID: %s, PID: %s)",
 				port.Name, port.VID, port.PID)
-			
+
 			// Framework LED Matrix has VID 32AC
 			if port.VID == "32AC" {
 				frameworkPorts = append(frameworkPorts, port.Name)
@@ -184,11 +183,11 @@ func (c *Client) FlushColumns() error {
 
 // SingleMatrixConfig represents configuration for a single matrix
 type SingleMatrixConfig struct {
-	Name       string   `yaml:"name"`        // "primary", "secondary", or custom name
-	Port       string   `yaml:"port"`        // Specific port or auto-discover if empty
-	Role       string   `yaml:"role"`        // "primary", "secondary"
-	Brightness byte     `yaml:"brightness"`  // Individual brightness control
-	Metrics    []string `yaml:"metrics"`     // Which metrics this matrix displays
+	Name       string   `yaml:"name"`       // "primary", "secondary", or custom name
+	Port       string   `yaml:"port"`       // Specific port or auto-discover if empty
+	Role       string   `yaml:"role"`       // "primary", "secondary"
+	Brightness byte     `yaml:"brightness"` // Individual brightness control
+	Metrics    []string `yaml:"metrics"`    // Which metrics this matrix displays
 }
 
 // MultiClient manages multiple LED matrix clients
@@ -211,12 +210,12 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 		return fmt.Errorf("failed to discover ports: %w", err)
 	}
 
-	log.Printf("Found %d potential matrix ports, configuring %d matrices", 
+	log.Printf("Found %d potential matrix ports, configuring %d matrices",
 		len(discoveredPorts), len(matrices))
 
 	for i, matrixConfig := range matrices {
 		var portToUse string
-		
+
 		if matrixConfig.Port != "" {
 			portToUse = matrixConfig.Port
 		} else if i < len(discoveredPorts) {
@@ -228,7 +227,7 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 
 		client := NewClient()
 		if err := client.Connect(portToUse); err != nil {
-			log.Printf("Warning: Failed to connect to matrix %s on port %s: %v", 
+			log.Printf("Warning: Failed to connect to matrix %s on port %s: %v",
 				matrixConfig.Name, portToUse, err)
 			continue
 		}
@@ -240,7 +239,7 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 		mc.clients[matrixConfig.Name] = client
 		configCopy := matrixConfig
 		mc.config[matrixConfig.Name] = &configCopy
-		
+
 		log.Printf("Successfully connected matrix %s on port %s", matrixConfig.Name, portToUse)
 	}
 
@@ -265,17 +264,17 @@ func (mc *MultiClient) GetConfig(name string) *SingleMatrixConfig {
 
 func (mc *MultiClient) Disconnect() error {
 	var errors []error
-	
+
 	for name, client := range mc.clients {
 		if err := client.Disconnect(); err != nil {
 			errors = append(errors, fmt.Errorf("failed to disconnect %s: %w", name, err))
 		}
 	}
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("errors during disconnect: %v", errors)
 	}
-	
+
 	return nil
 }
 
