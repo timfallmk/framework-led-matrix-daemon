@@ -91,11 +91,11 @@ func TestLogger_FileOutput(t *testing.T) {
 
 func TestLogger_WithComponent(t *testing.T) {
 	var buf bytes.Buffer
-	
+
 	// Create a logger that writes to our buffer
 	handler := slog.NewJSONHandler(&buf, &slog.HandlerOptions{})
 	baseLogger := slog.New(handler)
-	
+
 	logger := &Logger{
 		Logger: baseLogger,
 		config: DefaultConfig(),
@@ -117,10 +117,10 @@ func TestLogger_WithComponent(t *testing.T) {
 
 func TestLogger_WithFields(t *testing.T) {
 	var buf bytes.Buffer
-	
+
 	handler := slog.NewJSONHandler(&buf, &slog.HandlerOptions{})
 	baseLogger := slog.New(handler)
-	
+
 	logger := &Logger{
 		Logger: baseLogger,
 		config: DefaultConfig(),
@@ -258,7 +258,7 @@ func TestPerformanceTracker(t *testing.T) {
 	// Test error operation tracking
 	errorTracker := metricsLogger.StartTracking("error_operation", nil)
 	time.Sleep(5 * time.Millisecond)
-	
+
 	testError := &testError{msg: "test error"}
 	errorDuration := errorTracker.FinishWithError(testError)
 	if errorDuration < 5*time.Millisecond {
@@ -291,7 +291,7 @@ func TestGlobalLogger(t *testing.T) {
 	defer customLogger.Close()
 
 	SetGlobalLogger(customLogger)
-	
+
 	retrievedLogger := GetGlobalLogger()
 	if retrievedLogger != customLogger {
 		t.Error("Global logger was not set correctly")
@@ -299,7 +299,7 @@ func TestGlobalLogger(t *testing.T) {
 
 	// Test convenience functions
 	Debug("debug message", "key", "value")
-	Info("info message", "key", "value") 
+	Info("info message", "key", "value")
 	Warn("warn message", "key", "value")
 	Error("error message", "key", "value")
 
@@ -316,19 +316,19 @@ func TestGlobalLogger(t *testing.T) {
 
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultConfig()
-	
+
 	if config.Level != LevelInfo {
 		t.Errorf("Expected level %v, got %v", LevelInfo, config.Level)
 	}
-	
+
 	if config.Format != FormatText {
 		t.Errorf("Expected format %v, got %v", FormatText, config.Format)
 	}
-	
+
 	if config.Output != "stdout" {
 		t.Errorf("Expected output 'stdout', got %v", config.Output)
 	}
-	
+
 	if !config.AddSource {
 		t.Error("Expected AddSource to be true")
 	}
@@ -379,11 +379,11 @@ func TestLogger_WithContext(t *testing.T) {
 
 	ctx := context.Background()
 	contextLogger := logger.WithContext(ctx)
-	
+
 	if contextLogger == nil {
 		t.Error("Expected non-nil context logger")
 	}
-	
+
 	// Test that we can log with the context logger
 	contextLogger.Info("test message with context")
 }

@@ -67,10 +67,10 @@ func NewLogger(config Config) (*Logger, error) {
 		writer = os.Stderr
 	default:
 		// File output
-		if err := os.MkdirAll(filepath.Dir(config.Output), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(config.Output), 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create log directory: %w", err)
 		}
-		writer, err = os.OpenFile(config.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		writer, err = os.OpenFile(config.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open log file: %w", err)
 		}
@@ -186,7 +186,7 @@ func NewEventLogger(logger *Logger) *EventLogger {
 		events: make(chan LogEvent, 1000), // Buffer for async logging
 		done:   make(chan struct{}),
 	}
-	
+
 	go el.processEvents()
 	return el
 }
@@ -197,7 +197,7 @@ func (el *EventLogger) LogMatrix(level LogLevel, message string, matrixID string
 		fields = make(map[string]interface{})
 	}
 	fields["matrix_id"] = matrixID
-	
+
 	el.logEvent(level, "matrix", message, fields, nil)
 }
 
@@ -208,7 +208,7 @@ func (el *EventLogger) LogStats(level LogLevel, message string, statsType string
 	}
 	fields["stats_type"] = statsType
 	fields["value"] = value
-	
+
 	el.logEvent(level, "stats", message, fields, nil)
 }
 
@@ -218,7 +218,7 @@ func (el *EventLogger) LogConfig(level LogLevel, message string, configPath stri
 		fields = make(map[string]interface{})
 	}
 	fields["config_path"] = configPath
-	
+
 	el.logEvent(level, "config", message, fields, nil)
 }
 
@@ -228,7 +228,7 @@ func (el *EventLogger) LogDaemon(level LogLevel, message string, action string, 
 		fields = make(map[string]interface{})
 	}
 	fields["action"] = action
-	
+
 	el.logEvent(level, "daemon", message, fields, nil)
 }
 
@@ -237,7 +237,7 @@ func (el *EventLogger) LogError(err error, message string, fields map[string]int
 	if fields == nil {
 		fields = make(map[string]interface{})
 	}
-	
+
 	// Add stack trace context
 	if pc, file, line, ok := runtime.Caller(1); ok {
 		fields["caller_file"] = filepath.Base(file)
@@ -246,7 +246,7 @@ func (el *EventLogger) LogError(err error, message string, fields map[string]int
 			fields["caller_func"] = fn.Name()
 		}
 	}
-	
+
 	el.logEvent(LevelError, "error", message, fields, err)
 }
 
@@ -258,11 +258,11 @@ func (el *EventLogger) logEvent(level LogLevel, component, message string, field
 		Timestamp: time.Now(),
 		Fields:    fields,
 	}
-	
+
 	if err != nil {
 		event.Error = err.Error()
 	}
-	
+
 	select {
 	case el.events <- event:
 	case <-el.done:
@@ -275,18 +275,18 @@ func (el *EventLogger) logEvent(level LogLevel, component, message string, field
 
 func (el *EventLogger) logEventDirect(event LogEvent) {
 	logger := el.logger.WithComponent(event.Component)
-	
+
 	args := make([]interface{}, 0, len(event.Fields)*2+4)
 	args = append(args, "timestamp", event.Timestamp)
-	
+
 	for k, v := range event.Fields {
 		args = append(args, k, v)
 	}
-	
+
 	if event.Error != "" {
 		args = append(args, "error", event.Error)
 	}
-	
+
 	switch LogLevel(event.Level) {
 	case LevelDebug:
 		logger.Debug(event.Message, args...)
@@ -342,13 +342,13 @@ func (ml *MetricsLogger) LogCounter(name string, value int64, labels map[string]
 		"metric_name": name,
 		"value":       value,
 	}
-	
+
 	if labels != nil {
 		for k, v := range labels {
 			fields["label_"+k] = v
 		}
 	}
-	
+
 	ml.logger.Info("counter metric", slog.Any("fields", fields))
 }
 
@@ -359,13 +359,13 @@ func (ml *MetricsLogger) LogGauge(name string, value float64, labels map[string]
 		"metric_name": name,
 		"value":       value,
 	}
-	
+
 	if labels != nil {
 		for k, v := range labels {
 			fields["label_"+k] = v
 		}
 	}
-	
+
 	ml.logger.Info("gauge metric", slog.Any("fields", fields))
 }
 
@@ -376,13 +376,13 @@ func (ml *MetricsLogger) LogHistogram(name string, value float64, labels map[str
 		"metric_name": name,
 		"value":       value,
 	}
-	
+
 	if labels != nil {
 		for k, v := range labels {
 			fields["label_"+k] = v
 		}
 	}
-	
+
 	ml.logger.Info("histogram metric", slog.Any("fields", fields))
 }
 
@@ -394,13 +394,13 @@ func (ml *MetricsLogger) LogTiming(name string, duration time.Duration, labels m
 		"duration_ms":     duration.Milliseconds(),
 		"duration_string": duration.String(),
 	}
-	
+
 	if labels != nil {
 		for k, v := range labels {
 			fields["label_"+k] = v
 		}
 	}
-	
+
 	ml.logger.Info("timing metric", slog.Any("fields", fields))
 }
 
@@ -432,19 +432,19 @@ func (pt *PerformanceTracker) Finish() time.Duration {
 // FinishWithError completes tracking and logs an error if one occurred
 func (pt *PerformanceTracker) FinishWithError(err error) time.Duration {
 	duration := time.Since(pt.startTime)
-	
+
 	labels := pt.labels
 	if labels == nil {
 		labels = make(map[string]string)
 	}
-	
+
 	if err != nil {
 		labels["error"] = "true"
 		labels["error_message"] = err.Error()
 	} else {
 		labels["error"] = "false"
 	}
-	
+
 	pt.logger.LogTiming(pt.operation, duration, labels)
 	return duration
 }

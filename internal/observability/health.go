@@ -43,7 +43,7 @@ type HealthMonitor struct {
 	logger   *logging.EventLogger
 	metrics  *ApplicationMetrics
 	mu       sync.RWMutex
-	
+
 	checkInterval time.Duration
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -53,7 +53,7 @@ type HealthMonitor struct {
 // NewHealthMonitor creates a new health monitor
 func NewHealthMonitor(logger *logging.Logger, metrics *ApplicationMetrics, checkInterval time.Duration) *HealthMonitor {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	hm := &HealthMonitor{
 		checkers:      make(map[string]HealthChecker),
 		results:       make(map[string]*HealthCheck),
@@ -63,7 +63,7 @@ func NewHealthMonitor(logger *logging.Logger, metrics *ApplicationMetrics, check
 		ctx:           ctx,
 		cancel:        cancel,
 	}
-	
+
 	return hm
 }
 
@@ -71,14 +71,14 @@ func NewHealthMonitor(logger *logging.Logger, metrics *ApplicationMetrics, check
 func (hm *HealthMonitor) RegisterChecker(checker HealthChecker) {
 	hm.mu.Lock()
 	defer hm.mu.Unlock()
-	
+
 	hm.checkers[checker.Name()] = checker
 	hm.results[checker.Name()] = &HealthCheck{
 		Name:        checker.Name(),
 		Status:      StatusStarting,
 		LastChecked: time.Now(),
 	}
-	
+
 	hm.logger.LogDaemon(logging.LevelInfo, "health checker registered", "register", map[string]interface{}{
 		"checker": checker.Name(),
 	})
@@ -88,7 +88,7 @@ func (hm *HealthMonitor) RegisterChecker(checker HealthChecker) {
 func (hm *HealthMonitor) Start() {
 	hm.wg.Add(1)
 	go hm.monitorLoop()
-	
+
 	hm.logger.LogDaemon(logging.LevelInfo, "health monitor started", "start", nil)
 }
 
@@ -97,7 +97,7 @@ func (hm *HealthMonitor) Stop() {
 	hm.cancel()
 	hm.wg.Wait()
 	hm.logger.Close()
-	
+
 	hm.logger.LogDaemon(logging.LevelInfo, "health monitor stopped", "stop", nil)
 }
 
@@ -105,7 +105,7 @@ func (hm *HealthMonitor) Stop() {
 func (hm *HealthMonitor) GetHealth() map[string]*HealthCheck {
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
-	
+
 	result := make(map[string]*HealthCheck)
 	for name, check := range hm.results {
 		result[name] = &HealthCheck{
@@ -124,14 +124,14 @@ func (hm *HealthMonitor) GetHealth() map[string]*HealthCheck {
 func (hm *HealthMonitor) GetOverallHealth() HealthStatus {
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
-	
+
 	if len(hm.results) == 0 {
 		return StatusUnknown
 	}
-	
+
 	hasUnhealthy := false
 	hasStarting := false
-	
+
 	for _, check := range hm.results {
 		switch check.Status {
 		case StatusUnhealthy:
@@ -140,14 +140,14 @@ func (hm *HealthMonitor) GetOverallHealth() HealthStatus {
 			hasStarting = true
 		}
 	}
-	
+
 	if hasUnhealthy {
 		return StatusUnhealthy
 	}
 	if hasStarting {
 		return StatusStarting
 	}
-	
+
 	return StatusHealthy
 }
 
@@ -158,13 +158,13 @@ func (hm *HealthMonitor) IsHealthy() bool {
 
 func (hm *HealthMonitor) monitorLoop() {
 	defer hm.wg.Done()
-	
+
 	ticker := time.NewTicker(hm.checkInterval)
 	defer ticker.Stop()
-	
+
 	// Perform initial checks
 	hm.runAllChecks()
-	
+
 	for {
 		select {
 		case <-hm.ctx.Done():
@@ -182,7 +182,7 @@ func (hm *HealthMonitor) runAllChecks() {
 		checkers = append(checkers, checker)
 	}
 	hm.mu.RUnlock()
-	
+
 	// Run checks in parallel
 	var wg sync.WaitGroup
 	for _, checker := range checkers {
@@ -197,20 +197,20 @@ func (hm *HealthMonitor) runAllChecks() {
 
 func (hm *HealthMonitor) runCheck(checker HealthChecker) {
 	start := time.Now()
-	
+
 	// Create context with timeout
 	timeout := checker.Timeout()
 	if timeout == 0 {
 		timeout = 30 * time.Second // Default timeout
 	}
-	
+
 	ctx, cancel := context.WithTimeout(hm.ctx, timeout)
 	defer cancel()
-	
+
 	// Run the check
 	err := checker.Check(ctx)
 	duration := time.Since(start)
-	
+
 	// Update results
 	hm.mu.Lock()
 	result := &HealthCheck{
@@ -219,7 +219,7 @@ func (hm *HealthMonitor) runCheck(checker HealthChecker) {
 		Duration:    duration,
 		Error:       err,
 	}
-	
+
 	if err != nil {
 		result.Status = StatusUnhealthy
 		result.Message = err.Error()
@@ -227,20 +227,20 @@ func (hm *HealthMonitor) runCheck(checker HealthChecker) {
 		result.Status = StatusHealthy
 		result.Message = "OK"
 	}
-	
+
 	hm.results[checker.Name()] = result
 	hm.mu.Unlock()
-	
+
 	// Record metrics
 	healthy := err == nil
 	hm.metrics.RecordHealthCheck(checker.Name(), healthy, duration)
-	
+
 	// Log health check result
 	level := logging.LevelInfo
 	if err != nil {
 		level = logging.LevelWarn
 	}
-	
+
 	hm.logger.LogDaemon(level, "health check completed", "health_check", map[string]interface{}{
 		"checker":  checker.Name(),
 		"status":   string(result.Status),
@@ -377,19 +377,19 @@ func (m *MemoryHealthChecker) Check(ctx context.Context) error {
 
 // DiskSpaceHealthChecker checks available disk space
 type DiskSpaceHealthChecker struct {
-	name        string
-	path        string
+	name         string
+	path         string
 	minFreeBytes uint64
-	timeout     time.Duration
+	timeout      time.Duration
 }
 
 // NewDiskSpaceHealthChecker creates a disk space health checker
 func NewDiskSpaceHealthChecker(name, path string, minFreeBytes uint64) *DiskSpaceHealthChecker {
 	return &DiskSpaceHealthChecker{
-		name:        name,
-		path:        path,
+		name:         name,
+		path:         path,
 		minFreeBytes: minFreeBytes,
-		timeout:     2 * time.Second,
+		timeout:      2 * time.Second,
 	}
 }
 

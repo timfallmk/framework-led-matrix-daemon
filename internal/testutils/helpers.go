@@ -21,7 +21,7 @@ func CreateTempConfig(t *testing.T, configData string) string {
 	}
 
 	configFile := filepath.Join(tmpDir, "test_config.yaml")
-	err = os.WriteFile(configFile, []byte(configData), 0644)
+	err = os.WriteFile(configFile, []byte(configData), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}

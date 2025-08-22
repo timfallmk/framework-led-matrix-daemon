@@ -220,7 +220,7 @@ matrix:
 		t.Run(tt.name, func(t *testing.T) {
 			// Create temporary config file
 			configFile := filepath.Join(tmpDir, "test_config.yaml")
-			err := os.WriteFile(configFile, []byte(tt.yamlData), 0644)
+			err := os.WriteFile(configFile, []byte(tt.yamlData), 0o644)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -334,9 +334,9 @@ func TestFindConfig(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	// Create configs directory and file
-	os.MkdirAll("configs", 0755)
+	os.MkdirAll("configs", 0o755)
 	configFile := "configs/config.yaml"
-	err = os.WriteFile(configFile, []byte("matrix:\n  baud_rate: 115200"), 0644)
+	err = os.WriteFile(configFile, []byte("matrix:\n  baud_rate: 115200"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}

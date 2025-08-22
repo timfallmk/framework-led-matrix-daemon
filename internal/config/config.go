@@ -179,7 +179,7 @@ func (c *Config) SaveConfig(path string) error {
 	}
 
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -188,7 +188,7 @@ func (c *Config) SaveConfig(path string) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -301,7 +301,7 @@ func (c *Config) validateLogging() error {
 		// If it's a file path, check if the directory exists or can be created
 		dir := filepath.Dir(c.Logging.Output)
 		if dir != "." && dir != "/" {
-			if err := os.MkdirAll(dir, 0755); err != nil {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
 				return fmt.Errorf("cannot create log directory %s: %w", dir, err)
 			}
 		}
@@ -645,22 +645,38 @@ func (c *Config) ValidateDetailed() []ValidationError {
 // ApplyEnvironmentOverrides applies environment variable overrides to the configuration
 func (c *Config) ApplyEnvironmentOverrides() {
 	envOverrides := map[string]func(string){
-		"FRAMEWORK_LED_PORT":            func(v string) { c.Matrix.Port = v },
-		"FRAMEWORK_LED_BAUD_RATE":       func(v string) { if i, err := strconv.Atoi(v); err == nil { c.Matrix.BaudRate = i } },
-		"FRAMEWORK_LED_AUTO_DISCOVER":   func(v string) { c.Matrix.AutoDiscover = strings.ToLower(v) == "true" },
-		"FRAMEWORK_LED_BRIGHTNESS":      func(v string) { if i, err := strconv.Atoi(v); err == nil && i >= 0 && i <= 255 { c.Matrix.Brightness = byte(i) } },
-		"FRAMEWORK_LED_DUAL_MODE":       func(v string) { c.Matrix.DualMode = v },
-		"FRAMEWORK_LED_COLLECT_INTERVAL": func(v string) { if d, err := time.ParseDuration(v); err == nil { c.Stats.CollectInterval = d } },
-		"FRAMEWORK_LED_ENABLE_CPU":      func(v string) { c.Stats.EnableCPU = strings.ToLower(v) == "true" },
-		"FRAMEWORK_LED_ENABLE_MEMORY":   func(v string) { c.Stats.EnableMemory = strings.ToLower(v) == "true" },
-		"FRAMEWORK_LED_ENABLE_DISK":     func(v string) { c.Stats.EnableDisk = strings.ToLower(v) == "true" },
-		"FRAMEWORK_LED_ENABLE_NETWORK":  func(v string) { c.Stats.EnableNetwork = strings.ToLower(v) == "true" },
-		"FRAMEWORK_LED_UPDATE_RATE":     func(v string) { if d, err := time.ParseDuration(v); err == nil { c.Display.UpdateRate = d } },
-		"FRAMEWORK_LED_DISPLAY_MODE":    func(v string) { c.Display.Mode = v },
-		"FRAMEWORK_LED_PRIMARY_METRIC":  func(v string) { c.Display.PrimaryMetric = v },
-		"FRAMEWORK_LED_SHOW_ACTIVITY":   func(v string) { c.Display.ShowActivity = strings.ToLower(v) == "true" },
-		"FRAMEWORK_LED_LOG_LEVEL":       func(v string) { c.Logging.Level = v },
-		"FRAMEWORK_LED_LOG_FILE":        func(v string) { c.Logging.File = v },
+		"FRAMEWORK_LED_PORT": func(v string) { c.Matrix.Port = v },
+		"FRAMEWORK_LED_BAUD_RATE": func(v string) {
+			if i, err := strconv.Atoi(v); err == nil {
+				c.Matrix.BaudRate = i
+			}
+		},
+		"FRAMEWORK_LED_AUTO_DISCOVER": func(v string) { c.Matrix.AutoDiscover = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_BRIGHTNESS": func(v string) {
+			if i, err := strconv.Atoi(v); err == nil && i >= 0 && i <= 255 {
+				c.Matrix.Brightness = byte(i)
+			}
+		},
+		"FRAMEWORK_LED_DUAL_MODE": func(v string) { c.Matrix.DualMode = v },
+		"FRAMEWORK_LED_COLLECT_INTERVAL": func(v string) {
+			if d, err := time.ParseDuration(v); err == nil {
+				c.Stats.CollectInterval = d
+			}
+		},
+		"FRAMEWORK_LED_ENABLE_CPU":     func(v string) { c.Stats.EnableCPU = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_ENABLE_MEMORY":  func(v string) { c.Stats.EnableMemory = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_ENABLE_DISK":    func(v string) { c.Stats.EnableDisk = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_ENABLE_NETWORK": func(v string) { c.Stats.EnableNetwork = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_UPDATE_RATE": func(v string) {
+			if d, err := time.ParseDuration(v); err == nil {
+				c.Display.UpdateRate = d
+			}
+		},
+		"FRAMEWORK_LED_DISPLAY_MODE":   func(v string) { c.Display.Mode = v },
+		"FRAMEWORK_LED_PRIMARY_METRIC": func(v string) { c.Display.PrimaryMetric = v },
+		"FRAMEWORK_LED_SHOW_ACTIVITY":  func(v string) { c.Display.ShowActivity = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_LOG_LEVEL":      func(v string) { c.Logging.Level = v },
+		"FRAMEWORK_LED_LOG_FILE":       func(v string) { c.Logging.File = v },
 	}
 
 	for envVar, applyFunc := range envOverrides {

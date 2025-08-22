@@ -44,7 +44,7 @@ type MetricsCollector struct {
 // NewMetricsCollector creates a new metrics collector
 func NewMetricsCollector(logger *logging.Logger, flushInterval time.Duration) *MetricsCollector {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	mc := &MetricsCollector{
 		logger:        logging.NewMetricsLogger(logger),
 		eventLogger:   logging.NewEventLogger(logger),
@@ -53,11 +53,11 @@ func NewMetricsCollector(logger *logging.Logger, flushInterval time.Duration) *M
 		ctx:           ctx,
 		cancel:        cancel,
 	}
-	
+
 	// Start metrics flushing goroutine
 	mc.wg.Add(1)
 	go mc.flushLoop()
-	
+
 	return mc
 }
 
@@ -70,7 +70,7 @@ func (mc *MetricsCollector) IncCounter(name string, labels map[string]string) {
 func (mc *MetricsCollector) AddCounter(name string, value float64, labels map[string]string) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	key := mc.metricKey(name, labels)
 	if metric, exists := mc.metrics[key]; exists {
 		metric.Value += value
@@ -95,7 +95,7 @@ func (mc *MetricsCollector) SetGauge(name string, value float64, labels map[stri
 func (mc *MetricsCollector) SetGaugeWithUnit(name string, value float64, labels map[string]string, unit string) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	key := mc.metricKey(name, labels)
 	mc.metrics[key] = &Metric{
 		Name:      name,
@@ -111,7 +111,7 @@ func (mc *MetricsCollector) SetGaugeWithUnit(name string, value float64, labels 
 func (mc *MetricsCollector) ObserveHistogram(name string, value float64, labels map[string]string) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	key := mc.metricKey(name, labels)
 	mc.metrics[key] = &Metric{
 		Name:      name,
@@ -131,7 +131,7 @@ func (mc *MetricsCollector) RecordDuration(name string, duration time.Duration, 
 func (mc *MetricsCollector) GetMetrics() map[string]*Metric {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
-	
+
 	snapshot := make(map[string]*Metric)
 	for k, v := range mc.metrics {
 		// Create a copy of the metric
@@ -151,7 +151,7 @@ func (mc *MetricsCollector) GetMetrics() map[string]*Metric {
 func (mc *MetricsCollector) GetMetricsByType(metricType MetricType) []*Metric {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
-	
+
 	var filtered []*Metric
 	for _, metric := range mc.metrics {
 		if metric.Type == metricType {
@@ -186,33 +186,33 @@ func (mc *MetricsCollector) metricKey(name string, labels map[string]string) str
 	if len(labels) == 0 {
 		return name
 	}
-	
+
 	var b strings.Builder
 	b.WriteString(name)
-	
+
 	// To ensure deterministic keys, sort the label keys
 	keys := make([]string, 0, len(labels))
 	for k := range labels {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	
+
 	for _, k := range keys {
 		b.WriteString(",")
 		b.WriteString(k)
 		b.WriteString("=")
 		b.WriteString(labels[k])
 	}
-	
+
 	return b.String()
 }
 
 func (mc *MetricsCollector) flushLoop() {
 	defer mc.wg.Done()
-	
+
 	ticker := time.NewTicker(mc.flushInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-mc.ctx.Done():
@@ -240,7 +240,7 @@ func (mc *MetricsCollector) flushMetrics() {
 		})
 	}
 	mc.mu.RUnlock()
-	
+
 	for _, metric := range metricsToFlush {
 		switch metric.Type {
 		case MetricTypeCounter:
@@ -272,14 +272,14 @@ func (am *ApplicationMetrics) RecordMatrixOperation(operation string, matrixID s
 		"matrix_id": matrixID,
 		"success":   "true",
 	}
-	
+
 	if !success {
 		labels["success"] = "false"
 	}
-	
+
 	// Count operations
 	am.collector.IncCounter("matrix_operations_total", labels)
-	
+
 	// Record duration
 	am.collector.RecordDuration("matrix_operation_duration_seconds", duration, labels)
 }
@@ -289,13 +289,13 @@ func (am *ApplicationMetrics) RecordStatsCollection(statsType string, value floa
 	labels := map[string]string{
 		"stats_type": statsType,
 	}
-	
+
 	// Record the stat value itself
 	am.collector.SetGauge("system_stats_"+statsType, value, nil)
-	
+
 	// Record collection duration
 	am.collector.RecordDuration("stats_collection_duration_seconds", duration, labels)
-	
+
 	// Count collections
 	am.collector.IncCounter("stats_collections_total", labels)
 }
@@ -305,11 +305,11 @@ func (am *ApplicationMetrics) RecordConfigReload(success bool, duration time.Dur
 	labels := map[string]string{
 		"success": "true",
 	}
-	
+
 	if !success {
 		labels["success"] = "false"
 	}
-	
+
 	am.collector.IncCounter("config_reloads_total", labels)
 	am.collector.RecordDuration("config_reload_duration_seconds", duration, labels)
 }
@@ -337,11 +337,11 @@ func (am *ApplicationMetrics) RecordDisplayUpdate(mode string, success bool, dur
 		"mode":    mode,
 		"success": "true",
 	}
-	
+
 	if !success {
 		labels["success"] = "false"
 	}
-	
+
 	am.collector.IncCounter("display_updates_total", labels)
 	am.collector.RecordDuration("display_update_duration_seconds", duration, labels)
 }
@@ -352,14 +352,14 @@ func (am *ApplicationMetrics) RecordHealthCheck(component string, healthy bool, 
 		"component": component,
 		"healthy":   "true",
 	}
-	
+
 	if !healthy {
 		labels["healthy"] = "false"
 	}
-	
+
 	am.collector.IncCounter("health_checks_total", labels)
 	am.collector.RecordDuration("health_check_duration_seconds", duration, labels)
-	
+
 	// Set health status gauge
 	healthValue := 1.0
 	if !healthy {
@@ -396,7 +396,7 @@ func (t *Timer) Stop() time.Duration {
 // StopWithSuccess stops the timer and records success/failure
 func (t *Timer) StopWithSuccess(success bool) time.Duration {
 	duration := time.Since(t.startTime)
-	
+
 	labels := t.labels
 	if labels == nil {
 		labels = make(map[string]string)
@@ -405,7 +405,7 @@ func (t *Timer) StopWithSuccess(success bool) time.Duration {
 	if !success {
 		labels["success"] = "false"
 	}
-	
+
 	t.collector.RecordDuration(t.name, duration, labels)
 	return duration
 }

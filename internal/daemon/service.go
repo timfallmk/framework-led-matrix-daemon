@@ -32,17 +32,17 @@ type Service struct {
 	visualizer      *visualizer.Visualizer
 	multiVisualizer *visualizer.MultiVisualizer
 	// Observability
-	logger          *logging.Logger
-	eventLogger     *logging.EventLogger
+	logger           *logging.Logger
+	eventLogger      *logging.EventLogger
 	metricsCollector *observability.MetricsCollector
-	appMetrics      *observability.ApplicationMetrics
-	healthMonitor   *observability.HealthMonitor
-	ctx             context.Context
-	cancel          context.CancelFunc
-	wg              sync.WaitGroup
-	stopCh          chan struct{}
-	usingMultiple   bool
-	startTime       time.Time
+	appMetrics       *observability.ApplicationMetrics
+	healthMonitor    *observability.HealthMonitor
+	ctx              context.Context
+	cancel           context.CancelFunc
+	wg               sync.WaitGroup
+	stopCh           chan struct{}
+	usingMultiple    bool
+	startTime        time.Time
 }
 
 func NewService(cfg *config.Config) (*Service, error) {
@@ -58,12 +58,12 @@ func NewService(cfg *config.Config) (*Service, error) {
 		Output:    cfg.Logging.Output,
 		AddSource: cfg.Logging.AddSource,
 	}
-	
+
 	logger, err := logging.NewLogger(logConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
-	
+
 	// Set as global logger
 	logging.SetGlobalLogger(logger)
 
@@ -96,7 +96,7 @@ func (s *Service) Initialize() error {
 
 	// Register health checks
 	s.registerHealthChecks()
-	
+
 	// Start health monitoring
 	s.healthMonitor.Start()
 
@@ -111,7 +111,7 @@ func (s *Service) Initialize() error {
 func (s *Service) initializeSingleMatrix() error {
 	timer := s.metricsCollector.StartTimer("matrix_initialization_duration", map[string]string{"mode": "single"})
 	defer timer.Stop()
-	
+
 	s.eventLogger.LogDaemon(logging.LevelInfo, "initializing single matrix mode", "initialize_single", nil)
 
 	s.matrix = matrix.NewClient()
@@ -132,7 +132,7 @@ func (s *Service) initializeSingleMatrix() error {
 	if err := s.display.SetBrightness(s.config.Matrix.Brightness); err != nil {
 		s.eventLogger.LogMatrix(logging.LevelWarn, "failed to set brightness", "single", map[string]interface{}{
 			"brightness": s.config.Matrix.Brightness,
-			"error": err.Error(),
+			"error":      err.Error(),
 		})
 	}
 
@@ -194,7 +194,7 @@ func (s *Service) registerHealthChecks() {
 func (s *Service) initializeMultiMatrix() error {
 	timer := s.metricsCollector.StartTimer("matrix_initialization_duration", map[string]string{"mode": "multi"})
 	defer timer.Stop()
-	
+
 	s.eventLogger.LogDaemon(logging.LevelInfo, "initializing multi-matrix mode", "initialize_multi", map[string]interface{}{
 		"matrix_count": len(s.config.Matrix.Matrices),
 	})
@@ -218,7 +218,7 @@ func (s *Service) initializeMultiMatrix() error {
 	if err := s.multiDisplay.SetBrightness(s.config.Matrix.Brightness); err != nil {
 		s.eventLogger.LogMatrix(logging.LevelWarn, "failed to set brightness on some matrices", "multi", map[string]interface{}{
 			"brightness": s.config.Matrix.Brightness,
-			"error": err.Error(),
+			"error":      err.Error(),
 		})
 	}
 
@@ -298,7 +298,7 @@ func (s *Service) Stop() error {
 	// Stop observability components
 	s.healthMonitor.Stop()
 	s.metricsCollector.Close()
-	
+
 	// Clear displays before disconnecting
 	if s.usingMultiple && s.multiDisplay != nil {
 		if err := s.multiDisplay.UpdateStatus("off"); err != nil {
@@ -336,11 +336,11 @@ func (s *Service) Stop() error {
 	s.eventLogger.LogDaemon(logging.LevelInfo, "daemon stopped successfully", "stop_complete", map[string]interface{}{
 		"uptime": uptime.String(),
 	})
-	
+
 	// Close logging resources
 	s.eventLogger.Close()
 	s.logger.Close()
-	
+
 	return nil
 }
 
@@ -369,10 +369,10 @@ func (s *Service) runStatsCollector() {
 			timer := s.metricsCollector.StartTimer("stats_collection_duration", nil)
 			stats, err := s.collector.CollectSystemStats()
 			duration := timer.StopWithSuccess(err == nil)
-			
+
 			if err != nil {
 				s.eventLogger.LogStats(logging.LevelWarn, "failed to collect system stats", "system", 0, map[string]interface{}{
-					"error": err.Error(),
+					"error":    err.Error(),
 					"duration": duration.String(),
 				})
 			} else if stats != nil {
@@ -404,10 +404,10 @@ func (s *Service) runRuntimeMetrics() {
 
 			// Record memory metrics
 			s.appMetrics.RecordMemoryUsage(memStats.HeapAlloc, memStats.HeapSys, memStats.HeapInuse)
-			
+
 			// Record goroutine count
 			s.appMetrics.RecordGoroutines(runtime.NumGoroutine())
-			
+
 			// Record uptime
 			uptime := time.Since(s.startTime)
 			s.appMetrics.RecordDaemonUptime(uptime)
@@ -429,7 +429,7 @@ func (s *Service) runDisplayUpdater() {
 			return
 		case <-ticker.C:
 			timer := s.metricsCollector.StartTimer("display_update_duration", nil)
-			
+
 			summary, err := s.collector.GetSummary()
 			if err != nil {
 				timer.StopWithSuccess(false)
@@ -448,13 +448,13 @@ func (s *Service) runDisplayUpdater() {
 			} else if s.visualizer != nil {
 				updateErr = s.visualizer.UpdateDisplay(summary)
 			}
-			
+
 			duration := timer.StopWithSuccess(updateErr == nil)
 			s.appMetrics.RecordDisplayUpdate(mode, updateErr == nil, duration)
-			
+
 			if updateErr != nil {
 				s.eventLogger.LogMatrix(logging.LevelWarn, "failed to update display", mode, map[string]interface{}{
-					"error": updateErr.Error(),
+					"error":    updateErr.Error(),
 					"duration": duration.String(),
 				})
 			}
@@ -496,7 +496,7 @@ func (s *Service) handleSignals() {
 
 func (s *Service) reloadConfig() error {
 	timer := s.metricsCollector.StartTimer("config_reload_duration", nil)
-	
+
 	newConfig, err := config.LoadConfig("")
 	if err != nil {
 		timer.StopWithSuccess(false)
@@ -519,7 +519,7 @@ func (s *Service) reloadConfig() error {
 
 	duration := timer.StopWithSuccess(true)
 	s.appMetrics.RecordConfigReload(true, duration)
-	
+
 	s.eventLogger.LogConfig(logging.LevelInfo, "configuration reloaded successfully", "", map[string]interface{}{
 		"duration": duration.String(),
 	})
