@@ -86,12 +86,9 @@ jobs:
     - name: Check test coverage
       run: |
         go tool cover -func=coverage.out | tail -1 | awk '{print "Total coverage: " $3}'
-        COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | sed 's/%//')
-        echo "Coverage: ${COVERAGE}%"
-        if (( $(echo "$COVERAGE < 70.0" | bc -l) )); then
-          echo "Coverage ${COVERAGE}% is below minimum threshold of 70%"
-          exit 1
-        fi
+        COVERAGE=$(go tool cover -func=coverage.out | awk '/^total:/{gsub("%","",$3); print $3}')  
+        echo "Coverage: ${COVERAGE}%"  
+        awk -v c="$COVERAGE" 'BEGIN{exit (c<70.0)}' || { echo "Coverage ${COVERAGE}% is below 70%"; exit 1; }
       shell: bash
 
     - name: Upload coverage to Codecov
