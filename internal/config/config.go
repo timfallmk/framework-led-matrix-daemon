@@ -421,7 +421,6 @@ func (c *Config) ValidateDetailed() []ValidationError {
 		})
 	}
 
-
 	// Stats configuration validation
 	if c.Stats.CollectInterval <= 0 {
 		errors = append(errors, ValidationError{
