@@ -9,11 +9,6 @@ reviews:
   # Auto-review settings
   auto_review:
     enabled: true
-    
-reviews:
-  # Auto-review settings
-  auto_review:
-    enabled: true
 
   # When enabled, CodeRabbit will approve once comments are resolved and checks are green
   request_changes_workflow: true
@@ -36,6 +31,57 @@ reviews:
   
   # Poem style for summaries (fun touch)
   poem: true
+
+  path_filters:
+    - "!**/*.md"
+    - "!**/go.sum"
+    - "!**/*.yml"
+    - "!**/*.yaml"
+    - "!**/LICENSE"
+    - "!**/.gitignore"
+
+  # Path-based review settings
+  path_instructions:
+    - path: "**/*_test.go"
+      instructions: |
+        For test files, focus on:
+        - Test completeness and edge case coverage
+        - Proper use of testify or standard testing patterns
+        - Table-driven tests where appropriate
+        - Proper setup and teardown
+        - Mock usage and test isolation
+    
+    - path: "internal/matrix/**"
+      instructions: |
+        For matrix package, focus on:
+        - Hardware communication safety
+        - Proper error handling for serial operations
+        - Resource cleanup (connection management)
+        - Thread safety for concurrent access
+    
+    - path: "internal/config/**"
+      instructions: |
+        For config package, focus on:
+        - Validation logic completeness
+        - Error message clarity
+        - Default value appropriateness
+        - Security of configuration handling
+    
+    - path: "internal/stats/**"
+      instructions: |
+        For stats package, focus on:
+        - Accuracy of system statistics collection
+        - Performance impact of collection methods
+        - Cross-platform compatibility
+        - Memory usage efficiency
+    
+    - path: "cmd/**"
+      instructions: |
+        For command-line interfaces, focus on:
+        - User experience and error messages
+        - Flag and argument validation
+        - Help text clarity
+        - Exit code conventions
 
 # Specific focus areas for Go code
 review_instructions: |
@@ -77,57 +123,6 @@ review_instructions: |
   - Review documentation for clarity and completeness
   - Ensure examples in documentation are correct
 
-# Path-based review settings
-path_instructions:
-  - path: "**/*_test.go"
-    instructions: |
-      For test files, focus on:
-      - Test completeness and edge case coverage
-      - Proper use of testify or standard testing patterns
-      - Table-driven tests where appropriate
-      - Proper setup and teardown
-      - Mock usage and test isolation
-  
-  - path: "internal/matrix/**"
-    instructions: |
-      For matrix package, focus on:
-      - Hardware communication safety
-      - Proper error handling for serial operations
-      - Resource cleanup (connection management)
-      - Thread safety for concurrent access
-  
-  - path: "internal/config/**"
-    instructions: |
-      For config package, focus on:
-      - Validation logic completeness
-      - Error message clarity
-      - Default value appropriateness
-      - Security of configuration handling
-  
-  - path: "internal/stats/**"
-    instructions: |
-      For stats package, focus on:
-      - Accuracy of system statistics collection
-      - Performance impact of collection methods
-      - Cross-platform compatibility
-      - Memory usage efficiency
-  
-  - path: "cmd/**"
-    instructions: |
-      For command-line interfaces, focus on:
-      - User experience and error messages
-      - Flag and argument validation
-      - Help text clarity
-      - Exit code conventions
-
-reviews:
-  path_filters:
-    - "!**/*.md"
-    - "!**/go.sum"
-    - "!**/*.yml"
-    - "!**/*.yaml"
-    - "!**/LICENSE"
-    - "!**/.gitignore"
 # Custom rules for this project
 rules:
   # Go-specific rules
