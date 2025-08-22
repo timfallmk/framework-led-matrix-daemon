@@ -141,7 +141,7 @@ rules:
   
   - name: "serial-port-safety"
     description: "Review serial port operations"
-    pattern: "(serial\.|tty|/dev/)"
+    pattern: "(serial\\.|tty|/dev/)"
     message: "Ensure safe serial port operations with proper error handling"
 
 # Tone and communication style
