@@ -2,6 +2,8 @@ package observability
 
 import (
 	"context"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -181,13 +183,28 @@ func (mc *MetricsCollector) Close() {
 }
 
 func (mc *MetricsCollector) metricKey(name string, labels map[string]string) string {
-	key := name
-	if labels != nil {
-		for k, v := range labels {
-			key += "," + k + "=" + v
-		}
+	if len(labels) == 0 {
+		return name
 	}
-	return key
+	
+	var b strings.Builder
+	b.WriteString(name)
+	
+	// To ensure deterministic keys, sort the label keys
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	
+	for _, k := range keys {
+		b.WriteString(",")
+		b.WriteString(k)
+		b.WriteString("=")
+		b.WriteString(labels[k])
+	}
+	
+	return b.String()
 }
 
 func (mc *MetricsCollector) flushLoop() {
@@ -208,14 +225,23 @@ func (mc *MetricsCollector) flushLoop() {
 }
 
 func (mc *MetricsCollector) flushMetrics() {
+	// Get a list of metrics to flush without holding the lock during logging
 	mc.mu.RLock()
-	snapshot := make(map[string]*Metric)
-	for k, v := range mc.metrics {
-		snapshot[k] = v
+	metricsToFlush := make([]*Metric, 0, len(mc.metrics))
+	for _, metric := range mc.metrics {
+		// Create a copy to avoid holding references to the original
+		metricsToFlush = append(metricsToFlush, &Metric{
+			Name:      metric.Name,
+			Type:      metric.Type,
+			Value:     metric.Value,
+			Labels:    metric.Labels,
+			Timestamp: metric.Timestamp,
+			Unit:      metric.Unit,
+		})
 	}
 	mc.mu.RUnlock()
 	
-	for _, metric := range snapshot {
+	for _, metric := range metricsToFlush {
 		switch metric.Type {
 		case MetricTypeCounter:
 			mc.logger.LogCounter(metric.Name, int64(metric.Value), metric.Labels)
