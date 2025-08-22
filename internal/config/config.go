@@ -421,13 +421,6 @@ func (c *Config) ValidateDetailed() []ValidationError {
 		})
 	}
 
-	if c.Matrix.Brightness > 255 {
-		errors = append(errors, ValidationError{
-			Field:   "matrix.brightness",
-			Value:   c.Matrix.Brightness,
-			Message: "must be between 0 and 255",
-		})
-	}
 
 	// Stats configuration validation
 	if c.Stats.CollectInterval <= 0 {

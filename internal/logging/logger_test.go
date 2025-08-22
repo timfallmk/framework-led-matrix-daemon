@@ -382,6 +382,7 @@ func TestLogger_WithContext(t *testing.T) {
 
 	if contextLogger == nil {
 		t.Error("Expected non-nil context logger")
+		return
 	}
 
 	// Test that we can log with the context logger

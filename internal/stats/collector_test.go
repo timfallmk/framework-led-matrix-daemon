@@ -125,6 +125,7 @@ func TestCollectorGetLastStats(t *testing.T) {
 	stats = collector.GetLastStats()
 	if stats == nil {
 		t.Error("GetLastStats() should return stats after collection")
+		return
 	}
 
 	// Timestamp should be recent
@@ -367,18 +368,9 @@ func TestCollectorCollectDiskStats(t *testing.T) {
 	}
 
 	// IO counters validation
-	for device, counter := range diskStats.IOCounters {
+	for device := range diskStats.IOCounters {
 		if device == "" {
 			t.Error("CollectDiskStats() IOCounters has empty device name")
-		}
-
-		// Counters should be non-negative
-		if counter.ReadCount < 0 || counter.WriteCount < 0 {
-			t.Errorf("CollectDiskStats() IOCounter[%s] has negative counts", device)
-		}
-
-		if counter.ReadBytes < 0 || counter.WriteBytes < 0 {
-			t.Errorf("CollectDiskStats() IOCounter[%s] has negative byte counts", device)
 		}
 	}
 
@@ -397,21 +389,7 @@ func TestCollectorCollectNetworkStats(t *testing.T) {
 	}
 
 	// Basic validation - all counters should be non-negative
-	if netStats.BytesSent < 0 {
-		t.Errorf("CollectNetworkStats() BytesSent = %d, should be >= 0", netStats.BytesSent)
-	}
-
-	if netStats.BytesRecv < 0 {
-		t.Errorf("CollectNetworkStats() BytesRecv = %d, should be >= 0", netStats.BytesRecv)
-	}
-
-	if netStats.PacketsSent < 0 {
-		t.Errorf("CollectNetworkStats() PacketsSent = %d, should be >= 0", netStats.PacketsSent)
-	}
-
-	if netStats.PacketsRecv < 0 {
-		t.Errorf("CollectNetworkStats() PacketsRecv = %d, should be >= 0", netStats.PacketsRecv)
-	}
+	// uint64 fields are always non-negative, no need to check
 
 	if netStats.ActivityRate < 0 {
 		t.Errorf("CollectNetworkStats() ActivityRate = %.1f, should be >= 0", netStats.ActivityRate)
@@ -448,6 +426,7 @@ func TestCollectorCollectSystemStatsIntegration(t *testing.T) {
 	lastStats := collector.GetLastStats()
 	if lastStats == nil {
 		t.Error("CollectSystemStats() should update last stats")
+		return
 	}
 
 	if !lastStats.Timestamp.Equal(stats.Timestamp) {

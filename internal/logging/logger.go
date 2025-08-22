@@ -343,10 +343,8 @@ func (ml *MetricsLogger) LogCounter(name string, value int64, labels map[string]
 		"value":       value,
 	}
 
-	if labels != nil {
-		for k, v := range labels {
-			fields["label_"+k] = v
-		}
+	for k, v := range labels {
+		fields["label_"+k] = v
 	}
 
 	ml.logger.Info("counter metric", slog.Any("fields", fields))
@@ -360,10 +358,8 @@ func (ml *MetricsLogger) LogGauge(name string, value float64, labels map[string]
 		"value":       value,
 	}
 
-	if labels != nil {
-		for k, v := range labels {
-			fields["label_"+k] = v
-		}
+	for k, v := range labels {
+		fields["label_"+k] = v
 	}
 
 	ml.logger.Info("gauge metric", slog.Any("fields", fields))
@@ -377,10 +373,8 @@ func (ml *MetricsLogger) LogHistogram(name string, value float64, labels map[str
 		"value":       value,
 	}
 
-	if labels != nil {
-		for k, v := range labels {
-			fields["label_"+k] = v
-		}
+	for k, v := range labels {
+		fields["label_"+k] = v
 	}
 
 	ml.logger.Info("histogram metric", slog.Any("fields", fields))
@@ -395,10 +389,8 @@ func (ml *MetricsLogger) LogTiming(name string, duration time.Duration, labels m
 		"duration_string": duration.String(),
 	}
 
-	if labels != nil {
-		for k, v := range labels {
-			fields["label_"+k] = v
-		}
+	for k, v := range labels {
+		fields["label_"+k] = v
 	}
 
 	ml.logger.Info("timing metric", slog.Any("fields", fields))

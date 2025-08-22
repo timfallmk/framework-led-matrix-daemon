@@ -180,11 +180,8 @@ func AssertPercentageValid(t *testing.T, value float64, name string) {
 func AssertBytesNonNegative(t *testing.T, value uint64, name string) {
 	t.Helper()
 
-	// uint64 is always non-negative, but we include this for consistency
-	// and in case the type changes in the future
-	if value < 0 {
-		t.Errorf("%s should be non-negative, got %d", name, value)
-	}
+	// uint64 is always non-negative, no check needed
+	// This function exists for API consistency
 }
 
 // SkipIfShort skips a test if running in short mode
