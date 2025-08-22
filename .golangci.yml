@@ -80,11 +80,12 @@ linters-settings:
   errcheck:
     check-type-assertions: true
     check-blank: true
-    exclude-functions:
-      - io/ioutil.ReadFile
-      - io.Copy(*bytes.Buffer)
-      - io.Copy(os.Stdout)
-
+errcheck:
+  check-type-assertions: true
+  check-blank: true
+  exclude-functions:
+    - os.ReadFile
+    - io.Copy
   # Unused parameters
   unparam:
     check-exported: false

@@ -2,7 +2,7 @@
 # https://docs.coderabbit.ai/guides/review-settings
 
 # Language-specific settings
-language: "go"
+language: "en-US"
 
 # Review settings
 reviews:
@@ -10,9 +10,13 @@ reviews:
   auto_review:
     enabled: true
     
-  # Request changes when critical issues are found
-  request_changes: true
-  
+reviews:
+  # Auto-review settings
+  auto_review:
+    enabled: true
+
+  # When enabled, CodeRabbit will approve once comments are resolved and checks are green
+  request_changes_workflow: true
   # High-level summary settings
   high_level_summary: true
   
@@ -73,16 +77,6 @@ review_instructions: |
   - Review documentation for clarity and completeness
   - Ensure examples in documentation are correct
 
-# Knowledge base specific to this project
-knowledge_base:
-  - "This is a Go daemon that displays system statistics on Framework Laptop LED matrices"
-  - "The project uses serial communication with USB devices"
-  - "Supports both single and dual matrix configurations"
-  - "Uses gopsutil for system statistics collection"
-  - "Implements cross-platform daemon management"
-  - "Configuration is YAML-based with validation"
-  - "Follows Go module best practices"
-
 # Path-based review settings
 path_instructions:
   - path: "**/*_test.go"
@@ -126,15 +120,14 @@ path_instructions:
       - Help text clarity
       - Exit code conventions
 
-# Files to exclude from review
-exclude:
-  - "**/*.md"
-  - "**/go.sum"
-  - "**/*.yml"
-  - "**/*.yaml"
-  - "**/LICENSE"
-  - "**/.gitignore"
-
+reviews:
+  path_filters:
+    - "!**/*.md"
+    - "!**/go.sum"
+    - "!**/*.yml"
+    - "!**/*.yaml"
+    - "!**/LICENSE"
+    - "!**/.gitignore"
 # Custom rules for this project
 rules:
   # Go-specific rules
