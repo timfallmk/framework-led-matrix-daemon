@@ -16,6 +16,20 @@ reviews:
   # High-level summary settings
   high_level_summary: true
   
+  # Auto-generate PR titles based on changes
+  auto_title_instructions: |
+    Generate a concise PR title following conventional commit format:
+    - Use prefixes: feat, fix, perf, refactor, docs, test, ci, chore
+    - Focus on the primary change or feature being added
+    - Keep under 60 characters
+    - Be specific about the component affected (e.g., "logging", "metrics", "ci")
+    
+    Examples:
+    - "feat: add structured logging with slog integration" 
+    - "perf: optimize metrics collection performance"
+    - "ci: add automated release workflow with cross-platform builds"
+    - "fix: resolve configuration validation edge cases"
+  
   # Poem style for summaries (fun touch)
   poem: true
 
