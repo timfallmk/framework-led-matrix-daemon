@@ -50,7 +50,12 @@ type HealthMonitor struct {
 	wg            sync.WaitGroup
 }
 
-// NewHealthMonitor creates a new health monitor
+// NewHealthMonitor creates a HealthMonitor that coordinates periodic health checks.
+// 
+// The returned monitor is initialized with empty checker and result maps, a
+// cancellable background context, a wrapped event logger, the provided metrics,
+// and the specified checkInterval. Call Start to begin background monitoring and
+// Stop to cancel and cleanup.
 func NewHealthMonitor(logger *logging.Logger, metrics *ApplicationMetrics, checkInterval time.Duration) *HealthMonitor {
 	ctx, cancel := context.WithCancel(context.Background())
 	
@@ -258,7 +263,7 @@ type MatrixHealthChecker struct {
 	timeout  time.Duration
 }
 
-// NewMatrixHealthChecker creates a matrix health checker
+// will return an error).
 func NewMatrixHealthChecker(name string, testFunc func(ctx context.Context) error) *MatrixHealthChecker {
 	return &MatrixHealthChecker{
 		name:     name,
@@ -289,7 +294,10 @@ type StatsHealthChecker struct {
 	timeout  time.Duration
 }
 
-// NewStatsHealthChecker creates a stats health checker
+// NewStatsHealthChecker creates a StatsHealthChecker with the given name and testFunc.
+// The returned checker uses a default per-check timeout of 3s. The provided testFunc is
+// invoked by the checker's Check method to determine health; if testFunc is nil, Check
+// will return an error indicating no test function is available.
 func NewStatsHealthChecker(name string, testFunc func(ctx context.Context) error) *StatsHealthChecker {
 	return &StatsHealthChecker{
 		name:     name,
@@ -320,7 +328,10 @@ type ConfigHealthChecker struct {
 	timeout  time.Duration
 }
 
-// NewConfigHealthChecker creates a config health checker
+// NewConfigHealthChecker creates and returns a ConfigHealthChecker with the given name.
+// The returned checker will invoke the provided testFunc when checked and uses a default
+// per-check timeout of 2 seconds. The testFunc may be nil; in that case the checker's
+// Check method will report an error indicating no test function is configured.
 func NewConfigHealthChecker(name string, testFunc func(ctx context.Context) error) *ConfigHealthChecker {
 	return &ConfigHealthChecker{
 		name:     name,
@@ -351,7 +362,10 @@ type MemoryHealthChecker struct {
 	timeout        time.Duration
 }
 
-// NewMemoryHealthChecker creates a memory health checker
+// NewMemoryHealthChecker returns a MemoryHealthChecker configured with the given
+// name and maximum allowed memory in bytes. The checker uses a 1s timeout by
+// default; if the process's memory usage exceeds maxMemoryBytes the checker
+// should report unhealthy.
 func NewMemoryHealthChecker(name string, maxMemoryBytes uint64) *MemoryHealthChecker {
 	return &MemoryHealthChecker{
 		name:           name,
@@ -383,7 +397,9 @@ type DiskSpaceHealthChecker struct {
 	timeout     time.Duration
 }
 
-// NewDiskSpaceHealthChecker creates a disk space health checker
+// NewDiskSpaceHealthChecker creates a DiskSpaceHealthChecker that verifies there is at least
+// minFreeBytes free at the given filesystem path. The returned checker is named by `name` and
+// uses a default per-check timeout of 2 seconds.
 func NewDiskSpaceHealthChecker(name, path string, minFreeBytes uint64) *DiskSpaceHealthChecker {
 	return &DiskSpaceHealthChecker{
 		name:        name,

@@ -88,6 +88,7 @@ type LoggingConfig struct {
 	Compress   bool   `yaml:"compress"`
 }
 
+// Use this as the base configuration before applying file-based loading or environment overrides.
 func DefaultConfig() *Config {
 	return &Config{
 		Matrix: MatrixConfig{
@@ -384,6 +385,12 @@ func GetConfigPaths() []string {
 	return paths
 }
 
+// FindConfig searches the list of candidate configuration file paths returned by
+// GetConfigPaths and returns the absolute path of the first one that exists.
+//
+// If a candidate exists but its absolute path cannot be resolved, the original
+// (non-absolute) path is returned as a fallback. If no config file is found in
+// any of the standard locations, an error is returned.
 func FindConfig() (string, error) {
 	for _, path := range GetConfigPaths() {
 		if _, err := os.Stat(path); err == nil {
@@ -682,7 +689,10 @@ type ConfigWatcher struct {
 	pollInterval time.Duration
 }
 
-// NewConfigWatcher creates a new configuration watcher
+// NewConfigWatcher returns a new ConfigWatcher configured to monitor the given
+// configPath. The watcher is initialized with initialConfig and ready-to-use
+// channels for reload notifications and error reporting. The returned watcher
+// uses a 1s polling interval by default.
 func NewConfigWatcher(configPath string, initialConfig *Config) *ConfigWatcher {
 	return &ConfigWatcher{
 		configPath:   configPath,
@@ -794,7 +804,14 @@ func (w *ConfigWatcher) checkForChanges() error {
 	return nil
 }
 
-// LoadConfigWithEnv loads configuration with environment variable overrides
+// LoadConfigWithEnv loads a configuration from the given path, applies environment
+// variable overrides, and runs detailed validation before returning the final
+// Config.
+//
+// If path is empty the loader will use the default config discovery logic used
+// by LoadConfig. Environment overrides are applied on top of values loaded
+// from file. If any validation issues are found by ValidateDetailed the function
+// returns a non-nil error that aggregates all validation messages.
 func LoadConfigWithEnv(path string) (*Config, error) {
 	config, err := LoadConfig(path)
 	if err != nil {

@@ -41,7 +41,11 @@ type MetricsCollector struct {
 	wg            sync.WaitGroup
 }
 
-// NewMetricsCollector creates a new metrics collector
+// NewMetricsCollector creates and returns a new MetricsCollector bound to the provided logger.
+// It initializes internal metric and event loggers, prepares the in-memory metric store, and
+// starts a background goroutine that periodically flushes metrics at the given flushInterval.
+// The returned collector uses a cancellable context; the background flush loop is stopped when
+// the collector's Close method is called.
 func NewMetricsCollector(logger *logging.Logger, flushInterval time.Duration) *MetricsCollector {
 	ctx, cancel := context.WithCancel(context.Background())
 	
@@ -258,7 +262,8 @@ type ApplicationMetrics struct {
 	collector *MetricsCollector
 }
 
-// NewApplicationMetrics creates application-specific metrics
+// NewApplicationMetrics returns an ApplicationMetrics helper bound to the provided MetricsCollector.
+// The returned helper records domain-level metrics (counters, gauges, durations) using that collector.
 func NewApplicationMetrics(collector *MetricsCollector) *ApplicationMetrics {
 	return &ApplicationMetrics{
 		collector: collector,
