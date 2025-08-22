@@ -1,0 +1,198 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: ['1.24.5', '1.25.x']
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ matrix.go-version }}-
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Verify dependencies
+      run: go mod verify
+
+    - name: Install development tools
+      run: |
+        go install honnef.co/go/tools/cmd/staticcheck@latest
+        go install mvdan.cc/gofumpt@latest
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        go install golang.org/x/tools/cmd/goimports@latest
+
+    - name: Run gofumpt
+      run: |
+        gofumpt -l .
+        if [ "$(gofumpt -l . | wc -l)" -gt 0 ]; then
+          echo "The following files need gofumpt formatting:"
+          gofumpt -l .
+          exit 1
+        fi
+      shell: bash
+
+    - name: Run goimports
+      run: |
+        goimports -l .
+        if [ "$(goimports -l . | wc -l)" -gt 0 ]; then
+          echo "The following files need goimports formatting:"
+          goimports -l .
+          exit 1
+        fi
+      shell: bash
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Run staticcheck
+      run: staticcheck ./...
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --timeout=5m
+
+    - name: Run tests
+      run: go test -v -race -coverprofile=coverage.out ./...
+
+    - name: Check test coverage
+      run: |
+        go tool cover -func=coverage.out | tail -1 | awk '{print "Total coverage: " $3}'
+        COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | sed 's/%//')
+        echo "Coverage: ${COVERAGE}%"
+        if (( $(echo "$COVERAGE < 70.0" | bc -l) )); then
+          echo "Coverage ${COVERAGE}% is below minimum threshold of 70%"
+          exit 1
+        fi
+      shell: bash
+
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.24.5'
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24.5'
+
+    - name: Install govulncheck
+      run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+    - name: Run govulncheck
+      run: govulncheck ./...
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: go
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24.5'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-1.24.5-${{ hashFiles('**/go.sum') }}
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Build binary
+      env:
+        CGO_ENABLED: 0
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        BINARY_NAME=framework-led-daemon
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          BINARY_NAME="${BINARY_NAME}.exe"
+        fi
+        
+        go build \
+          -ldflags="-w -s -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}" \
+          -trimpath \
+          -o "bin/${BINARY_NAME}-${{ matrix.goos }}-${{ matrix.goarch }}" \
+          ./cmd/daemon
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: framework-led-daemon-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: bin/framework-led-daemon-${{ matrix.goos }}-${{ matrix.goarch }}*
+        retention-days: 30

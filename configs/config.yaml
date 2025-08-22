@@ -54,6 +54,11 @@ daemon:
 
 logging:
   level: "info"              # Log level: debug, info, warn, error
+  format: "text"             # Log format: text, json
+  output: "stdout"           # Log output: stdout, stderr, or file path
+  add_source: true           # Include source file/line in logs
+  
+  # Legacy file logging options (deprecated in favor of structured logging)
   file: ""                   # Log file path (empty for stdout)
   max_size: 10               # Maximum log file size in MB
   max_backups: 3             # Number of old log files to retain

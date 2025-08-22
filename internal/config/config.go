@@ -1,9 +1,13 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -72,7 +76,11 @@ type DaemonConfig struct {
 }
 
 type LoggingConfig struct {
-	Level      string `yaml:"level"`
+	Level     string `yaml:"level"`      // debug, info, warn, error
+	Format    string `yaml:"format"`     // text, json
+	Output    string `yaml:"output"`     // stdout, stderr, or file path
+	AddSource bool   `yaml:"add_source"` // include source file/line in logs
+	// Legacy file logging options (deprecated in favor of structured logging)
 	File       string `yaml:"file"`
 	MaxSize    int    `yaml:"max_size"`
 	MaxBackups int    `yaml:"max_backups"`
@@ -126,7 +134,11 @@ func DefaultConfig() *Config {
 			LogFile:     "/var/log/framework-led-daemon.log",
 		},
 		Logging: LoggingConfig{
-			Level:      "info",
+			Level:     "info",
+			Format:    "text",
+			Output:    "stdout",
+			AddSource: true,
+			// Legacy options with defaults
 			File:       "",
 			MaxSize:    10,
 			MaxBackups: 3,
@@ -255,6 +267,46 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate logging configuration
+	if err := c.validateLogging(); err != nil {
+		return fmt.Errorf("logging configuration: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Config) validateLogging() error {
+	validLevels := map[string]bool{
+		"debug": true,
+		"info":  true,
+		"warn":  true,
+		"error": true,
+	}
+
+	validFormats := map[string]bool{
+		"text": true,
+		"json": true,
+	}
+
+	if !validLevels[c.Logging.Level] {
+		return fmt.Errorf("invalid logging level: %s (must be debug, info, warn, or error)", c.Logging.Level)
+	}
+
+	if !validFormats[c.Logging.Format] {
+		return fmt.Errorf("invalid logging format: %s (must be text or json)", c.Logging.Format)
+	}
+
+	// Validate output - can be stdout, stderr, or a file path
+	if c.Logging.Output != "" && c.Logging.Output != "stdout" && c.Logging.Output != "stderr" {
+		// If it's a file path, check if the directory exists or can be created
+		dir := filepath.Dir(c.Logging.Output)
+		if dir != "." && dir != "/" {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("cannot create log directory %s: %w", dir, err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -343,4 +395,421 @@ func FindConfig() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no config file found in standard locations")
+}
+
+// ValidationError represents a configuration validation error
+type ValidationError struct {
+	Field   string
+	Value   interface{}
+	Message string
+}
+
+func (e ValidationError) Error() string {
+	return fmt.Sprintf("validation error for field '%s' (value: %v): %s", e.Field, e.Value, e.Message)
+}
+
+// ValidateDetailed performs comprehensive validation with detailed error reporting
+func (c *Config) ValidateDetailed() []ValidationError {
+	var errors []ValidationError
+
+	// Matrix configuration validation
+	if c.Matrix.BaudRate <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   "matrix.baud_rate",
+			Value:   c.Matrix.BaudRate,
+			Message: "must be a positive integer (typical values: 9600, 19200, 38400, 57600, 115200)",
+		})
+	}
+
+	if c.Matrix.Brightness > 255 {
+		errors = append(errors, ValidationError{
+			Field:   "matrix.brightness",
+			Value:   c.Matrix.Brightness,
+			Message: "must be between 0 and 255",
+		})
+	}
+
+	// Stats configuration validation
+	if c.Stats.CollectInterval <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   "stats.collect_interval",
+			Value:   c.Stats.CollectInterval,
+			Message: "must be a positive duration (e.g., '1s', '500ms')",
+		})
+	}
+
+	if c.Stats.CollectInterval < 100*time.Millisecond {
+		errors = append(errors, ValidationError{
+			Field:   "stats.collect_interval",
+			Value:   c.Stats.CollectInterval,
+			Message: "should be at least 100ms to avoid excessive CPU usage",
+		})
+	}
+
+	// Display configuration validation
+	if c.Display.UpdateRate <= 0 {
+		errors = append(errors, ValidationError{
+			Field:   "display.update_rate",
+			Value:   c.Display.UpdateRate,
+			Message: "must be a positive duration (e.g., '1s', '500ms')",
+		})
+	}
+
+	if c.Display.UpdateRate < 50*time.Millisecond {
+		errors = append(errors, ValidationError{
+			Field:   "display.update_rate",
+			Value:   c.Display.UpdateRate,
+			Message: "should be at least 50ms to avoid hardware stress",
+		})
+	}
+
+	validModes := map[string]bool{
+		"percentage": true,
+		"gradient":   true,
+		"activity":   true,
+		"status":     true,
+		"custom":     true,
+	}
+	if !validModes[c.Display.Mode] {
+		errors = append(errors, ValidationError{
+			Field:   "display.mode",
+			Value:   c.Display.Mode,
+			Message: "must be one of: percentage, gradient, activity, status, custom",
+		})
+	}
+
+	validMetrics := map[string]bool{
+		"cpu":     true,
+		"memory":  true,
+		"disk":    true,
+		"network": true,
+	}
+	if !validMetrics[c.Display.PrimaryMetric] {
+		errors = append(errors, ValidationError{
+			Field:   "display.primary_metric",
+			Value:   c.Display.PrimaryMetric,
+			Message: "must be one of: cpu, memory, disk, network",
+		})
+	}
+
+	// Threshold validation with cross-field checks
+	if c.Stats.Thresholds.CPUWarning < 0 || c.Stats.Thresholds.CPUWarning > 100 {
+		errors = append(errors, ValidationError{
+			Field:   "stats.thresholds.cpu_warning",
+			Value:   c.Stats.Thresholds.CPUWarning,
+			Message: "must be between 0 and 100 (percentage)",
+		})
+	}
+
+	if c.Stats.Thresholds.CPUCritical < 0 || c.Stats.Thresholds.CPUCritical > 100 {
+		errors = append(errors, ValidationError{
+			Field:   "stats.thresholds.cpu_critical",
+			Value:   c.Stats.Thresholds.CPUCritical,
+			Message: "must be between 0 and 100 (percentage)",
+		})
+	}
+
+	if c.Stats.Thresholds.CPUWarning >= c.Stats.Thresholds.CPUCritical {
+		errors = append(errors, ValidationError{
+			Field:   "stats.thresholds.cpu_warning",
+			Value:   c.Stats.Thresholds.CPUWarning,
+			Message: fmt.Sprintf("must be less than cpu_critical (%.1f)", c.Stats.Thresholds.CPUCritical),
+		})
+	}
+
+	if c.Stats.Thresholds.MemoryWarning < 0 || c.Stats.Thresholds.MemoryWarning > 100 {
+		errors = append(errors, ValidationError{
+			Field:   "stats.thresholds.memory_warning",
+			Value:   c.Stats.Thresholds.MemoryWarning,
+			Message: "must be between 0 and 100 (percentage)",
+		})
+	}
+
+	if c.Stats.Thresholds.MemoryCritical < 0 || c.Stats.Thresholds.MemoryCritical > 100 {
+		errors = append(errors, ValidationError{
+			Field:   "stats.thresholds.memory_critical",
+			Value:   c.Stats.Thresholds.MemoryCritical,
+			Message: "must be between 0 and 100 (percentage)",
+		})
+	}
+
+	if c.Stats.Thresholds.MemoryWarning >= c.Stats.Thresholds.MemoryCritical {
+		errors = append(errors, ValidationError{
+			Field:   "stats.thresholds.memory_warning",
+			Value:   c.Stats.Thresholds.MemoryWarning,
+			Message: fmt.Sprintf("must be less than memory_critical (%.1f)", c.Stats.Thresholds.MemoryCritical),
+		})
+	}
+
+	// Dual matrix validation
+	validDualModes := map[string]bool{
+		"mirror":      true,
+		"split":       true,
+		"extended":    true,
+		"independent": true,
+	}
+	if c.Matrix.DualMode != "" && !validDualModes[c.Matrix.DualMode] {
+		errors = append(errors, ValidationError{
+			Field:   "matrix.dual_mode",
+			Value:   c.Matrix.DualMode,
+			Message: "must be one of: mirror, split, extended, independent",
+		})
+	}
+
+	// Individual matrix validation
+	for i, matrix := range c.Matrix.Matrices {
+		if role, ok := matrix["role"].(string); ok && role != "" {
+			if role != "primary" && role != "secondary" {
+				errors = append(errors, ValidationError{
+					Field:   fmt.Sprintf("matrix.matrices[%d].role", i),
+					Value:   role,
+					Message: "must be either 'primary' or 'secondary'",
+				})
+			}
+		}
+
+		if brightness, ok := matrix["brightness"]; ok {
+			var brightnessVal float64
+			switch v := brightness.(type) {
+			case int:
+				brightnessVal = float64(v)
+			case float64:
+				brightnessVal = v
+			default:
+				errors = append(errors, ValidationError{
+					Field:   fmt.Sprintf("matrix.matrices[%d].brightness", i),
+					Value:   brightness,
+					Message: "must be a number between 0 and 255",
+				})
+				continue
+			}
+
+			if brightnessVal < 0 || brightnessVal > 255 {
+				errors = append(errors, ValidationError{
+					Field:   fmt.Sprintf("matrix.matrices[%d].brightness", i),
+					Value:   brightnessVal,
+					Message: "must be between 0 and 255",
+				})
+			}
+		}
+
+		if metrics, ok := matrix["metrics"].([]interface{}); ok {
+			for j, metric := range metrics {
+				if metricStr, ok := metric.(string); ok {
+					if !validMetrics[metricStr] {
+						errors = append(errors, ValidationError{
+							Field:   fmt.Sprintf("matrix.matrices[%d].metrics[%d]", i, j),
+							Value:   metricStr,
+							Message: "must be one of: cpu, memory, disk, network",
+						})
+					}
+				} else {
+					errors = append(errors, ValidationError{
+						Field:   fmt.Sprintf("matrix.matrices[%d].metrics[%d]", i, j),
+						Value:   metric,
+						Message: "must be a string metric name",
+					})
+				}
+			}
+		}
+	}
+
+	// Daemon configuration validation
+	if c.Daemon.Name == "" {
+		errors = append(errors, ValidationError{
+			Field:   "daemon.name",
+			Value:   c.Daemon.Name,
+			Message: "cannot be empty",
+		})
+	}
+
+	// Logging configuration validation
+	validLogLevels := map[string]bool{
+		"debug": true,
+		"info":  true,
+		"warn":  true,
+		"error": true,
+		"fatal": true,
+	}
+	if c.Logging.Level != "" && !validLogLevels[c.Logging.Level] {
+		errors = append(errors, ValidationError{
+			Field:   "logging.level",
+			Value:   c.Logging.Level,
+			Message: "must be one of: debug, info, warn, error, fatal",
+		})
+	}
+
+	return errors
+}
+
+// ApplyEnvironmentOverrides applies environment variable overrides to the configuration
+func (c *Config) ApplyEnvironmentOverrides() {
+	envOverrides := map[string]func(string){
+		"FRAMEWORK_LED_PORT":            func(v string) { c.Matrix.Port = v },
+		"FRAMEWORK_LED_BAUD_RATE":       func(v string) { if i, err := strconv.Atoi(v); err == nil { c.Matrix.BaudRate = i } },
+		"FRAMEWORK_LED_AUTO_DISCOVER":   func(v string) { c.Matrix.AutoDiscover = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_BRIGHTNESS":      func(v string) { if i, err := strconv.Atoi(v); err == nil && i >= 0 && i <= 255 { c.Matrix.Brightness = byte(i) } },
+		"FRAMEWORK_LED_DUAL_MODE":       func(v string) { c.Matrix.DualMode = v },
+		"FRAMEWORK_LED_COLLECT_INTERVAL": func(v string) { if d, err := time.ParseDuration(v); err == nil { c.Stats.CollectInterval = d } },
+		"FRAMEWORK_LED_ENABLE_CPU":      func(v string) { c.Stats.EnableCPU = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_ENABLE_MEMORY":   func(v string) { c.Stats.EnableMemory = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_ENABLE_DISK":     func(v string) { c.Stats.EnableDisk = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_ENABLE_NETWORK":  func(v string) { c.Stats.EnableNetwork = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_UPDATE_RATE":     func(v string) { if d, err := time.ParseDuration(v); err == nil { c.Display.UpdateRate = d } },
+		"FRAMEWORK_LED_DISPLAY_MODE":    func(v string) { c.Display.Mode = v },
+		"FRAMEWORK_LED_PRIMARY_METRIC":  func(v string) { c.Display.PrimaryMetric = v },
+		"FRAMEWORK_LED_SHOW_ACTIVITY":   func(v string) { c.Display.ShowActivity = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_LOG_LEVEL":       func(v string) { c.Logging.Level = v },
+		"FRAMEWORK_LED_LOG_FILE":        func(v string) { c.Logging.File = v },
+	}
+
+	for envVar, applyFunc := range envOverrides {
+		if value := os.Getenv(envVar); value != "" {
+			applyFunc(value)
+		}
+	}
+}
+
+// ConfigWatcher provides hot-reload functionality for configuration files
+type ConfigWatcher struct {
+	configPath   string
+	config       *Config
+	mutex        sync.RWMutex
+	stopCh       chan struct{}
+	reloadCh     chan *Config
+	errorCh      chan error
+	lastModTime  time.Time
+	pollInterval time.Duration
+}
+
+// NewConfigWatcher creates a new configuration watcher
+func NewConfigWatcher(configPath string, initialConfig *Config) *ConfigWatcher {
+	return &ConfigWatcher{
+		configPath:   configPath,
+		config:       initialConfig,
+		stopCh:       make(chan struct{}),
+		reloadCh:     make(chan *Config, 1),
+		errorCh:      make(chan error, 1),
+		pollInterval: 1 * time.Second, // Check for changes every second
+	}
+}
+
+// Start begins watching the configuration file for changes
+func (w *ConfigWatcher) Start(ctx context.Context) error {
+	// Get initial file info
+	info, err := os.Stat(w.configPath)
+	if err != nil {
+		return fmt.Errorf("failed to stat config file: %w", err)
+	}
+	w.lastModTime = info.ModTime()
+
+	go w.watchLoop(ctx)
+	return nil
+}
+
+// Stop stops the configuration watcher
+func (w *ConfigWatcher) Stop() {
+	close(w.stopCh)
+}
+
+// GetConfig returns the current configuration (thread-safe)
+func (w *ConfigWatcher) GetConfig() *Config {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+	return w.config
+}
+
+// ReloadChannel returns a channel that receives new configurations
+func (w *ConfigWatcher) ReloadChannel() <-chan *Config {
+	return w.reloadCh
+}
+
+// ErrorChannel returns a channel that receives reload errors
+func (w *ConfigWatcher) ErrorChannel() <-chan error {
+	return w.errorCh
+}
+
+func (w *ConfigWatcher) watchLoop(ctx context.Context) {
+	ticker := time.NewTicker(w.pollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-w.stopCh:
+			return
+		case <-ticker.C:
+			if err := w.checkForChanges(); err != nil {
+				select {
+				case w.errorCh <- err:
+				default:
+					// Error channel is full, skip
+				}
+			}
+		}
+	}
+}
+
+func (w *ConfigWatcher) checkForChanges() error {
+	info, err := os.Stat(w.configPath)
+	if err != nil {
+		return fmt.Errorf("failed to stat config file: %w", err)
+	}
+
+	if info.ModTime().After(w.lastModTime) {
+		w.lastModTime = info.ModTime()
+
+		// Load new configuration
+		newConfig, err := LoadConfig(w.configPath)
+		if err != nil {
+			return fmt.Errorf("failed to reload config: %w", err)
+		}
+
+		// Apply environment overrides
+		newConfig.ApplyEnvironmentOverrides()
+
+		// Validate new configuration
+		if validationErrors := newConfig.ValidateDetailed(); len(validationErrors) > 0 {
+			var errorMsgs []string
+			for _, ve := range validationErrors {
+				errorMsgs = append(errorMsgs, ve.Error())
+			}
+			return fmt.Errorf("configuration validation failed: %s", strings.Join(errorMsgs, "; "))
+		}
+
+		// Update stored configuration
+		w.mutex.Lock()
+		w.config = newConfig
+		w.mutex.Unlock()
+
+		// Notify about reload
+		select {
+		case w.reloadCh <- newConfig:
+		default:
+			// Reload channel is full, skip
+		}
+	}
+
+	return nil
+}
+
+// LoadConfigWithEnv loads configuration with environment variable overrides
+func LoadConfigWithEnv(path string) (*Config, error) {
+	config, err := LoadConfig(path)
+	if err != nil {
+		return nil, err
+	}
+
+	config.ApplyEnvironmentOverrides()
+
+	if validationErrors := config.ValidateDetailed(); len(validationErrors) > 0 {
+		var errorMsgs []string
+		for _, ve := range validationErrors {
+			errorMsgs = append(errorMsgs, ve.Error())
+		}
+		return nil, fmt.Errorf("configuration validation failed: %s", strings.Join(errorMsgs, "; "))
+	}
+
+	return config, nil
 }

@@ -18,9 +18,10 @@ BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Build targets  
 .PHONY: all build clean install uninstall test test-coverage test-race test-short test-bench test-ci test-clean fmt vet deps cross-compile simulator help
+.PHONY: lint lint-fix gofumpt golangci-lint security-scan vuln-check sbom quality-check dev-tools-check
 
 # Default target
-all: clean deps fmt vet test-coverage build
+all: clean deps quality-check test-coverage build
 
 # Build the binary
 build:
@@ -237,13 +238,80 @@ dev-deps:
 	@echo "Installing development dependencies..."
 	@go install golang.org/x/tools/cmd/goimports@latest
 	@go install honnef.co/go/tools/cmd/staticcheck@latest
+	@go install mvdan.cc/gofumpt@latest
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
+	@go install github.com/anchore/syft/cmd/syft@latest
 	@echo "Development dependencies installed"
 
+# Check if development tools are installed
+dev-tools-check:
+	@echo "Checking development tools..."
+	@command -v gofumpt >/dev/null 2>&1 || { echo "gofumpt not found. Run 'make dev-deps' to install."; exit 1; }
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Run 'make dev-deps' to install."; exit 1; }
+	@command -v staticcheck >/dev/null 2>&1 || { echo "staticcheck not found. Run 'make dev-deps' to install."; exit 1; }
+	@command -v govulncheck >/dev/null 2>&1 || { echo "govulncheck not found. Run 'make dev-deps' to install."; exit 1; }
+	@echo "All development tools are installed"
+
+# Format code with gofumpt (stricter than gofmt)
+gofumpt:
+	@echo "Running gofumpt..."
+	@gofumpt -l -w .
+	@echo "Gofumpt formatting complete"
+
+# Format code (enhanced)
+fmt: gofumpt
+	@echo "Running goimports..."
+	@goimports -w .
+	@echo "Formatting complete"
+
+# Run comprehensive linting
+golangci-lint: dev-tools-check
+	@echo "Running golangci-lint..."
+	@golangci-lint run --timeout=5m
+	@echo "Linting complete"
+
+# Run all linting tools
+lint: fmt vet staticcheck golangci-lint
+	@echo "All linting complete"
+
+# Auto-fix linting issues where possible
+lint-fix: dev-tools-check
+	@echo "Auto-fixing linting issues..."
+	@golangci-lint run --fix --timeout=5m
+	@gofumpt -l -w .
+	@goimports -w .
+	@echo "Auto-fix complete"
+
 # Run static analysis
-staticcheck:
+staticcheck: dev-tools-check
 	@echo "Running staticcheck..."
 	@staticcheck ./...
 	@echo "Static analysis complete"
+
+# Security vulnerability scanning
+vuln-check: dev-tools-check
+	@echo "Running vulnerability check..."
+	@govulncheck ./...
+	@echo "Vulnerability check complete"
+
+# Generate Software Bill of Materials (SBOM)
+sbom:
+	@echo "Generating SBOM..."
+	@command -v syft >/dev/null 2>&1 || { echo "syft not found. Run 'make dev-deps' to install."; exit 1; }
+	@syft packages . -o spdx-json=sbom.spdx.json
+	@syft packages . -o syft-json=sbom.syft.json
+	@echo "SBOM generated: sbom.spdx.json, sbom.syft.json"
+
+# Security scanning
+security-scan: vuln-check
+	@echo "Running security scan..."
+	@go list -json -deps ./... | grep -v "$(shell go list -m)" | sort -u > go-deps.json
+	@echo "Security scan complete"
+
+# Combined quality check
+quality-check: dev-tools-check lint vuln-check
+	@echo "Quality check complete"
 
 # Show help
 help:
@@ -269,13 +337,24 @@ help:
 	@echo "  test-daemon        - Test daemon package only"
 	@echo ""
 	@echo "Code Quality:"
-	@echo "  fmt                - Format code"
+	@echo "  fmt                - Format code (gofumpt + goimports)"
+	@echo "  gofumpt            - Format code with gofumpt (stricter)"
 	@echo "  vet                - Run go vet"
 	@echo "  staticcheck        - Run static analysis"
+	@echo "  golangci-lint      - Run comprehensive linting"
+	@echo "  lint               - Run all linting tools"
+	@echo "  lint-fix           - Auto-fix linting issues"
+	@echo "  quality-check      - Run all quality checks"
 	@echo ""
 	@echo "Dependencies:"
 	@echo "  deps               - Update dependencies"
 	@echo "  dev-deps           - Install development dependencies"
+	@echo "  dev-tools-check    - Check if development tools are installed"
+	@echo ""
+	@echo "Security:"
+	@echo "  vuln-check         - Check for security vulnerabilities"
+	@echo "  security-scan      - Run comprehensive security scan"
+	@echo "  sbom               - Generate Software Bill of Materials"
 	@echo ""
 	@echo "Installation:"
 	@echo "  install            - Install daemon system-wide"

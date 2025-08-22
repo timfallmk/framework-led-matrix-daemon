@@ -1,0 +1,207 @@
+# GolangCI-Lint Configuration for Framework LED Matrix Daemon
+# https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  modules-download-mode: readonly
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+  sort-results: true
+
+linters-settings:
+  # Cyclomatic complexity
+  cyclop:
+    max-complexity: 15
+    package-average: 10.0
+
+  # Function length
+  funlen:
+    lines: 100
+    statements: 60
+
+  # Cognitive complexity
+  gocognit:
+    min-complexity: 20
+
+  # Cyclomatic complexity (alternative)
+  gocyclo:
+    min-complexity: 15
+
+  # Line length
+  lll:
+    line-length: 120
+
+  # Struct tag validation
+  govet:
+    check-shadowing: true
+    settings:
+      printf:
+        funcs:
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+
+  # Import organization
+  goimports:
+    local-prefixes: github.com/timfallmk/framework-led-matrix-daemon
+
+  # Security analysis
+  gosec:
+    severity: "low"
+    confidence: "low"
+    excludes:
+      - G204 # Subprocess launched with variable - acceptable for daemon operations
+
+  # Naming conventions
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+        arguments:
+          - "disableStutteringCheck"
+      - name: package-comments
+        severity: warning
+        disabled: false
+      - name: var-naming
+        severity: warning
+        disabled: false
+        arguments:
+          - ["ID"] # Allow ID in variable names
+
+  # Error handling
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    exclude-functions:
+      - io/ioutil.ReadFile
+      - io.Copy(*bytes.Buffer)
+      - io.Copy(os.Stdout)
+
+  # Unused parameters
+  unparam:
+    check-exported: false
+
+  # Unused variables/constants
+  unused:
+    go: "1.24"
+
+  # Whitespace
+  wsl:
+    strict-append: true
+    allow-assign-and-call: true
+    allow-multiline-assign: true
+    allow-separated-leading-comment: false
+
+linters:
+  disable-all: true
+  enable:
+    # Enabled by default
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    
+    # Additional quality linters
+    - bodyclose
+    - cyclop
+    - dupl
+    - durationcheck
+    - errname
+    - errorlint
+    - exportloopref
+    - forcetypeassert
+    - funlen
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gofmt
+    - gofumpt
+    - goheader
+    - goimports
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - grouper
+    - importas
+    - lll
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - nlreturn
+    - noctx
+    - nolintlint
+    - prealloc
+    - predeclared
+    - promlinter
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - stylecheck
+    - tenv
+    - testpackage
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+    - wsl
+
+issues:
+  # Exclude common false positives
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - funlen
+        - gocognit
+
+    # Exclude shadow checking in test files  
+    - path: _test\.go
+      text: "shadow"
+      linters:
+        - govet
+
+    # Exclude package comment requirement for main package
+    - path: cmd/
+      text: "package-comments"
+      linters:
+        - revive
+
+    # Allow long lines in generated files
+    - source: "^//go:generate "
+      linters:
+        - lll
+
+  # Show only new issues
+  new: false
+
+  # Maximum issues count per one linter
+  max-issues-per-linter: 0
+
+  # Maximum count of issues with the same text
+  max-same-issues: 0
+
+  # Show only new issues created after git revision
+  # new-from-rev: ""
