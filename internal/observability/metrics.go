@@ -29,6 +29,18 @@ type Metric struct {
 	Unit      string            `json:"unit,omitempty"`
 }
 
+// copyLabels creates a defensive copy of label maps to avoid mutation issues
+func copyLabels(src map[string]string) map[string]string {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string]string, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
 // MetricsCollector collects and manages application metrics
 type MetricsCollector struct {
 	logger        *logging.MetricsLogger
@@ -80,7 +92,7 @@ func (mc *MetricsCollector) AddCounter(name string, value float64, labels map[st
 			Name:      name,
 			Type:      MetricTypeCounter,
 			Value:     value,
-			Labels:    labels,
+			Labels:    copyLabels(labels),
 			Timestamp: time.Now(),
 		}
 	}
@@ -101,7 +113,7 @@ func (mc *MetricsCollector) SetGaugeWithUnit(name string, value float64, labels 
 		Name:      name,
 		Type:      MetricTypeGauge,
 		Value:     value,
-		Labels:    labels,
+		Labels:    copyLabels(labels),
 		Timestamp: time.Now(),
 		Unit:      unit,
 	}
@@ -117,7 +129,7 @@ func (mc *MetricsCollector) ObserveHistogram(name string, value float64, labels 
 		Name:      name,
 		Type:      MetricTypeHistogram,
 		Value:     value,
-		Labels:    labels,
+		Labels:    copyLabels(labels),
 		Timestamp: time.Now(),
 	}
 }
@@ -139,7 +151,7 @@ func (mc *MetricsCollector) GetMetrics() map[string]*Metric {
 			Name:      v.Name,
 			Type:      v.Type,
 			Value:     v.Value,
-			Labels:    v.Labels,
+			Labels:    copyLabels(v.Labels),
 			Timestamp: v.Timestamp,
 			Unit:      v.Unit,
 		}
@@ -159,7 +171,7 @@ func (mc *MetricsCollector) GetMetricsByType(metricType MetricType) []*Metric {
 				Name:      metric.Name,
 				Type:      metric.Type,
 				Value:     metric.Value,
-				Labels:    metric.Labels,
+				Labels:    copyLabels(metric.Labels),
 				Timestamp: metric.Timestamp,
 				Unit:      metric.Unit,
 			})
@@ -234,7 +246,7 @@ func (mc *MetricsCollector) flushMetrics() {
 			Name:      metric.Name,
 			Type:      metric.Type,
 			Value:     metric.Value,
-			Labels:    metric.Labels,
+			Labels:    copyLabels(metric.Labels),
 			Timestamp: metric.Timestamp,
 			Unit:      metric.Unit,
 		})

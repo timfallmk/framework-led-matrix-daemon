@@ -146,11 +146,6 @@ test-clean:
 	@rm -f coverage.out coverage.html
 	@echo "Test artifacts cleaned"
 
-# Format code
-fmt:
-	@echo "Formatting code..."
-	@go fmt ./...
-	@echo "Formatting complete"
 
 # Run go vet
 vet:
