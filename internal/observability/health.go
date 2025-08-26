@@ -26,7 +26,7 @@ type HealthCheck struct {
 	Message     string        `json:"message,omitempty"`
 	LastChecked time.Time     `json:"last_checked"`
 	Duration    time.Duration `json:"duration"`
-	Error       error         `json:"error,omitempty"`
+	Error       string        `json:"error,omitempty"`
 }
 
 // HealthChecker defines the interface for health checks
@@ -57,12 +57,23 @@ type HealthMonitor struct {
 func NewHealthMonitor(logger *logging.Logger, metrics *ApplicationMetrics, checkInterval time.Duration) *HealthMonitor {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Validate checkInterval to prevent time.NewTicker panic
+	validatedInterval := checkInterval
+	if checkInterval <= 0 {
+		validatedInterval = time.Second
+		eventLogger := logging.NewEventLogger(logger)
+		eventLogger.LogDaemon(logging.LevelWarn, "invalid health check interval provided, using default", "validate", map[string]interface{}{
+			"provided_interval": checkInterval.String(),
+			"default_interval":  validatedInterval.String(),
+		})
+	}
+
 	hm := &HealthMonitor{
 		checkers:      make(map[string]HealthChecker),
 		results:       make(map[string]*HealthCheck),
 		logger:        logging.NewEventLogger(logger),
 		metrics:       metrics,
-		checkInterval: checkInterval,
+		checkInterval: validatedInterval,
 		ctx:           ctx,
 		cancel:        cancel,
 		checkSem:      make(chan struct{}, 5), // Limit to 5 concurrent health checks
@@ -230,12 +241,12 @@ func (hm *HealthMonitor) runCheck(checker HealthChecker) {
 		Name:        checker.Name(),
 		LastChecked: time.Now(),
 		Duration:    duration,
-		Error:       err,
 	}
 
 	if err != nil {
 		result.Status = StatusUnhealthy
 		result.Message = err.Error()
+		result.Error = err.Error()
 	} else {
 		result.Status = StatusHealthy
 		result.Message = "OK"

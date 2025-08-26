@@ -156,6 +156,23 @@ func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
 
 // Close closes the logger and any associated resources
 func (l *Logger) Close() error {
+	defer func() {
+		l.writer = nil
+	}()
+
+	// Skip closing if writer is os.Stdout or os.Stderr
+	if l.writer == os.Stdout || l.writer == os.Stderr {
+		return nil
+	}
+
+	// Also check if it's an *os.File with the same file descriptor
+	if osFile, ok := l.writer.(*os.File); ok {
+		if osFile.Fd() == os.Stdout.Fd() || osFile.Fd() == os.Stderr.Fd() {
+			return nil
+		}
+	}
+
+	// Safe to close other writers
 	if closer, ok := l.writer.(io.Closer); ok {
 		return closer.Close()
 	}
