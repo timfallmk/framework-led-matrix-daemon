@@ -8,10 +8,8 @@ run:
   modules-download-mode: readonly
 
 output:
-  format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
-  uniq-by-line: true
   sort-results: true
 
 linters-settings:
@@ -39,7 +37,7 @@ linters-settings:
 
   # Struct tag validation
   govet:
-    check-shadowing: true
+    enable-all: true
     settings:
       printf:
         funcs:
@@ -80,19 +78,17 @@ linters-settings:
   errcheck:
     check-type-assertions: true
     check-blank: true
-errcheck:
-  check-type-assertions: true
-  check-blank: true
-  exclude-functions:
-    - os.ReadFile
-    - io.Copy
+    exclude-functions:
+      - os.ReadFile
+      - io.Copy
+
   # Unused parameters
   unparam:
     check-exported: false
 
   # Unused variables/constants
   unused:
-    go: "1.24"
+    exported-fields-are-used: false
 
   # Whitespace
   wsl:
@@ -120,7 +116,7 @@ linters:
     - durationcheck
     - errname
     - errorlint
-    - exportloopref
+    - copyloopvar
     - forcetypeassert
     - funlen
     - gochecknoinits
@@ -154,7 +150,7 @@ linters:
     - rowserrcheck
     - sqlclosecheck
     - stylecheck
-    - tenv
+    - usetesting
     - testpackage
     - thelper
     - tparallel

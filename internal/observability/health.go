@@ -48,6 +48,9 @@ type HealthMonitor struct {
 	ctx           context.Context
 	cancel        context.CancelFunc
 	wg            sync.WaitGroup
+
+	// Semaphore to limit concurrent health checks
+	checkSem chan struct{}
 }
 
 // NewHealthMonitor creates a new health monitor
@@ -62,6 +65,7 @@ func NewHealthMonitor(logger *logging.Logger, metrics *ApplicationMetrics, check
 		checkInterval: checkInterval,
 		ctx:           ctx,
 		cancel:        cancel,
+		checkSem:      make(chan struct{}, 5), // Limit to 5 concurrent health checks
 	}
 
 	return hm
@@ -183,13 +187,22 @@ func (hm *HealthMonitor) runAllChecks() {
 	}
 	hm.mu.RUnlock()
 
-	// Run checks in parallel
+	// Run checks in parallel with concurrency control
 	var wg sync.WaitGroup
 	for _, checker := range checkers {
 		wg.Add(1)
 		go func(c HealthChecker) {
 			defer wg.Done()
-			hm.runCheck(c)
+
+			// Acquire semaphore to limit concurrency
+			select {
+			case hm.checkSem <- struct{}{}:
+				defer func() { <-hm.checkSem }() // Release semaphore
+				hm.runCheck(c)
+			case <-hm.ctx.Done():
+				// Context cancelled, skip this check
+				return
+			}
 		}(checker)
 	}
 	wg.Wait()
