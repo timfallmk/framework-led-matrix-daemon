@@ -515,7 +515,9 @@ func (s *Service) reloadConfig() error {
 		DiskCritical:   newConfig.Stats.Thresholds.DiskCritical,
 	})
 
-	s.visualizer.UpdateConfig(newConfig)
+	if s.visualizer != nil {
+		s.visualizer.UpdateConfig(newConfig)
+	}
 
 	duration := timer.StopWithSuccess(true)
 	s.appMetrics.RecordConfigReload(true, duration)

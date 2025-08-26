@@ -100,9 +100,9 @@ func (hm *HealthMonitor) Start() {
 func (hm *HealthMonitor) Stop() {
 	hm.cancel()
 	hm.wg.Wait()
-	hm.logger.Close()
 
 	hm.logger.LogDaemon(logging.LevelInfo, "health monitor stopped", "stop", nil)
+	hm.logger.Close()
 }
 
 // GetHealth returns the current health status of all components
