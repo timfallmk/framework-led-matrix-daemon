@@ -40,6 +40,17 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Validate duration and interval flags
+	if *duration <= 0 {
+		fmt.Fprintf(os.Stderr, "Error: duration flag must be greater than zero, got: %v\n", *duration)
+		os.Exit(1)
+	}
+
+	if *interval <= 0 {
+		fmt.Fprintf(os.Stderr, "Error: interval flag must be greater than zero, got: %v\n", *interval)
+		os.Exit(1)
+	}
+
 	fmt.Println("🔥 Framework LED Matrix Simulator")
 	fmt.Println("=================================")
 	fmt.Printf("Mode: %s | Metric: %s | Duration: %v\n\n", *mode, *metric, *duration)

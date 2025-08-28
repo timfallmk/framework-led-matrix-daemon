@@ -41,6 +41,7 @@ type Service struct {
 	cancel           context.CancelFunc
 	wg               sync.WaitGroup
 	stopCh           chan struct{}
+	stopOnce         sync.Once
 	usingMultiple    bool
 	startTime        time.Time
 }
@@ -299,7 +300,7 @@ func (s *Service) Start() error {
 func (s *Service) Stop() error {
 	s.eventLogger.LogDaemon(logging.LevelInfo, "stopping Framework LED Matrix daemon", "stop", nil)
 
-	close(s.stopCh)
+	s.stopOnce.Do(func() { close(s.stopCh) })
 	s.cancel()
 
 	s.wg.Wait()
@@ -492,7 +493,7 @@ func (s *Service) handleSignals() {
 				s.eventLogger.LogDaemon(logging.LevelInfo, "received shutdown signal", "signal", map[string]interface{}{
 					"signal": sig.String(),
 				})
-				close(s.stopCh)
+				s.stopOnce.Do(func() { close(s.stopCh) })
 				return
 			case syscall.SIGHUP:
 				s.eventLogger.LogDaemon(logging.LevelInfo, "received SIGHUP, reloading configuration", "signal", map[string]interface{}{
