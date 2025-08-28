@@ -44,12 +44,6 @@ func (dm *DisplayManager) shouldUpdate() bool {
 	return time.Since(dm.lastUpdate) >= dm.updateRate
 }
 
-func (dm *DisplayManager) markUpdated() {
-	dm.mu.Lock()
-	defer dm.mu.Unlock()
-	dm.lastUpdate = time.Now()
-}
-
 func (dm *DisplayManager) markUpdatedUnsafe() {
 	dm.lastUpdate = time.Now()
 }

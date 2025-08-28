@@ -193,7 +193,7 @@ func (c *Collector) CollectNetworkStats() (NetworkStats, error) {
 		stats.TotalBytesRecv = netIO[0].BytesRecv
 
 		c.mu.Lock()
-		if c.lastNetStats != nil && len(c.lastNetStats) > 0 {
+		if len(c.lastNetStats) > 0 {
 			sentDiff := netIO[0].BytesSent - c.lastNetStats[0].BytesSent
 			recvDiff := netIO[0].BytesRecv - c.lastNetStats[0].BytesRecv
 			stats.ActivityRate = float64(sentDiff+recvDiff) / c.collectInterval.Seconds()
