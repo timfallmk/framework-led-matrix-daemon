@@ -802,6 +802,7 @@ func (w *ConfigWatcher) watchLoop(ctx context.Context) {
 		}
 	}
 }
+
 func (w *ConfigWatcher) reloadConfig() error {
 	// Load new configuration
 	newConfig, err := LoadConfig(w.configPath)

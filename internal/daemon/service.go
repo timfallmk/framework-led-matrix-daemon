@@ -512,12 +512,12 @@ func (s *Service) handleSignals() {
 func (s *Service) reloadConfig() error {
 	timer := s.metricsCollector.StartTimer("config_reload_duration", nil)
 
-newConfig, err := config.LoadConfig("")
-if err != nil {
-    duration := timer.StopWithSuccess(false)
-    s.appMetrics.RecordConfigReload(false, duration)
-    return fmt.Errorf("failed to load config: %w", err)
-}
+	newConfig, err := config.LoadConfig("")
+	if err != nil {
+		duration := timer.StopWithSuccess(false)
+		s.appMetrics.RecordConfigReload(false, duration)
+		return fmt.Errorf("failed to load config: %w", err)
+	}
 
 	s.config = newConfig
 

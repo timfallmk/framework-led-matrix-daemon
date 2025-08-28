@@ -42,20 +42,14 @@ func TestNewLogger(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-// internal/logging/logger.go
-
-func (l *Logger) Close() error {
-    // Never close the global stdout/stderr
-    switch l.writer {
-    case os.Stdout, os.Stderr:
-        return nil
-    }
-
-    if closer, ok := l.writer.(io.Closer); ok {
-        return closer.Close()
-    }
-    return nil
-}
+			logger, err := NewLogger(tt.config)
+			if (err != nil) != (tt.want != nil) {
+				t.Errorf("NewLogger() error = %v, want %v", err, tt.want)
+			}
+			if logger != nil {
+				logger.Close()
+			}
+		})
 	}
 }
 
