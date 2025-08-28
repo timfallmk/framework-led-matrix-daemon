@@ -77,11 +77,11 @@ type DaemonConfig struct {
 }
 
 type LoggingConfig struct {
-	Level           string `yaml:"level"`              // debug, info, warn, error
-	Format          string `yaml:"format"`             // text, json
-	Output          string `yaml:"output"`             // stdout, stderr, or file path
-	AddSource       bool   `yaml:"add_source"`         // include source file/line in logs
-	EventBufferSize int    `yaml:"event_buffer_size"`  // Buffer size for async event logging
+	Level           string `yaml:"level"`             // debug, info, warn, error
+	Format          string `yaml:"format"`            // text, json
+	Output          string `yaml:"output"`            // stdout, stderr, or file path
+	AddSource       bool   `yaml:"add_source"`        // include source file/line in logs
+	EventBufferSize int    `yaml:"event_buffer_size"` // Buffer size for async event logging
 	// Legacy file logging options (deprecated in favor of structured logging)
 	File       string `yaml:"file"`
 	MaxSize    int    `yaml:"max_size"`
@@ -679,8 +679,8 @@ func (c *Config) ApplyEnvironmentOverrides() {
 		"FRAMEWORK_LED_SHOW_ACTIVITY":  func(v string) { c.Display.ShowActivity = strings.ToLower(v) == "true" },
 		"FRAMEWORK_LED_LOG_LEVEL":      func(v string) { c.Logging.Level = v },
 		"FRAMEWORK_LED_LOG_FILE":       func(v string) { c.Logging.File = v },
-		"FRAMEWORK_LED_LOG_FORMAT":     func(v string) { c.Logging.Format = v },      // "text" or "json"
-		"FRAMEWORK_LED_LOG_OUTPUT":     func(v string) { c.Logging.Output = v },      // "stdout", "stderr", or file path
+		"FRAMEWORK_LED_LOG_FORMAT":     func(v string) { c.Logging.Format = v }, // "text" or "json"
+		"FRAMEWORK_LED_LOG_OUTPUT":     func(v string) { c.Logging.Output = v }, // "stdout", "stderr", or file path
 		"FRAMEWORK_LED_LOG_ADD_SOURCE": func(v string) { c.Logging.AddSource = strings.ToLower(v) == "true" },
 		"FRAMEWORK_LED_LOG_EVENT_BUFFER_SIZE": func(v string) {
 			if i, err := strconv.Atoi(v); err == nil && i > 0 {

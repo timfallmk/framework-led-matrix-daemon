@@ -34,7 +34,7 @@ const (
 type Config struct {
 	Level           LogLevel  `yaml:"level" json:"level"`
 	Format          LogFormat `yaml:"format" json:"format"`
-	Output          string    `yaml:"output" json:"output"`      // "stdout", "stderr", or file path
+	Output          string    `yaml:"output" json:"output"` // "stdout", "stderr", or file path
 	AddSource       bool      `yaml:"add_source" json:"add_source"`
 	EventBufferSize int       `yaml:"event_buffer_size" json:"event_buffer_size"` // Buffer size for async event logging
 }
@@ -203,7 +203,7 @@ type EventLogger struct {
 
 // NewEventLogger creates and returns an EventLogger that asynchronously processes structured observability events.
 // The returned EventLogger uses the provided Logger as its output, allocates a buffered event channel with capacity
-// from the Logger's EventBufferSize config (defaulting to 1000 if invalid), and starts a background goroutine to 
+// from the Logger's EventBufferSize config (defaulting to 1000 if invalid), and starts a background goroutine to
 // process events. Call Close on the EventLogger to stop the processor and drain any pending events before shutdown.
 func NewEventLogger(logger *Logger) *EventLogger {
 	bufferSize := logger.config.EventBufferSize

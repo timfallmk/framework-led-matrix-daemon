@@ -403,7 +403,7 @@ func (s *Service) runSystemLoop() {
 
 				// Immediately update display with fresh stats
 				displayTimer := s.metricsCollector.StartTimer("display_update_duration", nil)
-				
+
 				// Create summary directly from collected stats to avoid double collection
 				summary := &stats.StatsSummary{
 					CPUUsage:        collectedStats.CPU.UsagePercent,
@@ -412,7 +412,7 @@ func (s *Service) runSystemLoop() {
 					NetworkActivity: collectedStats.Network.ActivityRate,
 					Timestamp:       collectedStats.Timestamp,
 				}
-				
+
 				// Determine status based on thresholds
 				thresholds := s.collector.GetThresholds()
 				if summary.CPUUsage >= thresholds.CPUCritical || summary.MemoryUsage >= thresholds.MemoryCritical {
