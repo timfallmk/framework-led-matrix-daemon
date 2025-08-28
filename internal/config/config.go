@@ -624,19 +624,19 @@ func (c *Config) ValidateDetailed() []ValidationError {
 		})
 	}
 
-    // Logging configuration validation
-    validLogLevels := map[string]bool{
-        "debug": true,
-        "info":  true,
-        "warn":  true,
-        "error": true,
-    }
-    if c.Logging.Level != "" && !validLogLevels[c.Logging.Level] {
-        errors = append(errors, ValidationError{
-            Field:   "logging.level",
-            Value:   c.Logging.Level,
-            Message: "must be one of: debug, info, warn, error",
-        })
+	// Logging configuration validation
+	validLogLevels := map[string]bool{
+		"debug": true,
+		"info":  true,
+		"warn":  true,
+		"error": true,
+	}
+	if c.Logging.Level != "" && !validLogLevels[c.Logging.Level] {
+		errors = append(errors, ValidationError{
+			Field:   "logging.level",
+			Value:   c.Logging.Level,
+			Message: "must be one of: debug, info, warn, error",
+		})
 	}
 
 	return errors
@@ -845,31 +845,30 @@ func (w *ConfigWatcher) reloadConfig() error {
 // from file. If any validation issues are found by ValidateDetailed the function
 // returns a non-nil error that aggregates all validation messages.
 func LoadConfigWithEnv(path string) (*Config, error) {
-  config, err := LoadConfig(path)
-  if err != nil {
-    return nil, err
-  }
+	config, err := LoadConfig(path)
+	if err != nil {
+		return nil, err
+	}
 
-  config.ApplyEnvironmentOverrides()
+	config.ApplyEnvironmentOverrides()
 
-  var errorMsgs []string
-  // re-run the pure Validate (includes logging checks) after env overrides
-  if err := config.Validate(); err != nil {
-    errorMsgs = append(errorMsgs, err.Error())
-  }
-  // then gather detailed validation errors
-  if validationErrors := config.ValidateDetailed(); len(validationErrors) > 0 {
-    for _, ve := range validationErrors {
-      errorMsgs = append(errorMsgs, ve.Error())
-    }
-  }
-  if len(errorMsgs) > 0 {
-    return nil, fmt.Errorf(
-      "configuration validation failed: %s",
-      strings.Join(errorMsgs, "; "),
-    )
-  }
+	var errorMsgs []string
+	// re-run the pure Validate (includes logging checks) after env overrides
+	if err := config.Validate(); err != nil {
+		errorMsgs = append(errorMsgs, err.Error())
+	}
+	// then gather detailed validation errors
+	if validationErrors := config.ValidateDetailed(); len(validationErrors) > 0 {
+		for _, ve := range validationErrors {
+			errorMsgs = append(errorMsgs, ve.Error())
+		}
+	}
+	if len(errorMsgs) > 0 {
+		return nil, fmt.Errorf(
+			"configuration validation failed: %s",
+			strings.Join(errorMsgs, "; "),
+		)
+	}
 
-  return config, nil
-}
+	return config, nil
 }

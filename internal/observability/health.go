@@ -3,6 +3,7 @@ package observability
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 	"time"
 
@@ -74,13 +75,13 @@ func NewHealthMonitor(logger *logging.Logger, metrics *ApplicationMetrics, check
 	validatedInterval := checkInterval
 	if checkInterval <= 0 {
 		validatedInterval = time.Second
-     if checkInterval <= 0 {
-         validatedInterval = time.Second
-         // Use the logger directly instead of creating a temporary EventLogger
-         logger.WithComponent("health").Warn("invalid health check interval provided, using default",
-             "provided_interval", checkInterval.String(),
-             "default_interval",  validatedInterval.String())
-     }
+		if checkInterval <= 0 {
+			validatedInterval = time.Second
+			// Use the logger directly instead of creating a temporary EventLogger
+			logger.WithComponent("health").Warn("invalid health check interval provided, using default",
+				"provided_interval", checkInterval.String(),
+				"default_interval", validatedInterval.String())
+		}
 	}
 
 	hm := &HealthMonitor{
@@ -418,9 +419,7 @@ func (m *MemoryHealthChecker) Timeout() time.Duration {
 }
 
 func (m *MemoryHealthChecker) Check(ctx context.Context) error {
--	// This would need to be implemented with actual memory checking
--	// For now, we'll always return healthy
--	// In a real implementation, you'd check runtime.MemStats or similar
+	// Check current memory usage against the configured limit
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
