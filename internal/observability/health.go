@@ -54,7 +54,7 @@ type HealthMonitor struct {
 }
 
 // NewHealthMonitor creates a HealthMonitor that coordinates periodic health checks.
-// 
+//
 // The returned monitor is initialized with empty checker and result maps, a
 // cancellable background context, a wrapped event logger, the provided metrics,
 // and the specified checkInterval. Call Start to begin background monitoring and

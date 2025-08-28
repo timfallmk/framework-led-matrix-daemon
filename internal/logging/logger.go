@@ -498,7 +498,7 @@ func Info(msg string, args ...interface{}) {
 }
 
 // Warn logs a warning-level message through the package global logger.
-// 
+//
 // msg is the log message; args may be provided as optional key/value pairs to include with the entry.
 func Warn(msg string, args ...interface{}) {
 	GetGlobalLogger().Warn(msg, args...)
