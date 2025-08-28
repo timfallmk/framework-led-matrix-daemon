@@ -624,20 +624,19 @@ func (c *Config) ValidateDetailed() []ValidationError {
 		})
 	}
 
-	// Logging configuration validation
-	validLogLevels := map[string]bool{
-		"debug": true,
-		"info":  true,
-		"warn":  true,
-		"error": true,
-		"fatal": true,
-	}
-	if c.Logging.Level != "" && !validLogLevels[c.Logging.Level] {
-		errors = append(errors, ValidationError{
-			Field:   "logging.level",
-			Value:   c.Logging.Level,
-			Message: "must be one of: debug, info, warn, error, fatal",
-		})
+    // Logging configuration validation
+    validLogLevels := map[string]bool{
+        "debug": true,
+        "info":  true,
+        "warn":  true,
+        "error": true,
+    }
+    if c.Logging.Level != "" && !validLogLevels[c.Logging.Level] {
+        errors = append(errors, ValidationError{
+            Field:   "logging.level",
+            Value:   c.Logging.Level,
+            Message: "must be one of: debug, info, warn, error",
+        })
 	}
 
 	return errors
