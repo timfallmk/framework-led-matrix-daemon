@@ -776,9 +776,12 @@ func (w *ConfigWatcher) watchLoop(ctx context.Context) {
 			return
 		case <-w.stopCh:
 			return
-		case event := <-w.watcher.Events:
-			// Only react to Write and Create events
-			if event.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+		case event, ok := <-w.watcher.Events:
+			if !ok {
+				return
+			}
+			// React to Write/Create (and Rename to handle atomic replaces)
+			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename) != 0 {
 				if err := w.reloadConfig(); err != nil {
 					select {
 					case w.errorCh <- err:
@@ -787,7 +790,10 @@ func (w *ConfigWatcher) watchLoop(ctx context.Context) {
 					}
 				}
 			}
-		case err := <-w.watcher.Errors:
+		case err, ok := <-w.watcher.Errors:
+			if !ok {
+				return
+			}
 			select {
 			case w.errorCh <- fmt.Errorf("file watcher error: %w", err):
 			default:
@@ -796,7 +802,6 @@ func (w *ConfigWatcher) watchLoop(ctx context.Context) {
 		}
 	}
 }
-
 func (w *ConfigWatcher) reloadConfig() error {
 	// Load new configuration
 	newConfig, err := LoadConfig(w.configPath)
