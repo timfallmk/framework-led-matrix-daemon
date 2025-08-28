@@ -11,8 +11,13 @@ import (
 )
 
 const (
-	version = "1.0.0"
-	name    = "framework-led-daemon"
+	name = "framework-led-daemon"
+)
+
+var (
+	// These are set by the build system via -ldflags
+	version   = "dev"      // Set via -X main.version=...
+	buildTime = "unknown"  // Set via -X main.buildTime=...
 )
 
 var (
@@ -36,6 +41,7 @@ func main() {
 
 	if *showVersion {
 		fmt.Printf("%s version %s\n", name, version)
+		fmt.Printf("Build time: %s\n", buildTime)
 		os.Exit(0)
 	}
 

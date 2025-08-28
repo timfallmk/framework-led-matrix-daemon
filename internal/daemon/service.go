@@ -95,7 +95,6 @@ func NewService(cfg *config.Config) (*Service, error) {
 		ctx:              ctx,
 		cancel:           cancel,
 		stopCh:           make(chan struct{}),
-		startTime:        time.Now(),
 	}
 
 	return service, nil
@@ -258,14 +257,14 @@ func (s *Service) convertConfigMatrices(configMatrices []config.SingleMatrixConf
 	var matrices []matrix.SingleMatrixConfig
 
 	for _, cm := range configMatrices {
-		matrix := matrix.SingleMatrixConfig{
+		matrixConfig := matrix.SingleMatrixConfig{
 			Name:       cm.Name,
 			Port:       cm.Port,
 			Role:       cm.Role,
 			Brightness: cm.Brightness,
 			Metrics:    cm.Metrics,
 		}
-		matrices = append(matrices, matrix)
+		matrices = append(matrices, matrixConfig)
 	}
 
 	return matrices
@@ -292,6 +291,9 @@ func (s *Service) Start() error {
 
 	s.wg.Add(1)
 	go s.handleSignals()
+
+	// Initialize start time only after successful startup
+	s.startTime = time.Now()
 
 	s.eventLogger.LogDaemon(logging.LevelInfo, "daemon started successfully", "start_complete", nil)
 	return nil

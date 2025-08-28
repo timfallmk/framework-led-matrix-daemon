@@ -123,6 +123,7 @@ jobs:
           
           # Copy configuration and service files
           cp ../configs/config.yaml .
+          cp ../LICENSE .
           if [ "${{ matrix.goos }}" = "linux" ]; then
             cp ../systemd/framework-led-daemon.service .
           fi
@@ -137,6 +138,7 @@ jobs:
           	Files:
           	- framework-led-daemon$([ "${{ matrix.goos }}" = "windows" ] && echo ".exe" || echo ""): Main executable
           	- config.yaml: Default configuration file
+          	- LICENSE: GNU Affero General Public License v3.0
           	$([ "${{ matrix.goos }}" = "linux" ] && echo "- framework-led-daemon.service: systemd service file" || echo "")
           	
           	Installation:

@@ -3,6 +3,7 @@ module github.com/timfallmk/framework-led-matrix-daemon
 go 1.24.5
 
 require (
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/takama/daemon v1.0.0
 	go.bug.st/serial v1.6.4

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v3"
 )
 
@@ -76,10 +77,11 @@ type DaemonConfig struct {
 }
 
 type LoggingConfig struct {
-	Level     string `yaml:"level"`      // debug, info, warn, error
-	Format    string `yaml:"format"`     // text, json
-	Output    string `yaml:"output"`     // stdout, stderr, or file path
-	AddSource bool   `yaml:"add_source"` // include source file/line in logs
+	Level           string `yaml:"level"`              // debug, info, warn, error
+	Format          string `yaml:"format"`             // text, json
+	Output          string `yaml:"output"`             // stdout, stderr, or file path
+	AddSource       bool   `yaml:"add_source"`         // include source file/line in logs
+	EventBufferSize int    `yaml:"event_buffer_size"`  // Buffer size for async event logging
 	// Legacy file logging options (deprecated in favor of structured logging)
 	File       string `yaml:"file"`
 	MaxSize    int    `yaml:"max_size"`
@@ -135,10 +137,11 @@ func DefaultConfig() *Config {
 			LogFile:     "/var/log/framework-led-daemon.log",
 		},
 		Logging: LoggingConfig{
-			Level:     "info",
-			Format:    "text",
-			Output:    "stdout",
-			AddSource: true,
+			Level:           "info",
+			Format:          "text",
+			Output:          "stdout",
+			AddSource:       true,
+			EventBufferSize: 1000,
 			// Legacy options with defaults
 			File:       "",
 			MaxSize:    10,
@@ -676,6 +679,14 @@ func (c *Config) ApplyEnvironmentOverrides() {
 		"FRAMEWORK_LED_SHOW_ACTIVITY":  func(v string) { c.Display.ShowActivity = strings.ToLower(v) == "true" },
 		"FRAMEWORK_LED_LOG_LEVEL":      func(v string) { c.Logging.Level = v },
 		"FRAMEWORK_LED_LOG_FILE":       func(v string) { c.Logging.File = v },
+		"FRAMEWORK_LED_LOG_FORMAT":     func(v string) { c.Logging.Format = v },      // "text" or "json"
+		"FRAMEWORK_LED_LOG_OUTPUT":     func(v string) { c.Logging.Output = v },      // "stdout", "stderr", or file path
+		"FRAMEWORK_LED_LOG_ADD_SOURCE": func(v string) { c.Logging.AddSource = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_LOG_EVENT_BUFFER_SIZE": func(v string) {
+			if i, err := strconv.Atoi(v); err == nil && i > 0 {
+				c.Logging.EventBufferSize = i
+			}
+		},
 	}
 
 	for envVar, applyFunc := range envOverrides {
@@ -687,39 +698,43 @@ func (c *Config) ApplyEnvironmentOverrides() {
 
 // ConfigWatcher provides hot-reload functionality for configuration files
 type ConfigWatcher struct {
-	configPath   string
-	config       *Config
-	mutex        sync.RWMutex
-	stopCh       chan struct{}
-	reloadCh     chan *Config
-	errorCh      chan error
-	lastModTime  time.Time
-	pollInterval time.Duration
+	configPath string
+	config     *Config
+	mutex      sync.RWMutex
+	stopCh     chan struct{}
+	reloadCh   chan *Config
+	errorCh    chan error
+	watcher    *fsnotify.Watcher
 }
 
 // NewConfigWatcher returns a new ConfigWatcher configured to monitor the given
 // configPath. The watcher is initialized with initialConfig and ready-to-use
 // channels for reload notifications and error reporting. The returned watcher
-// uses a 1s polling interval by default.
+// uses fsnotify for efficient file change detection.
 func NewConfigWatcher(configPath string, initialConfig *Config) *ConfigWatcher {
 	return &ConfigWatcher{
-		configPath:   configPath,
-		config:       initialConfig,
-		stopCh:       make(chan struct{}),
-		reloadCh:     make(chan *Config, 1),
-		errorCh:      make(chan error, 1),
-		pollInterval: 1 * time.Second, // Check for changes every second
+		configPath: configPath,
+		config:     initialConfig,
+		stopCh:     make(chan struct{}),
+		reloadCh:   make(chan *Config, 1),
+		errorCh:    make(chan error, 1),
 	}
 }
 
 // Start begins watching the configuration file for changes
 func (w *ConfigWatcher) Start(ctx context.Context) error {
-	// Get initial file info
-	info, err := os.Stat(w.configPath)
+	// Create file system watcher
+	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return fmt.Errorf("failed to stat config file: %w", err)
+		return fmt.Errorf("failed to create file watcher: %w", err)
 	}
-	w.lastModTime = info.ModTime()
+	w.watcher = watcher
+
+	// Add config file to watcher
+	if err := w.watcher.Add(w.configPath); err != nil {
+		w.watcher.Close()
+		return fmt.Errorf("failed to add config file to watcher: %w", err)
+	}
 
 	go w.watchLoop(ctx)
 	return nil
@@ -728,6 +743,9 @@ func (w *ConfigWatcher) Start(ctx context.Context) error {
 // Stop stops the configuration watcher
 func (w *ConfigWatcher) Stop() {
 	close(w.stopCh)
+	if w.watcher != nil {
+		w.watcher.Close()
+	}
 }
 
 // GetConfig returns the current configuration (thread-safe)
@@ -748,65 +766,62 @@ func (w *ConfigWatcher) ErrorChannel() <-chan error {
 }
 
 func (w *ConfigWatcher) watchLoop(ctx context.Context) {
-	ticker := time.NewTicker(w.pollInterval)
-	defer ticker.Stop()
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-w.stopCh:
 			return
-		case <-ticker.C:
-			if err := w.checkForChanges(); err != nil {
-				select {
-				case w.errorCh <- err:
-				default:
-					// Error channel is full, skip
+		case event := <-w.watcher.Events:
+			// Only react to Write and Create events
+			if event.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+				if err := w.reloadConfig(); err != nil {
+					select {
+					case w.errorCh <- err:
+					default:
+						// Error channel is full, skip
+					}
 				}
+			}
+		case err := <-w.watcher.Errors:
+			select {
+			case w.errorCh <- fmt.Errorf("file watcher error: %w", err):
+			default:
+				// Error channel is full, skip
 			}
 		}
 	}
 }
 
-func (w *ConfigWatcher) checkForChanges() error {
-	info, err := os.Stat(w.configPath)
+func (w *ConfigWatcher) reloadConfig() error {
+	// Load new configuration
+	newConfig, err := LoadConfig(w.configPath)
 	if err != nil {
-		return fmt.Errorf("failed to stat config file: %w", err)
+		return fmt.Errorf("failed to reload config: %w", err)
 	}
 
-	if info.ModTime().After(w.lastModTime) {
-		w.lastModTime = info.ModTime()
+	// Apply environment overrides
+	newConfig.ApplyEnvironmentOverrides()
 
-		// Load new configuration
-		newConfig, err := LoadConfig(w.configPath)
-		if err != nil {
-			return fmt.Errorf("failed to reload config: %w", err)
+	// Validate new configuration
+	if validationErrors := newConfig.ValidateDetailed(); len(validationErrors) > 0 {
+		var errorMsgs []string
+		for _, ve := range validationErrors {
+			errorMsgs = append(errorMsgs, ve.Error())
 		}
+		return fmt.Errorf("configuration validation failed: %s", strings.Join(errorMsgs, "; "))
+	}
 
-		// Apply environment overrides
-		newConfig.ApplyEnvironmentOverrides()
+	// Update stored configuration
+	w.mutex.Lock()
+	w.config = newConfig
+	w.mutex.Unlock()
 
-		// Validate new configuration
-		if validationErrors := newConfig.ValidateDetailed(); len(validationErrors) > 0 {
-			var errorMsgs []string
-			for _, ve := range validationErrors {
-				errorMsgs = append(errorMsgs, ve.Error())
-			}
-			return fmt.Errorf("configuration validation failed: %s", strings.Join(errorMsgs, "; "))
-		}
-
-		// Update stored configuration
-		w.mutex.Lock()
-		w.config = newConfig
-		w.mutex.Unlock()
-
-		// Notify about reload
-		select {
-		case w.reloadCh <- newConfig:
-		default:
-			// Reload channel is full, skip
-		}
+	// Notify about reload
+	select {
+	case w.reloadCh <- newConfig:
+	default:
+		// Reload channel is full, skip
 	}
 
 	return nil

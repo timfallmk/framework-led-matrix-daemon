@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
@@ -16,15 +17,28 @@ const (
 	LEDHeight = 9
 )
 
+var (
+	// These are set by the build system via -ldflags
+	version   = "dev"      // Set via -X main.version=...
+	buildTime = "unknown"  // Set via -X main.buildTime=...
+)
+
 func main() {
 	var (
-		configPath = flag.String("config", "", "Path to configuration file")
-		mode       = flag.String("mode", "percentage", "Display mode: percentage, gradient, activity, status")
-		metric     = flag.String("metric", "cpu", "Primary metric: cpu, memory, disk, network")
-		duration   = flag.Duration("duration", 30*time.Second, "How long to run simulation")
-		interval   = flag.Duration("interval", 2*time.Second, "Update interval")
+		configPath  = flag.String("config", "", "Path to configuration file")
+		mode        = flag.String("mode", "percentage", "Display mode: percentage, gradient, activity, status")
+		metric      = flag.String("metric", "cpu", "Primary metric: cpu, memory, disk, network")
+		duration    = flag.Duration("duration", 30*time.Second, "How long to run simulation")
+		interval    = flag.Duration("interval", 2*time.Second, "Update interval")
+		showVersion = flag.Bool("version", false, "Show version information")
 	)
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("Framework LED Matrix Simulator version %s\n", version)
+		fmt.Printf("Build time: %s\n", buildTime)
+		os.Exit(0)
+	}
 
 	fmt.Println("🔥 Framework LED Matrix Simulator")
 	fmt.Println("=================================")

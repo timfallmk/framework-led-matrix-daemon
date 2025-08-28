@@ -306,7 +306,7 @@ func TestCollectorCollectMemoryStats(t *testing.T) {
 	}
 
 	// Basic validation
-	if memStats.Total <= 0 {
+	if memStats.Total == 0 {
 		t.Errorf("CollectMemoryStats() Total = %d, should be > 0", memStats.Total)
 	}
 
@@ -413,7 +413,7 @@ func TestCollectorCollectSystemStatsIntegration(t *testing.T) {
 		t.Error("CollectSystemStats() CPU stats not properly populated")
 	}
 
-	if stats.Memory.Total <= 0 {
+	if stats.Memory.Total == 0 {
 		t.Error("CollectSystemStats() Memory stats not properly populated")
 	}
 

@@ -7,7 +7,7 @@ matrix:
   auto_discover: true        # Automatically find LED matrix port
   timeout: 1s                # Serial communication timeout
   brightness: 100            # LED brightness (0-255)
-  
+
   # Dual matrix configuration (leave empty for single matrix mode)
   dual_mode: "split"         # Dual matrix mode: mirror, split, extended, independent
   matrices:
@@ -17,7 +17,7 @@ matrix:
       brightness: 100        # Individual brightness control
       metrics: ["cpu", "memory"]  # Metrics to display on this matrix
     - name: "secondary"      # Secondary matrix (right side)
-      port: ""               # Auto-discover if empty  
+      port: ""               # Auto-discover if empty
       role: "secondary"      # Matrix role: primary, secondary
       brightness: 100        # Individual brightness control
       metrics: ["disk", "network"]  # Metrics to display on this matrix
@@ -57,7 +57,7 @@ logging:
   format: "text"             # Log format: text, json
   output: "stdout"           # Log output: stdout, stderr, or file path
   add_source: true           # Include source file/line in logs
-  
+
   # Legacy file logging options (deprecated in favor of structured logging)
   file: ""                   # Log file path (empty for stdout)
   max_size: 10               # Maximum log file size in MB

@@ -35,8 +35,8 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 # Copy binary
 COPY --from=builder /bin/framework-led-daemon /bin/framework-led-daemon
 
-# Copy default configuration
-COPY configs/config.yaml /etc/framework-led-daemon/config.yaml
+# Copy default configuration to user-accessible directory
+COPY --chown=65534:65534 configs/config.yaml /app/config.yaml
 
 # Create user
 USER 65534:65534
@@ -50,4 +50,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Set entrypoint
 ENTRYPOINT ["/bin/framework-led-daemon"]
-CMD ["-config", "/etc/framework-led-daemon/config.yaml", "run"]
+CMD ["-config", "/app/config.yaml", "run"]

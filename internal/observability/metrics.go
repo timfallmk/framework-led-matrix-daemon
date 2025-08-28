@@ -414,9 +414,10 @@ func (t *Timer) Stop() time.Duration {
 func (t *Timer) StopWithSuccess(success bool) time.Duration {
 	duration := time.Since(t.startTime)
 
-	labels := t.labels
-	if labels == nil {
-		labels = make(map[string]string)
+	// Clone labels to avoid mutating the original map
+	labels := make(map[string]string, len(t.labels)+1)
+	for k, v := range t.labels {
+		labels[k] = v
 	}
 	labels["success"] = "true"
 	if !success {

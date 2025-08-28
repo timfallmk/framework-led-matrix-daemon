@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 )
 
@@ -31,20 +32,22 @@ const (
 
 // Config holds the logger configuration
 type Config struct {
-	Level     LogLevel  `yaml:"level" json:"level"`
-	Format    LogFormat `yaml:"format" json:"format"`
-	Output    string    `yaml:"output" json:"output"` // "stdout", "stderr", or file path
-	AddSource bool      `yaml:"add_source" json:"add_source"`
+	Level           LogLevel  `yaml:"level" json:"level"`
+	Format          LogFormat `yaml:"format" json:"format"`
+	Output          string    `yaml:"output" json:"output"`      // "stdout", "stderr", or file path
+	AddSource       bool      `yaml:"add_source" json:"add_source"`
+	EventBufferSize int       `yaml:"event_buffer_size" json:"event_buffer_size"` // Buffer size for async event logging
 }
 
 // DefaultConfig returns a Config populated with sensible defaults: Info level,
-// text format, stdout output, and AddSource enabled.
+// text format, stdout output, AddSource enabled, and 1000 event buffer size.
 func DefaultConfig() Config {
 	return Config{
-		Level:     LevelInfo,
-		Format:    FormatText,
-		Output:    "stdout",
-		AddSource: true,
+		Level:           LevelInfo,
+		Format:          FormatText,
+		Output:          "stdout",
+		AddSource:       true,
+		EventBufferSize: 1000,
 	}
 }
 
@@ -195,19 +198,26 @@ type EventLogger struct {
 	logger *Logger
 	events chan LogEvent
 	done   chan struct{}
+	wg     sync.WaitGroup
 }
 
 // NewEventLogger creates and returns an EventLogger that asynchronously processes structured observability events.
-// The returned EventLogger uses the provided Logger as its output, allocates a buffered event channel (capacity 1000),
-// and starts a background goroutine to process events. Call Close on the EventLogger to stop the processor and drain
-// any pending events before shutdown.
+// The returned EventLogger uses the provided Logger as its output, allocates a buffered event channel with capacity
+// from the Logger's EventBufferSize config (defaulting to 1000 if invalid), and starts a background goroutine to 
+// process events. Call Close on the EventLogger to stop the processor and drain any pending events before shutdown.
 func NewEventLogger(logger *Logger) *EventLogger {
+	bufferSize := logger.config.EventBufferSize
+	if bufferSize <= 0 {
+		bufferSize = 1000 // Default buffer size
+	}
+
 	el := &EventLogger{
 		logger: logger,
-		events: make(chan LogEvent, 1000), // Buffer for async logging
+		events: make(chan LogEvent, bufferSize),
 		done:   make(chan struct{}),
 	}
 
+	el.wg.Add(1)
 	go el.processEvents()
 	return el
 }
@@ -321,6 +331,7 @@ func (el *EventLogger) logEventDirect(event LogEvent) {
 }
 
 func (el *EventLogger) processEvents() {
+	defer el.wg.Done()
 	for {
 		select {
 		case event := <-el.events:
@@ -339,9 +350,10 @@ func (el *EventLogger) processEvents() {
 	}
 }
 
-// Close stops the event logger
+// Close stops the event logger and waits for all events to drain
 func (el *EventLogger) Close() {
 	close(el.done)
+	el.wg.Wait()
 }
 
 // MetricsLogger provides structured metrics logging

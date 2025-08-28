@@ -9,6 +9,14 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 )
 
+// errString returns the error message as a string, or empty string if err is nil
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
 // HealthStatus represents the health status of a component
 type HealthStatus string
 
@@ -274,7 +282,7 @@ func (hm *HealthMonitor) runCheck(checker HealthChecker) {
 		"checker":  checker.Name(),
 		"status":   string(result.Status),
 		"duration": duration.String(),
-		"error":    err,
+		"error":    errString(err),
 	})
 }
 

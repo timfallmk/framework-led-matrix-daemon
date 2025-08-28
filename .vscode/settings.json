@@ -1,5 +1,5 @@
 {
     "yaml.schemas": {
-        "https://coderabbit.ai/integrations/schema.v2.json": "file:///home/tfall/Code/framework-led-matrix-daemon/.coderabbit.yml"
+        "https://coderabbit.ai/integrations/schema.v2.json": ".coderabbit.yml"
     }
 }
