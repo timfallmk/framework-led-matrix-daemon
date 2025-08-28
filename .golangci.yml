@@ -15,7 +15,6 @@ linters:
   enable:
     # Enabled by default
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
@@ -58,7 +57,6 @@ linters:
     - revive
     - rowserrcheck
     - sqlclosecheck
-    - stylecheck
     - usetesting
     - testpackage
     - thelper
@@ -68,7 +66,7 @@ linters:
     - usestdlibvars
     - wastedassign
     - whitespace
-    - wsl
+    - wsl_v5
 
   settings:
     # Cyclomatic complexity
@@ -145,11 +143,10 @@ linters:
       exported-fields-are-used: false
 
     # Whitespace
-    wsl:
-      strict-append: true
-      allow-assign-and-call: true
-      allow-multiline-assign: true
-      allow-separated-leading-comment: false
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
 
   exclusions:
     rules:
