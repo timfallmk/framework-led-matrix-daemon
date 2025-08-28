@@ -281,10 +281,7 @@ func (s *Service) Start() error {
 	}
 
 	s.wg.Add(1)
-	go s.runStatsCollector()
-
-	s.wg.Add(1)
-	go s.runDisplayUpdater()
+	go s.runSystemLoop()
 
 	s.wg.Add(1)
 	go s.runRuntimeMetrics()
@@ -365,10 +362,16 @@ func (s *Service) Run() error {
 	return s.Stop()
 }
 
-func (s *Service) runStatsCollector() {
+func (s *Service) runSystemLoop() {
 	defer s.wg.Done()
 
-	ticker := time.NewTicker(s.config.Stats.CollectInterval)
+	// Use the faster of the two configured intervals for the combined loop
+	interval := s.config.Display.UpdateRate
+	if s.config.Stats.CollectInterval < interval {
+		interval = s.config.Stats.CollectInterval
+	}
+
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
@@ -378,21 +381,67 @@ func (s *Service) runStatsCollector() {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			timer := s.metricsCollector.StartTimer("stats_collection_duration", nil)
-			stats, err := s.collector.CollectSystemStats()
-			duration := timer.StopWithSuccess(err == nil)
+			// Collect stats first
+			statsTimer := s.metricsCollector.StartTimer("stats_collection_duration", nil)
+			collectedStats, err := s.collector.CollectSystemStats()
+			statsDuration := statsTimer.StopWithSuccess(err == nil)
 
 			if err != nil {
 				s.eventLogger.LogStats(logging.LevelWarn, "failed to collect system stats", "system", 0, map[string]interface{}{
 					"error":    err.Error(),
-					"duration": duration.String(),
+					"duration": statsDuration.String(),
 				})
-			} else if stats != nil {
+				continue
+			}
+
+			if collectedStats != nil {
 				// Record individual stat metrics
-				s.appMetrics.RecordStatsCollection("cpu", stats.CPU.UsagePercent, duration)
-				s.appMetrics.RecordStatsCollection("memory", stats.Memory.UsedPercent, duration)
-				s.appMetrics.RecordStatsCollection("disk", float64(stats.Disk.ActivityRate), duration)
-				s.appMetrics.RecordStatsCollection("network", float64(stats.Network.ActivityRate), duration)
+				s.appMetrics.RecordStatsCollection("cpu", collectedStats.CPU.UsagePercent, statsDuration)
+				s.appMetrics.RecordStatsCollection("memory", collectedStats.Memory.UsedPercent, statsDuration)
+				s.appMetrics.RecordStatsCollection("disk", float64(collectedStats.Disk.ActivityRate), statsDuration)
+				s.appMetrics.RecordStatsCollection("network", float64(collectedStats.Network.ActivityRate), statsDuration)
+
+				// Immediately update display with fresh stats
+				displayTimer := s.metricsCollector.StartTimer("display_update_duration", nil)
+				
+				// Create summary directly from collected stats to avoid double collection
+				summary := &stats.StatsSummary{
+					CPUUsage:        collectedStats.CPU.UsagePercent,
+					MemoryUsage:     collectedStats.Memory.UsedPercent,
+					DiskActivity:    collectedStats.Disk.ActivityRate,
+					NetworkActivity: collectedStats.Network.ActivityRate,
+					Timestamp:       collectedStats.Timestamp,
+				}
+				
+				// Determine status based on thresholds
+				thresholds := s.collector.GetThresholds()
+				if summary.CPUUsage >= thresholds.CPUCritical || summary.MemoryUsage >= thresholds.MemoryCritical {
+					summary.Status = stats.StatusCritical
+				} else if summary.CPUUsage >= thresholds.CPUWarning || summary.MemoryUsage >= thresholds.MemoryWarning {
+					summary.Status = stats.StatusWarning
+				} else {
+					summary.Status = stats.StatusNormal
+				}
+
+				// Use appropriate visualizer based on mode
+				var updateErr error
+				mode := "single"
+				if s.usingMultiple && s.multiVisualizer != nil {
+					mode = "multi"
+					updateErr = s.multiVisualizer.UpdateDisplay(summary)
+				} else if s.visualizer != nil {
+					updateErr = s.visualizer.UpdateDisplay(summary)
+				}
+
+				displayDuration := displayTimer.StopWithSuccess(updateErr == nil)
+				s.appMetrics.RecordDisplayUpdate(mode, updateErr == nil, displayDuration)
+
+				if updateErr != nil {
+					s.eventLogger.LogMatrix(logging.LevelWarn, "failed to update display", mode, map[string]interface{}{
+						"error":    updateErr.Error(),
+						"duration": displayDuration.String(),
+					})
+				}
 			}
 		}
 	}
@@ -423,53 +472,6 @@ func (s *Service) runRuntimeMetrics() {
 			// Record uptime
 			uptime := time.Since(s.startTime)
 			s.appMetrics.RecordDaemonUptime(uptime)
-		}
-	}
-}
-
-func (s *Service) runDisplayUpdater() {
-	defer s.wg.Done()
-
-	ticker := time.NewTicker(s.config.Display.UpdateRate)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		case <-s.stopCh:
-			return
-		case <-ticker.C:
-			timer := s.metricsCollector.StartTimer("display_update_duration", nil)
-
-			summary, err := s.collector.GetSummary()
-			if err != nil {
-				timer.StopWithSuccess(false)
-				s.eventLogger.LogStats(logging.LevelWarn, "failed to get stats summary", "display_update", 0, map[string]interface{}{
-					"error": err.Error(),
-				})
-				continue
-			}
-
-			// Use appropriate visualizer based on mode
-			var updateErr error
-			mode := "single"
-			if s.usingMultiple && s.multiVisualizer != nil {
-				mode = "multi"
-				updateErr = s.multiVisualizer.UpdateDisplay(summary)
-			} else if s.visualizer != nil {
-				updateErr = s.visualizer.UpdateDisplay(summary)
-			}
-
-			duration := timer.StopWithSuccess(updateErr == nil)
-			s.appMetrics.RecordDisplayUpdate(mode, updateErr == nil, duration)
-
-			if updateErr != nil {
-				s.eventLogger.LogMatrix(logging.LevelWarn, "failed to update display", mode, map[string]interface{}{
-					"error":    updateErr.Error(),
-					"duration": duration.String(),
-				})
-			}
 		}
 	}
 }
