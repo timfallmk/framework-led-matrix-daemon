@@ -303,10 +303,9 @@ sbom:
 
 # Security scanning
 security-scan: vuln-check
-	@echo "Running security scan..."
-	@go list -json -deps ./... | grep -v "$(shell go list -m)" | sort -u > go-deps.json
-	@echo "Security scan complete"
-
+	@echo "Enumerating module dependencies (excluding main module)..."
+	@go list -m all | tail -n +2 > go-deps.txt
+	@echo "Security scan complete. Wrote go-deps.txt"
 # Combined quality check
 quality-check: dev-tools-check lint vuln-check
 	@echo "Quality check complete"
