@@ -676,7 +676,13 @@ func (c *Config) ApplyEnvironmentOverrides() {
 		"FRAMEWORK_LED_PRIMARY_METRIC": func(v string) { c.Display.PrimaryMetric = v },
 		"FRAMEWORK_LED_SHOW_ACTIVITY":  func(v string) { c.Display.ShowActivity = strings.ToLower(v) == "true" },
 		"FRAMEWORK_LED_LOG_LEVEL":      func(v string) { c.Logging.Level = v },
-		"FRAMEWORK_LED_LOG_FILE":       func(v string) { c.Logging.File = v },
+		// Legacy var: map to Output for compatibility
+		"FRAMEWORK_LED_LOG_FILE": func(v string) {
+			c.Logging.File = v
+			if c.Logging.Output == "" || c.Logging.Output == "stdout" || c.Logging.Output == "stderr" {
+				c.Logging.Output = v
+			}
+		},
 		"FRAMEWORK_LED_LOG_FORMAT":     func(v string) { c.Logging.Format = v }, // "text" or "json"
 		"FRAMEWORK_LED_LOG_OUTPUT":     func(v string) { c.Logging.Output = v }, // "stdout", "stderr", or file path
 		"FRAMEWORK_LED_LOG_ADD_SOURCE": func(v string) { c.Logging.AddSource = strings.ToLower(v) == "true" },
