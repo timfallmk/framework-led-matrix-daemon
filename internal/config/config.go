@@ -302,11 +302,10 @@ func (c *Config) validateLogging() error {
 
 	// Validate output - can be stdout, stderr, or a file path
 	if c.Logging.Output != "" && c.Logging.Output != "stdout" && c.Logging.Output != "stderr" {
-		// If it's a file path, check if the directory exists or can be created
 		dir := filepath.Dir(c.Logging.Output)
 		if dir != "." && dir != "/" {
-			if err := os.MkdirAll(dir, 0o755); err != nil {
-				return fmt.Errorf("cannot create log directory %s: %w", dir, err)
+			if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+				return fmt.Errorf("log directory %s does not exist or is not a directory", dir)
 			}
 		}
 	}
