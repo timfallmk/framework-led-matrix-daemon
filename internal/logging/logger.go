@@ -493,13 +493,20 @@ func SetGlobalLogger(logger *Logger) {
 // If no global logger has been set, it lazily creates and caches a default logger using DefaultConfig.
 // Note: logger construction errors are ignored; if creation fails, this may return nil.
 func GetGlobalLogger() *Logger {
-	if globalLogger == nil {
-		// Fallback to default logger
-		config := DefaultConfig()
-		logger, _ := NewLogger(config)
-		globalLogger = logger
-	}
-	return globalLogger
+func GetGlobalLogger() *Logger {
+    if globalLogger == nil {
+        // Fallback to default logger
+        config := DefaultConfig()
+        logger, err := NewLogger(config)
+        if err != nil {
+            // Fall back to a minimal logger that writes to stderr
+            // This ensures we always have a logger even if the default config fails
+            panic(fmt.Sprintf("failed to create default logger: %v", err))
+        }
+        globalLogger = logger
+    }
+    return globalLogger
+}
 }
 
 // Debug logs a message at the debug level using the package global logger.
