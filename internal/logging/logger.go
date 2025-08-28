@@ -37,7 +37,8 @@ type Config struct {
 	AddSource bool      `yaml:"add_source" json:"add_source"`
 }
 
-// DefaultConfig returns a default logger configuration
+// DefaultConfig returns a Config populated with sensible defaults: Info level,
+// text format, stdout output, and AddSource enabled.
 func DefaultConfig() Config {
 	return Config{
 		Level:     LevelInfo,
@@ -54,7 +55,7 @@ type Logger struct {
 	writer io.Writer
 }
 
-// NewLogger creates a new structured logger
+// Timestamps in log records are rendered using RFC3339.
 func NewLogger(config Config) (*Logger, error) {
 	var writer io.Writer
 	var err error
@@ -196,7 +197,10 @@ type EventLogger struct {
 	done   chan struct{}
 }
 
-// NewEventLogger creates a new event logger for observability
+// NewEventLogger creates and returns an EventLogger that asynchronously processes structured observability events.
+// The returned EventLogger uses the provided Logger as its output, allocates a buffered event channel (capacity 1000),
+// and starts a background goroutine to process events. Call Close on the EventLogger to stop the processor and drain
+// any pending events before shutdown.
 func NewEventLogger(logger *Logger) *EventLogger {
 	el := &EventLogger{
 		logger: logger,
@@ -345,7 +349,8 @@ type MetricsLogger struct {
 	logger *Logger
 }
 
-// NewMetricsLogger creates a new metrics logger
+// NewMetricsLogger returns a MetricsLogger that uses the provided Logger scoped to the
+// "metrics" component for all metric entries.
 func NewMetricsLogger(logger *Logger) *MetricsLogger {
 	return &MetricsLogger{
 		logger: logger.WithComponent("metrics"),
@@ -461,12 +466,15 @@ func (pt *PerformanceTracker) FinishWithError(err error) time.Duration {
 // Global logger instance
 var globalLogger *Logger
 
-// SetGlobalLogger sets the global logger instance
+// SetGlobalLogger sets the package-level global logger used by the convenience logging helpers.
+// Passing nil clears the global logger; GetGlobalLogger will create and return a default logger on next use.
 func SetGlobalLogger(logger *Logger) {
 	globalLogger = logger
 }
 
-// GetGlobalLogger returns the global logger instance
+// GetGlobalLogger returns the package-level global *Logger.
+// If no global logger has been set, it lazily creates and caches a default logger using DefaultConfig.
+// Note: logger construction errors are ignored; if creation fails, this may return nil.
 func GetGlobalLogger() *Logger {
 	if globalLogger == nil {
 		// Fallback to default logger
@@ -477,27 +485,41 @@ func GetGlobalLogger() *Logger {
 	return globalLogger
 }
 
-// Convenience functions for global logger
+// Debug logs a message at the debug level using the package global logger.
+// Any additional arguments are forwarded to the global Logger's Debug method (typically key/value pairs for structured fields).
 func Debug(msg string, args ...interface{}) {
 	GetGlobalLogger().Debug(msg, args...)
 }
 
+// Info logs an informational message using the package-level global logger.
+// It delegates to the global logger's Info method with the provided message and optional key/value pairs.
 func Info(msg string, args ...interface{}) {
 	GetGlobalLogger().Info(msg, args...)
 }
 
+// Warn logs a warning-level message through the package global logger.
+// 
+// msg is the log message; args may be provided as optional key/value pairs to include with the entry.
 func Warn(msg string, args ...interface{}) {
 	GetGlobalLogger().Warn(msg, args...)
 }
 
+// Error logs msg at error level using the package global logger.
+// It is a convenience wrapper that delegates to the global logger and accepts
+// optional key/value arguments to attach structured fields to the log entry.
 func Error(msg string, args ...interface{}) {
 	GetGlobalLogger().Error(msg, args...)
 }
 
+// WithComponent returns a new *Logger derived from the package global logger with the given
+// component name attached as the `component` field for all subsequent log entries.
 func WithComponent(component string) *Logger {
 	return GetGlobalLogger().WithComponent(component)
 }
 
+// WithFields returns a copy of the global logger with the provided structured fields attached.
+// The returned *Logger will include these fields on all subsequent log entries emitted from it.
+// The input map is used as-is (keys become field names); callers should not rely on it being copied.
 func WithFields(fields map[string]interface{}) *Logger {
 	return GetGlobalLogger().WithFields(fields)
 }

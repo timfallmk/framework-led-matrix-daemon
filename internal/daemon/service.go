@@ -45,6 +45,16 @@ type Service struct {
 	startTime        time.Time
 }
 
+// NewService creates and returns a configured Service instance.
+// 
+// It builds the underlying system daemon, initializes structured logging (and sets it
+// as the global logger), and constructs observability components (metrics collector,
+// application metrics, and health monitor). The returned Service is populated with a
+// cancellable background context, an event logger, and channels used to control
+// lifecycle. The provided cfg must contain the daemon, logging, and observability
+// settings to initialize these components.
+// 
+// Returns an error if creating the system daemon or the structured logger fails.
 func NewService(cfg *config.Config) (*Service, error) {
 	d, err := daemon.New(cfg.Daemon.Name, cfg.Daemon.Description, daemon.SystemDaemon, "run")
 	if err != nil {
