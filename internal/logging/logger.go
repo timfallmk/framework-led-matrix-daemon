@@ -129,8 +129,13 @@ func NewLogger(config Config) (*Logger, error) {
 
 // WithContext returns a logger with the given context
 func (l *Logger) WithContext(ctx context.Context) *Logger {
+	// Extract relevant context values and add as fields
+	// Example: if there's a request ID in context
+	args := []interface{}{}
+	// Add context extraction logic here (e.g., if reqID := ctx.Value(requestIDKey); reqID != nil { args = append(args, "request_id", reqID) })
+
 	return &Logger{
-		Logger: l.Logger.With(),
+		Logger: l.Logger.With(args...),
 		config: l.config,
 		writer: l.writer,
 	}
