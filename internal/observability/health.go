@@ -74,11 +74,13 @@ func NewHealthMonitor(logger *logging.Logger, metrics *ApplicationMetrics, check
 	validatedInterval := checkInterval
 	if checkInterval <= 0 {
 		validatedInterval = time.Second
-		eventLogger := logging.NewEventLogger(logger)
-		eventLogger.LogDaemon(logging.LevelWarn, "invalid health check interval provided, using default", "validate", map[string]interface{}{
-			"provided_interval": checkInterval.String(),
-			"default_interval":  validatedInterval.String(),
-		})
+     if checkInterval <= 0 {
+         validatedInterval = time.Second
+         // Use the logger directly instead of creating a temporary EventLogger
+         logger.WithComponent("health").Warn("invalid health check interval provided, using default",
+             "provided_interval", checkInterval.String(),
+             "default_interval",  validatedInterval.String())
+     }
 	}
 
 	hm := &HealthMonitor{
@@ -270,8 +272,9 @@ func (hm *HealthMonitor) runCheck(checker HealthChecker) {
 
 	// Record metrics
 	healthy := err == nil
-	hm.metrics.RecordHealthCheck(checker.Name(), healthy, duration)
-
+	if hm.metrics != nil {
+		hm.metrics.RecordHealthCheck(checker.Name(), healthy, duration)
+	}
 	// Log health check result
 	level := logging.LevelInfo
 	if err != nil {
@@ -415,9 +418,18 @@ func (m *MemoryHealthChecker) Timeout() time.Duration {
 }
 
 func (m *MemoryHealthChecker) Check(ctx context.Context) error {
-	// This would need to be implemented with actual memory checking
-	// For now, we'll always return healthy
-	// In a real implementation, you'd check runtime.MemStats or similar
+-	// This would need to be implemented with actual memory checking
+-	// For now, we'll always return healthy
+-	// In a real implementation, you'd check runtime.MemStats or similar
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	if memStats.Alloc > m.maxMemoryBytes {
+		return fmt.Errorf(
+			"memory usage exceeds limit: %d bytes (limit: %d bytes)",
+			memStats.Alloc, m.maxMemoryBytes,
+		)
+	}
 	return nil
 }
 
