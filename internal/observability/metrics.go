@@ -65,7 +65,12 @@ func NewMetricsCollector(logger *logging.Logger, flushInterval time.Duration) *M
 		logger:        logging.NewMetricsLogger(logger),
 		eventLogger:   logging.NewEventLogger(logger),
 		metrics:       make(map[string]*Metric),
-		flushInterval: flushInterval,
+		flushInterval: func(d time.Duration) time.Duration {
+			if d <= 0 {
+				return 15 * time.Second
+			}
+			return d
+		}(flushInterval),
 		ctx:           ctx,
 		cancel:        cancel,
 	}
