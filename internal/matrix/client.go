@@ -74,6 +74,7 @@ func (c *Client) DiscoverPorts() ([]string, error) {
 	}
 
 	log.Printf("Discovered %d potential LED matrix port(s): %v", len(frameworkPorts), frameworkPorts)
+
 	return frameworkPorts, nil
 }
 
@@ -83,6 +84,7 @@ func (c *Client) Connect(portName string) error {
 		if err != nil {
 			return fmt.Errorf("failed to discover port: %w", err)
 		}
+
 		portName = discoveredPort
 	}
 
@@ -92,7 +94,9 @@ func (c *Client) Connect(portName string) error {
 	}
 
 	c.port = port
+
 	log.Printf("Connected to LED Matrix on port: %s", portName)
+
 	return nil
 }
 
@@ -103,6 +107,7 @@ func (c *Client) Disconnect() error {
 
 	err := c.port.Close()
 	c.port = nil
+
 	return err
 }
 
@@ -112,12 +117,14 @@ func (c *Client) SendCommand(cmd Command) error {
 	}
 
 	data := cmd.ToBytes()
+
 	_, err := c.port.Write(data)
 	if err != nil {
 		return fmt.Errorf("failed to write command: %w", err)
 	}
 
 	log.Printf("Sent command: ID=0x%02X, Data=%v", cmd.ID, data)
+
 	return nil
 }
 
@@ -127,6 +134,7 @@ func (c *Client) ReadResponse(expectedBytes int) ([]byte, error) {
 	}
 
 	buffer := make([]byte, expectedBytes)
+
 	c.port.SetReadTimeout(DefaultTimeout)
 
 	n, err := c.port.Read(buffer)
@@ -181,16 +189,16 @@ func (c *Client) FlushColumns() error {
 	return c.SendCommand(FlushColsCommand())
 }
 
-// SingleMatrixConfig represents configuration for a single matrix
+// SingleMatrixConfig represents configuration for a single matrix.
 type SingleMatrixConfig struct {
-	Name       string   `yaml:"name"`       // "primary", "secondary", or custom name
-	Port       string   `yaml:"port"`       // Specific port or auto-discover if empty
-	Role       string   `yaml:"role"`       // "primary", "secondary"
-	Brightness byte     `yaml:"brightness"` // Individual brightness control
-	Metrics    []string `yaml:"metrics"`    // Which metrics this matrix displays
+	Name       string   `yaml:"name"`
+	Port       string   `yaml:"port"`
+	Role       string   `yaml:"role"`
+	Metrics    []string `yaml:"metrics"`
+	Brightness byte     `yaml:"brightness"`
 }
 
-// MultiClient manages multiple LED matrix clients
+// MultiClient manages multiple LED matrix clients.
 type MultiClient struct {
 	clients map[string]*Client
 	config  map[string]*SingleMatrixConfig
@@ -205,6 +213,7 @@ func NewMultiClient() *MultiClient {
 
 func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRate int) error {
 	client := NewClient()
+
 	discoveredPorts, err := client.DiscoverPorts()
 	if err != nil {
 		return fmt.Errorf("failed to discover ports: %w", err)
@@ -222,6 +231,7 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 			portToUse = discoveredPorts[i]
 		} else {
 			log.Printf("Warning: No port available for matrix %s, skipping", matrixConfig.Name)
+
 			continue
 		}
 
@@ -229,6 +239,7 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 		if err := client.Connect(portToUse); err != nil {
 			log.Printf("Warning: Failed to connect to matrix %s on port %s: %v",
 				matrixConfig.Name, portToUse, err)
+
 			continue
 		}
 

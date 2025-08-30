@@ -7,8 +7,8 @@ import (
 
 func TestSystemStatusString(t *testing.T) {
 	tests := []struct {
-		status   SystemStatus
 		expected string
+		status   SystemStatus
 	}{
 		{StatusNormal, "normal"},
 		{StatusWarning, "warning"},
@@ -182,6 +182,7 @@ func TestDiskStatsStructure(t *testing.T) {
 		if counter.ReadCount != 1000 {
 			t.Errorf("IOCounter.ReadCount = %d, want 1000", counter.ReadCount)
 		}
+
 		if counter.WriteCount != 500 {
 			t.Errorf("IOCounter.WriteCount = %d, want 500", counter.WriteCount)
 		}
@@ -340,7 +341,6 @@ func TestThresholdsValidation(t *testing.T) {
 func TestDataStructureSizes(t *testing.T) {
 	// Test that our data structures are reasonable in size
 	// This helps ensure we're not accidentally including huge embedded data
-
 	cpu := CPUStats{}
 	if size := len(cpu.PerCorePercent); size > 0 {
 		// Should start empty
@@ -378,11 +378,12 @@ func TestSystemStatusConstants(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkSystemStatusString(b *testing.B) {
 	statuses := []SystemStatus{StatusNormal, StatusWarning, StatusCritical}
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		status := statuses[i%len(statuses)]
 		_ = status.String()
@@ -399,6 +400,7 @@ func BenchmarkStatsSummaryCreation(b *testing.B) {
 	now := time.Now()
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		_ = StatsSummary{
 			CPUUsage:        75.5,
@@ -415,6 +417,7 @@ func BenchmarkSystemStatsCreation(b *testing.B) {
 	now := time.Now()
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		_ = SystemStats{
 			CPU: CPUStats{

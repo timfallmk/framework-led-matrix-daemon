@@ -15,24 +15,21 @@ import (
 )
 
 type Config struct {
-	Matrix  MatrixConfig  `yaml:"matrix"`
-	Stats   StatsConfig   `yaml:"stats"`
 	Display DisplayConfig `yaml:"display"`
 	Daemon  DaemonConfig  `yaml:"daemon"`
+	Matrix  MatrixConfig  `yaml:"matrix"`
 	Logging LoggingConfig `yaml:"logging"`
+	Stats   StatsConfig   `yaml:"stats"`
 }
 
 type MatrixConfig struct {
-	// Legacy single matrix support
-	Port         string        `yaml:"port"`
-	BaudRate     int           `yaml:"baud_rate"`
-	AutoDiscover bool          `yaml:"auto_discover"`
-	Timeout      time.Duration `yaml:"timeout"`
-	Brightness   byte          `yaml:"brightness"`
-
-	// Multi-matrix support - using external type to avoid import cycles
-	Matrices []map[string]interface{} `yaml:"matrices"`
-	DualMode string                   `yaml:"dual_mode"` // "mirror", "split", "extended", "independent"
+	Port         string                   `yaml:"port"`
+	DualMode     string                   `yaml:"dual_mode"`
+	Matrices     []map[string]interface{} `yaml:"matrices"`
+	BaudRate     int                      `yaml:"baud_rate"`
+	Timeout      time.Duration            `yaml:"timeout"`
+	AutoDiscover bool                     `yaml:"auto_discover"`
+	Brightness   byte                     `yaml:"brightness"`
 }
 
 type StatsConfig struct {
@@ -54,17 +51,17 @@ type Thresholds struct {
 }
 
 type DisplayConfig struct {
-	UpdateRate      time.Duration            `yaml:"update_rate"`
+	CustomPatterns  map[string]PatternConfig `yaml:"custom_patterns"`
 	Mode            string                   `yaml:"mode"`
 	PrimaryMetric   string                   `yaml:"primary_metric"`
+	UpdateRate      time.Duration            `yaml:"update_rate"`
 	ShowActivity    bool                     `yaml:"show_activity"`
 	EnableAnimation bool                     `yaml:"enable_animation"`
-	CustomPatterns  map[string]PatternConfig `yaml:"custom_patterns"`
 }
 
 type PatternConfig struct {
-	Pattern    string                 `yaml:"pattern"`
 	Parameters map[string]interface{} `yaml:"parameters"`
+	Pattern    string                 `yaml:"pattern"`
 }
 
 type DaemonConfig struct {
@@ -77,17 +74,16 @@ type DaemonConfig struct {
 }
 
 type LoggingConfig struct {
-	Level           string `yaml:"level"`             // debug, info, warn, error
-	Format          string `yaml:"format"`            // text, json
-	Output          string `yaml:"output"`            // stdout, stderr, or file path
-	AddSource       bool   `yaml:"add_source"`        // include source file/line in logs
-	EventBufferSize int    `yaml:"event_buffer_size"` // Buffer size for async event logging
-	// Legacy file logging options (deprecated in favor of structured logging)
-	File       string `yaml:"file"`
-	MaxSize    int    `yaml:"max_size"`
-	MaxBackups int    `yaml:"max_backups"`
-	MaxAge     int    `yaml:"max_age"`
-	Compress   bool   `yaml:"compress"`
+	Level           string `yaml:"level"`
+	Format          string `yaml:"format"`
+	Output          string `yaml:"output"`
+	File            string `yaml:"file"`
+	EventBufferSize int    `yaml:"event_buffer_size"`
+	MaxSize         int    `yaml:"max_size"`
+	MaxBackups      int    `yaml:"max_backups"`
+	MaxAge          int    `yaml:"max_age"`
+	AddSource       bool   `yaml:"add_source"`
+	Compress        bool   `yaml:"compress"`
 }
 
 // Use this as the base configuration before applying file-based loading or environment overrides.
@@ -162,6 +158,7 @@ func LoadConfig(path string) (*Config, error) {
 		if os.IsNotExist(err) {
 			return DefaultConfig(), nil
 		}
+
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
@@ -313,7 +310,7 @@ func (c *Config) validateLogging() error {
 	return nil
 }
 
-// ConvertMatrices converts the generic matrix configuration to SingleMatrixConfig structs
+// ConvertMatrices converts the generic matrix configuration to SingleMatrixConfig structs.
 func (c *Config) ConvertMatrices() []SingleMatrixConfig {
 	var matrices []SingleMatrixConfig
 
@@ -323,12 +320,15 @@ func (c *Config) ConvertMatrices() []SingleMatrixConfig {
 		if name, ok := m["name"].(string); ok {
 			matrix.Name = name
 		}
+
 		if port, ok := m["port"].(string); ok {
 			matrix.Port = port
 		}
+
 		if role, ok := m["role"].(string); ok {
 			matrix.Role = role
 		}
+
 		if brightness, ok := m["brightness"].(int); ok {
 			matrix.Brightness = byte(brightness)
 		} else if brightness, ok := m["brightness"].(float64); ok {
@@ -350,13 +350,13 @@ func (c *Config) ConvertMatrices() []SingleMatrixConfig {
 }
 
 // SingleMatrixConfig represents configuration for a single matrix
-// This is a separate type to avoid import cycles with the matrix package
+// This is a separate type to avoid import cycles with the matrix package.
 type SingleMatrixConfig struct {
 	Name       string   `yaml:"name"`
 	Port       string   `yaml:"port"`
 	Role       string   `yaml:"role"`
-	Brightness byte     `yaml:"brightness"`
 	Metrics    []string `yaml:"metrics"`
+	Brightness byte     `yaml:"brightness"`
 }
 
 func getDefaultConfigPath() string {
@@ -400,13 +400,15 @@ func FindConfig() (string, error) {
 			if err != nil {
 				return path, nil // fallback to original path
 			}
+
 			return absPath, nil
 		}
 	}
+
 	return "", fmt.Errorf("no config file found in standard locations")
 }
 
-// ValidationError represents a configuration validation error
+// ValidationError represents a configuration validation error.
 type ValidationError struct {
 	Field   string
 	Value   interface{}
@@ -417,7 +419,7 @@ func (e ValidationError) Error() string {
 	return fmt.Sprintf("validation error for field '%s' (value: %v): %s", e.Field, e.Value, e.Message)
 }
 
-// ValidateDetailed performs comprehensive validation with detailed error reporting
+// ValidateDetailed performs comprehensive validation with detailed error reporting.
 func (c *Config) ValidateDetailed() []ValidationError {
 	var errors []ValidationError
 
@@ -582,6 +584,7 @@ func (c *Config) ValidateDetailed() []ValidationError {
 					Value:   brightness,
 					Message: "must be a number between 0 and 255",
 				})
+
 				continue
 			}
 
@@ -642,7 +645,7 @@ func (c *Config) ValidateDetailed() []ValidationError {
 	return errors
 }
 
-// ApplyEnvironmentOverrides applies environment variable overrides to the configuration
+// ApplyEnvironmentOverrides applies environment variable overrides to the configuration.
 func (c *Config) ApplyEnvironmentOverrides() {
 	envOverrides := map[string]func(string){
 		"FRAMEWORK_LED_PORT": func(v string) { c.Matrix.Port = v },
@@ -700,15 +703,15 @@ func (c *Config) ApplyEnvironmentOverrides() {
 	}
 }
 
-// ConfigWatcher provides hot-reload functionality for configuration files
+// ConfigWatcher provides hot-reload functionality for configuration files.
 type ConfigWatcher struct {
-	configPath string
 	config     *Config
-	mutex      sync.RWMutex
 	stopCh     chan struct{}
 	reloadCh   chan *Config
 	errorCh    chan error
 	watcher    *fsnotify.Watcher
+	configPath string
+	mutex      sync.RWMutex
 }
 
 // NewConfigWatcher returns a new ConfigWatcher configured to monitor the given
@@ -725,46 +728,51 @@ func NewConfigWatcher(configPath string, initialConfig *Config) *ConfigWatcher {
 	}
 }
 
-// Start begins watching the configuration file for changes
+// Start begins watching the configuration file for changes.
 func (w *ConfigWatcher) Start(ctx context.Context) error {
 	// Create file system watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("failed to create file watcher: %w", err)
 	}
+
 	w.watcher = watcher
 
 	// Add config file to watcher
 	if err := w.watcher.Add(w.configPath); err != nil {
 		w.watcher.Close()
+
 		return fmt.Errorf("failed to add config file to watcher: %w", err)
 	}
 
 	go w.watchLoop(ctx)
+
 	return nil
 }
 
-// Stop stops the configuration watcher
+// Stop stops the configuration watcher.
 func (w *ConfigWatcher) Stop() {
 	close(w.stopCh)
+
 	if w.watcher != nil {
 		w.watcher.Close()
 	}
 }
 
-// GetConfig returns the current configuration (thread-safe)
+// GetConfig returns the current configuration (thread-safe).
 func (w *ConfigWatcher) GetConfig() *Config {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
+
 	return w.config
 }
 
-// ReloadChannel returns a channel that receives new configurations
+// ReloadChannel returns a channel that receives new configurations.
 func (w *ConfigWatcher) ReloadChannel() <-chan *Config {
 	return w.reloadCh
 }
 
-// ErrorChannel returns a channel that receives reload errors
+// ErrorChannel returns a channel that receives reload errors.
 func (w *ConfigWatcher) ErrorChannel() <-chan error {
 	return w.errorCh
 }
@@ -794,6 +802,7 @@ func (w *ConfigWatcher) watchLoop(ctx context.Context) {
 			if !ok {
 				return
 			}
+
 			select {
 			case w.errorCh <- fmt.Errorf("file watcher error: %w", err):
 			default:
@@ -819,6 +828,7 @@ func (w *ConfigWatcher) reloadConfig() error {
 		for _, ve := range validationErrors {
 			errorMsgs = append(errorMsgs, ve.Error())
 		}
+
 		return fmt.Errorf("configuration validation failed: %s", strings.Join(errorMsgs, "; "))
 	}
 
@@ -864,6 +874,7 @@ func LoadConfigWithEnv(path string) (*Config, error) {
 			errorMsgs = append(errorMsgs, ve.Error())
 		}
 	}
+
 	if len(errorMsgs) > 0 {
 		return nil, fmt.Errorf(
 			"configuration validation failed: %s",

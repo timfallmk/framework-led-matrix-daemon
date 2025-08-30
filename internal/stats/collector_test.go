@@ -86,6 +86,7 @@ func TestCollectorThreadSafety(t *testing.T) {
 			}
 			collector.SetThresholds(thresholds)
 		}
+
 		done <- true
 	}()
 
@@ -99,6 +100,7 @@ func TestCollectorThreadSafety(t *testing.T) {
 					thresholds.CPUWarning, thresholds.CPUCritical)
 			}
 		}
+
 		done <- true
 	}()
 
@@ -125,6 +127,7 @@ func TestCollectorGetLastStats(t *testing.T) {
 	stats = collector.GetLastStats()
 	if stats == nil {
 		t.Error("GetLastStats() should return stats after collection")
+
 		return
 	}
 
@@ -149,8 +152,8 @@ func TestCollectorDetermineStatus(t *testing.T) {
 	collector.SetThresholds(thresholds)
 
 	tests := []struct {
-		name           string
 		summary        *StatsSummary
+		name           string
 		expectedStatus SystemStatus
 	}{
 		{
@@ -245,12 +248,15 @@ func TestCollectorGetSummaryBasic(t *testing.T) {
 	// Status should be valid
 	validStatuses := []SystemStatus{StatusNormal, StatusWarning, StatusCritical}
 	statusValid := false
+
 	for _, validStatus := range validStatuses {
 		if summary.Status == validStatus {
 			statusValid = true
+
 			break
 		}
 	}
+
 	if !statusValid {
 		t.Errorf("GetSummary() Status = %v, should be one of %v", summary.Status, validStatuses)
 	}
@@ -262,7 +268,7 @@ func TestCollectorGetSummaryBasic(t *testing.T) {
 }
 
 // Integration test that attempts to collect real system stats
-// This test may be skipped on systems where gopsutil doesn't work properly
+// This test may be skipped on systems where gopsutil doesn't work properly.
 func TestCollectorCollectCPUStats(t *testing.T) {
 	collector := NewCollector(time.Second)
 
@@ -426,6 +432,7 @@ func TestCollectorCollectSystemStatsIntegration(t *testing.T) {
 	lastStats := collector.GetLastStats()
 	if lastStats == nil {
 		t.Error("CollectSystemStats() should update last stats")
+
 		return
 	}
 
@@ -434,7 +441,7 @@ func TestCollectorCollectSystemStatsIntegration(t *testing.T) {
 	}
 }
 
-// Test activity rate calculation over multiple collections
+// Test activity rate calculation over multiple collections.
 func TestCollectorActivityRateCalculation(t *testing.T) {
 	collector := NewCollector(100 * time.Millisecond) // Short interval for testing
 
@@ -458,11 +465,12 @@ func TestCollectorActivityRateCalculation(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkCollectorGetThresholds(b *testing.B) {
 	collector := NewCollector(time.Second)
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		collector.GetThresholds()
 	}
@@ -473,6 +481,7 @@ func BenchmarkCollectorSetThresholds(b *testing.B) {
 	thresholds := DefaultThresholds()
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		collector.SetThresholds(thresholds)
 	}
@@ -486,16 +495,18 @@ func BenchmarkCollectorDetermineStatus(b *testing.B) {
 	}
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		collector.determineStatus(summary)
 	}
 }
 
-// Test that would collect real system stats (may be slow)
+// Test that would collect real system stats (may be slow).
 func BenchmarkCollectorCollectSystemStats(b *testing.B) {
 	collector := NewCollector(time.Second)
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		_, err := collector.CollectSystemStats()
 		if err != nil {
@@ -504,7 +515,7 @@ func BenchmarkCollectorCollectSystemStats(b *testing.B) {
 	}
 }
 
-// Test concurrent access patterns
+// Test concurrent access patterns.
 func TestCollectorConcurrentAccess(t *testing.T) {
 	collector := NewCollector(time.Second)
 
@@ -517,6 +528,7 @@ func TestCollectorConcurrentAccess(t *testing.T) {
 			collector.CollectSystemStats()
 			time.Sleep(10 * time.Millisecond)
 		}
+
 		done <- true
 	}()
 
@@ -526,6 +538,7 @@ func TestCollectorConcurrentAccess(t *testing.T) {
 			collector.GetSummary()
 			time.Sleep(15 * time.Millisecond)
 		}
+
 		done <- true
 	}()
 
@@ -539,8 +552,10 @@ func TestCollectorConcurrentAccess(t *testing.T) {
 			} else {
 				collector.GetThresholds()
 			}
+
 			time.Sleep(5 * time.Millisecond)
 		}
+
 		done <- true
 	}()
 

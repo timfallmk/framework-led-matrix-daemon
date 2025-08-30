@@ -10,7 +10,7 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 )
 
-// MetricType represents the type of metric
+// MetricType represents the type of metric.
 type MetricType string
 
 const (
@@ -19,38 +19,40 @@ const (
 	MetricTypeHistogram MetricType = "histogram"
 )
 
-// Metric represents a single metric data point
+// Metric represents a single metric data point.
 type Metric struct {
+	Timestamp time.Time         `json:"timestamp"`
+	Labels    map[string]string `json:"labels,omitempty"`
 	Name      string            `json:"name"`
 	Type      MetricType        `json:"type"`
-	Value     float64           `json:"value"`
-	Labels    map[string]string `json:"labels,omitempty"`
-	Timestamp time.Time         `json:"timestamp"`
 	Unit      string            `json:"unit,omitempty"`
+	Value     float64           `json:"value"`
 }
 
-// copyLabels creates a defensive copy of label maps to avoid mutation issues
+// copyLabels creates a defensive copy of label maps to avoid mutation issues.
 func copyLabels(src map[string]string) map[string]string {
 	if len(src) == 0 {
 		return nil
 	}
+
 	dst := make(map[string]string, len(src))
 	for k, v := range src {
 		dst[k] = v
 	}
+
 	return dst
 }
 
-// MetricsCollector collects and manages application metrics
+// MetricsCollector collects and manages application metrics.
 type MetricsCollector struct {
+	ctx           context.Context
 	logger        *logging.MetricsLogger
 	eventLogger   *logging.EventLogger
 	metrics       map[string]*Metric
-	mu            sync.RWMutex
-	flushInterval time.Duration
-	ctx           context.Context
 	cancel        context.CancelFunc
 	wg            sync.WaitGroup
+	flushInterval time.Duration
+	mu            sync.RWMutex
 }
 
 // NewMetricsCollector creates and returns a new MetricsCollector bound to the provided logger.
@@ -69,6 +71,7 @@ func NewMetricsCollector(logger *logging.Logger, flushInterval time.Duration) *M
 			if d <= 0 {
 				return 15 * time.Second
 			}
+
 			return d
 		}(flushInterval),
 		ctx:    ctx,
@@ -77,17 +80,18 @@ func NewMetricsCollector(logger *logging.Logger, flushInterval time.Duration) *M
 
 	// Start metrics flushing goroutine
 	mc.wg.Add(1)
+
 	go mc.flushLoop()
 
 	return mc
 }
 
-// IncCounter increments a counter metric
+// IncCounter increments a counter metric.
 func (mc *MetricsCollector) IncCounter(name string, labels map[string]string) {
 	mc.AddCounter(name, 1, labels)
 }
 
-// AddCounter adds a value to a counter metric
+// AddCounter adds a value to a counter metric.
 func (mc *MetricsCollector) AddCounter(name string, value float64, labels map[string]string) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
@@ -107,12 +111,12 @@ func (mc *MetricsCollector) AddCounter(name string, value float64, labels map[st
 	}
 }
 
-// SetGauge sets a gauge metric value
+// SetGauge sets a gauge metric value.
 func (mc *MetricsCollector) SetGauge(name string, value float64, labels map[string]string) {
 	mc.SetGaugeWithUnit(name, value, labels, "")
 }
 
-// SetGaugeWithUnit sets a gauge metric value with a unit
+// SetGaugeWithUnit sets a gauge metric value with a unit.
 func (mc *MetricsCollector) SetGaugeWithUnit(name string, value float64, labels map[string]string, unit string) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
@@ -128,7 +132,7 @@ func (mc *MetricsCollector) SetGaugeWithUnit(name string, value float64, labels 
 	}
 }
 
-// ObserveHistogram adds an observation to a histogram metric
+// ObserveHistogram adds an observation to a histogram metric.
 func (mc *MetricsCollector) ObserveHistogram(name string, value float64, labels map[string]string) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
@@ -143,12 +147,12 @@ func (mc *MetricsCollector) ObserveHistogram(name string, value float64, labels 
 	}
 }
 
-// RecordDuration records a duration as a histogram metric
+// RecordDuration records a duration as a histogram metric.
 func (mc *MetricsCollector) RecordDuration(name string, duration time.Duration, labels map[string]string) {
 	mc.ObserveHistogram(name, duration.Seconds(), labels)
 }
 
-// GetMetrics returns a snapshot of all current metrics
+// GetMetrics returns a snapshot of all current metrics.
 func (mc *MetricsCollector) GetMetrics() map[string]*Metric {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
@@ -165,15 +169,17 @@ func (mc *MetricsCollector) GetMetrics() map[string]*Metric {
 			Unit:      v.Unit,
 		}
 	}
+
 	return snapshot
 }
 
-// GetMetricsByType returns metrics filtered by type
+// GetMetricsByType returns metrics filtered by type.
 func (mc *MetricsCollector) GetMetricsByType(metricType MetricType) []*Metric {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
 
 	var filtered []*Metric
+
 	for _, metric := range mc.metrics {
 		if metric.Type == metricType {
 			filtered = append(filtered, &Metric{
@@ -186,17 +192,19 @@ func (mc *MetricsCollector) GetMetricsByType(metricType MetricType) []*Metric {
 			})
 		}
 	}
+
 	return filtered
 }
 
-// Reset clears all metrics
+// Reset clears all metrics.
 func (mc *MetricsCollector) Reset() {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
+
 	mc.metrics = make(map[string]*Metric)
 }
 
-// Close stops the metrics collector
+// Close stops the metrics collector.
 func (mc *MetricsCollector) Close() {
 	mc.cancel()
 	mc.wg.Wait()
@@ -216,6 +224,7 @@ func (mc *MetricsCollector) metricKey(name string, labels map[string]string) str
 	for k := range labels {
 		keys = append(keys, k)
 	}
+
 	sort.Strings(keys)
 
 	for _, k := range keys {
@@ -238,6 +247,7 @@ func (mc *MetricsCollector) flushLoop() {
 		select {
 		case <-mc.ctx.Done():
 			mc.flushMetrics()
+
 			return
 		case <-ticker.C:
 			mc.flushMetrics()
@@ -248,6 +258,7 @@ func (mc *MetricsCollector) flushLoop() {
 func (mc *MetricsCollector) flushMetrics() {
 	// Get a list of metrics to flush without holding the lock during logging
 	mc.mu.RLock()
+
 	metricsToFlush := make([]*Metric, 0, len(mc.metrics))
 	for _, metric := range mc.metrics {
 		// Create a copy to avoid holding references to the original
@@ -260,6 +271,7 @@ func (mc *MetricsCollector) flushMetrics() {
 			Unit:      metric.Unit,
 		})
 	}
+
 	mc.mu.RUnlock()
 
 	for _, metric := range metricsToFlush {
@@ -274,7 +286,7 @@ func (mc *MetricsCollector) flushMetrics() {
 	}
 }
 
-// ApplicationMetrics provides high-level application metrics
+// ApplicationMetrics provides high-level application metrics.
 type ApplicationMetrics struct {
 	collector *MetricsCollector
 }
@@ -287,7 +299,7 @@ func NewApplicationMetrics(collector *MetricsCollector) *ApplicationMetrics {
 	}
 }
 
-// RecordMatrixOperation records matrix operation metrics
+// RecordMatrixOperation records matrix operation metrics.
 func (am *ApplicationMetrics) RecordMatrixOperation(operation string, matrixID string, duration time.Duration, success bool) {
 	labels := map[string]string{
 		"operation": operation,
@@ -306,7 +318,7 @@ func (am *ApplicationMetrics) RecordMatrixOperation(operation string, matrixID s
 	am.collector.RecordDuration("matrix_operation_duration_seconds", duration, labels)
 }
 
-// RecordStatsCollection records statistics collection metrics
+// RecordStatsCollection records statistics collection metrics.
 func (am *ApplicationMetrics) RecordStatsCollection(statsType string, value float64, duration time.Duration) {
 	labels := map[string]string{
 		"stats_type": statsType,
@@ -322,7 +334,7 @@ func (am *ApplicationMetrics) RecordStatsCollection(statsType string, value floa
 	am.collector.IncCounter("stats_collections_total", labels)
 }
 
-// RecordConfigReload records configuration reload metrics
+// RecordConfigReload records configuration reload metrics.
 func (am *ApplicationMetrics) RecordConfigReload(success bool, duration time.Duration) {
 	labels := map[string]string{
 		"success": "true",
@@ -336,24 +348,24 @@ func (am *ApplicationMetrics) RecordConfigReload(success bool, duration time.Dur
 	am.collector.RecordDuration("config_reload_duration_seconds", duration, labels)
 }
 
-// RecordDaemonUptime records daemon uptime
+// RecordDaemonUptime records daemon uptime.
 func (am *ApplicationMetrics) RecordDaemonUptime(uptime time.Duration) {
 	am.collector.SetGaugeWithUnit("daemon_uptime_seconds", uptime.Seconds(), nil, "seconds")
 }
 
-// RecordMemoryUsage records memory usage metrics
+// RecordMemoryUsage records memory usage metrics.
 func (am *ApplicationMetrics) RecordMemoryUsage(heapAlloc, heapSys, heapInuse uint64) {
 	am.collector.SetGaugeWithUnit("memory_heap_alloc_bytes", float64(heapAlloc), nil, "bytes")
 	am.collector.SetGaugeWithUnit("memory_heap_sys_bytes", float64(heapSys), nil, "bytes")
 	am.collector.SetGaugeWithUnit("memory_heap_inuse_bytes", float64(heapInuse), nil, "bytes")
 }
 
-// RecordGoroutines records the number of goroutines
+// RecordGoroutines records the number of goroutines.
 func (am *ApplicationMetrics) RecordGoroutines(count int) {
 	am.collector.SetGauge("goroutines_count", float64(count), nil)
 }
 
-// RecordDisplayUpdate records display update metrics
+// RecordDisplayUpdate records display update metrics.
 func (am *ApplicationMetrics) RecordDisplayUpdate(mode string, success bool, duration time.Duration) {
 	labels := map[string]string{
 		"mode":    mode,
@@ -368,7 +380,7 @@ func (am *ApplicationMetrics) RecordDisplayUpdate(mode string, success bool, dur
 	am.collector.RecordDuration("display_update_duration_seconds", duration, labels)
 }
 
-// Health check metrics
+// Health check metrics.
 func (am *ApplicationMetrics) RecordHealthCheck(component string, healthy bool, duration time.Duration) {
 	labels := map[string]string{
 		"component": component,
@@ -387,18 +399,19 @@ func (am *ApplicationMetrics) RecordHealthCheck(component string, healthy bool, 
 	if !healthy {
 		healthValue = 0.0
 	}
+
 	am.collector.SetGauge("component_health", healthValue, map[string]string{"component": component})
 }
 
-// Timer provides convenient timing functionality
+// Timer provides convenient timing functionality.
 type Timer struct {
 	startTime time.Time
-	name      string
 	labels    map[string]string
 	collector *MetricsCollector
+	name      string
 }
 
-// StartTimer creates and starts a new timer
+// StartTimer creates and starts a new timer.
 func (mc *MetricsCollector) StartTimer(name string, labels map[string]string) *Timer {
 	return &Timer{
 		startTime: time.Now(),
@@ -408,14 +421,15 @@ func (mc *MetricsCollector) StartTimer(name string, labels map[string]string) *T
 	}
 }
 
-// Stop stops the timer and records the duration
+// Stop stops the timer and records the duration.
 func (t *Timer) Stop() time.Duration {
 	duration := time.Since(t.startTime)
 	t.collector.RecordDuration(t.name, duration, t.labels)
+
 	return duration
 }
 
-// StopWithSuccess stops the timer and records success/failure
+// StopWithSuccess stops the timer and records success/failure.
 func (t *Timer) StopWithSuccess(success bool) time.Duration {
 	duration := time.Since(t.startTime)
 
@@ -424,11 +438,13 @@ func (t *Timer) StopWithSuccess(success bool) time.Duration {
 	for k, v := range t.labels {
 		labels[k] = v
 	}
+
 	labels["success"] = "true"
 	if !success {
 		labels["success"] = "false"
 	}
 
 	t.collector.RecordDuration(t.name, duration, labels)
+
 	return duration
 }

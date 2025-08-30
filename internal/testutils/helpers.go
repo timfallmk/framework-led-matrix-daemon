@@ -11,7 +11,7 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
 )
 
-// CreateTempConfig creates a temporary configuration file for testing
+// CreateTempConfig creates a temporary configuration file for testing.
 func CreateTempConfig(t *testing.T, configData string) string {
 	t.Helper()
 
@@ -21,6 +21,7 @@ func CreateTempConfig(t *testing.T, configData string) string {
 	}
 
 	configFile := filepath.Join(tmpDir, "test_config.yaml")
+
 	err = os.WriteFile(configFile, []byte(configData), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
@@ -34,7 +35,7 @@ func CreateTempConfig(t *testing.T, configData string) string {
 	return configFile
 }
 
-// CreateTestConfig creates a test configuration with reasonable defaults
+// CreateTestConfig creates a test configuration with reasonable defaults.
 func CreateTestConfig() *config.Config {
 	cfg := config.DefaultConfig()
 
@@ -47,7 +48,7 @@ func CreateTestConfig() *config.Config {
 	return cfg
 }
 
-// CreateTestStats creates test system statistics for testing
+// CreateTestStats creates test system statistics for testing.
 func CreateTestStats() *stats.SystemStats {
 	now := time.Now()
 
@@ -113,7 +114,7 @@ func CreateTestStats() *stats.SystemStats {
 	}
 }
 
-// CreateTestSummary creates a test stats summary
+// CreateTestSummary creates a test stats summary.
 func CreateTestSummary(status stats.SystemStatus) *stats.StatsSummary {
 	return &stats.StatsSummary{
 		CPUUsage:        75.5,
@@ -125,7 +126,7 @@ func CreateTestSummary(status stats.SystemStatus) *stats.StatsSummary {
 	}
 }
 
-// AssertFloatEqual asserts that two float64 values are equal within a tolerance
+// AssertFloatEqual asserts that two float64 values are equal within a tolerance.
 func AssertFloatEqual(t *testing.T, actual, expected, tolerance float64, msg string) {
 	t.Helper()
 
@@ -134,7 +135,7 @@ func AssertFloatEqual(t *testing.T, actual, expected, tolerance float64, msg str
 	}
 }
 
-// AssertDurationEqual asserts that two durations are equal within a tolerance
+// AssertDurationEqual asserts that two durations are equal within a tolerance.
 func AssertDurationEqual(t *testing.T, actual, expected, tolerance time.Duration, msg string) {
 	t.Helper()
 
@@ -148,7 +149,7 @@ func AssertDurationEqual(t *testing.T, actual, expected, tolerance time.Duration
 	}
 }
 
-// AssertTimeRecent asserts that a timestamp is recent (within the last few seconds)
+// AssertTimeRecent asserts that a timestamp is recent (within the last few seconds).
 func AssertTimeRecent(t *testing.T, timestamp time.Time, maxAge time.Duration, msg string) {
 	t.Helper()
 
@@ -158,7 +159,7 @@ func AssertTimeRecent(t *testing.T, timestamp time.Time, maxAge time.Duration, m
 	}
 }
 
-// AssertStringNotEmpty asserts that a string is not empty
+// AssertStringNotEmpty asserts that a string is not empty.
 func AssertStringNotEmpty(t *testing.T, value, name string) {
 	t.Helper()
 
@@ -167,7 +168,7 @@ func AssertStringNotEmpty(t *testing.T, value, name string) {
 	}
 }
 
-// AssertPercentageValid asserts that a percentage value is between 0 and 100
+// AssertPercentageValid asserts that a percentage value is between 0 and 100.
 func AssertPercentageValid(t *testing.T, value float64, name string) {
 	t.Helper()
 
@@ -176,7 +177,7 @@ func AssertPercentageValid(t *testing.T, value float64, name string) {
 	}
 }
 
-// AssertBytesNonNegative asserts that a byte count is non-negative
+// AssertBytesNonNegative asserts that a byte count is non-negative.
 func AssertBytesNonNegative(t *testing.T, value uint64, name string) {
 	t.Helper()
 
@@ -184,7 +185,7 @@ func AssertBytesNonNegative(t *testing.T, value uint64, name string) {
 	// This function exists for API consistency
 }
 
-// SkipIfShort skips a test if running in short mode
+// SkipIfShort skips a test if running in short mode.
 func SkipIfShort(t *testing.T, reason string) {
 	t.Helper()
 
@@ -193,7 +194,7 @@ func SkipIfShort(t *testing.T, reason string) {
 	}
 }
 
-// SkipIfCI skips a test if running in CI environment
+// SkipIfCI skips a test if running in CI environment.
 func SkipIfCI(t *testing.T, reason string) {
 	t.Helper()
 
@@ -202,7 +203,7 @@ func SkipIfCI(t *testing.T, reason string) {
 	}
 }
 
-// CreateTestThresholds creates test thresholds for testing
+// CreateTestThresholds creates test thresholds for testing.
 func CreateTestThresholds() stats.Thresholds {
 	return stats.Thresholds{
 		CPUWarning:     60.0,
@@ -214,7 +215,7 @@ func CreateTestThresholds() stats.Thresholds {
 	}
 }
 
-// WaitForCondition waits for a condition to become true within a timeout
+// WaitForCondition waits for a condition to become true within a timeout.
 func WaitForCondition(t *testing.T, condition func() bool, timeout time.Duration, message string) {
 	t.Helper()
 
@@ -224,18 +225,20 @@ func WaitForCondition(t *testing.T, condition func() bool, timeout time.Duration
 		if condition() {
 			return
 		}
+
 		time.Sleep(1 * time.Millisecond)
 	}
 
 	t.Errorf("Condition not met within %v: %s", timeout, message)
 }
 
-// ExpectError asserts that an error is not nil and optionally contains a message
+// ExpectError asserts that an error is not nil and optionally contains a message.
 func ExpectError(t *testing.T, err error, expectedMessage string) {
 	t.Helper()
 
 	if err == nil {
 		t.Error("Expected error but got nil")
+
 		return
 	}
 
@@ -244,7 +247,7 @@ func ExpectError(t *testing.T, err error, expectedMessage string) {
 	}
 }
 
-// ExpectNoError asserts that an error is nil
+// ExpectNoError asserts that an error is nil.
 func ExpectNoError(t *testing.T, err error) {
 	t.Helper()
 
@@ -253,15 +256,16 @@ func ExpectNoError(t *testing.T, err error) {
 	}
 }
 
-// Helper function for absolute value
+// Helper function for absolute value.
 func abs(x float64) float64 {
 	if x < 0 {
 		return -x
 	}
+
 	return x
 }
 
-// RunConcurrently runs multiple functions concurrently and waits for completion
+// RunConcurrently runs multiple functions concurrently and waits for completion.
 func RunConcurrently(t *testing.T, functions ...func()) {
 	t.Helper()
 
@@ -273,8 +277,10 @@ func RunConcurrently(t *testing.T, functions ...func()) {
 				if r := recover(); r != nil {
 					t.Errorf("Panic in concurrent function: %v", r)
 				}
+
 				done <- true
 			}()
+
 			f()
 		}(fn)
 	}
@@ -286,12 +292,13 @@ func RunConcurrently(t *testing.T, functions ...func()) {
 			// Function completed
 		case <-time.After(5 * time.Second):
 			t.Error("Concurrent function did not complete within timeout")
+
 			return
 		}
 	}
 }
 
-// CreateTestConfigYAML returns a test configuration in YAML format
+// CreateTestConfigYAML returns a test configuration in YAML format.
 func CreateTestConfigYAML() string {
 	return `
 matrix:
@@ -339,7 +346,7 @@ logging:
 `
 }
 
-// ValidateSystemStats validates that system stats are reasonable
+// ValidateSystemStats validates that system stats are reasonable.
 func ValidateSystemStats(t *testing.T, stats *stats.SystemStats) {
 	t.Helper()
 
@@ -391,7 +398,7 @@ func ValidateSystemStats(t *testing.T, stats *stats.SystemStats) {
 	}
 }
 
-// ValidateStatsSummary validates that a stats summary is reasonable
+// ValidateStatsSummary validates that a stats summary is reasonable.
 func ValidateStatsSummary(t *testing.T, summary *stats.StatsSummary) {
 	t.Helper()
 
@@ -413,12 +420,15 @@ func ValidateStatsSummary(t *testing.T, summary *stats.StatsSummary) {
 	// Validate status
 	validStatuses := []stats.SystemStatus{stats.StatusNormal, stats.StatusWarning, stats.StatusCritical}
 	statusValid := false
+
 	for _, validStatus := range validStatuses {
 		if summary.Status == validStatus {
 			statusValid = true
+
 			break
 		}
 	}
+
 	if !statusValid {
 		t.Errorf("StatsSummary.Status is invalid: %v", summary.Status)
 	}

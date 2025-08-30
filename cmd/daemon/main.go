@@ -15,7 +15,7 @@ const (
 )
 
 var (
-	// These are set by the build system via -ldflags
+	// These are set by the build system via -ldflags.
 	version   = "dev"     // Set via -X main.version=...
 	buildTime = "unknown" // Set via -X main.buildTime=...
 )
@@ -52,12 +52,13 @@ func main() {
 
 	applyCommandLineOverrides(cfg)
 
-	if len(os.Args) < 2 {
+	if flag.NArg() < 1 {
 		showUsage()
 		os.Exit(1)
 	}
 
-	command := os.Args[len(os.Args)-1]
+	args := flag.Args()
+	command := args[0]
 
 	service, err := daemon.NewService(cfg)
 	if err != nil {
@@ -74,30 +75,35 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to install service: %v", err)
 		}
+
 		fmt.Println(status)
 	case "remove", "uninstall":
 		status, err := service.Remove()
 		if err != nil {
 			log.Fatalf("Failed to remove service: %v", err)
 		}
+
 		fmt.Println(status)
 	case "start":
 		status, err := service.StartService()
 		if err != nil {
 			log.Fatalf("Failed to start service: %v", err)
 		}
+
 		fmt.Println(status)
 	case "stop":
 		status, err := service.StopService()
 		if err != nil {
 			log.Fatalf("Failed to stop service: %v", err)
 		}
+
 		fmt.Println(status)
 	case "status":
 		status, err := service.Status()
 		if err != nil {
 			log.Fatalf("Failed to get service status: %v", err)
 		}
+
 		fmt.Println(status)
 	case "config":
 		if err := showConfiguration(cfg); err != nil {
@@ -107,6 +113,7 @@ func main() {
 		if err := testConnection(cfg); err != nil {
 			log.Fatalf("Connection test failed: %v", err)
 		}
+
 		fmt.Println("Connection test successful!")
 	default:
 		fmt.Printf("Unknown command: %s\n\n", command)
@@ -123,7 +130,8 @@ func loadConfiguration() (*config.Config, error) {
 	configFile, err := config.FindConfig()
 	if err != nil {
 		log.Printf("No configuration file found, using defaults")
-		return config.DefaultConfig(), nil
+
+		return config.DefaultConfig(), err
 	}
 
 	return config.LoadConfig(configFile)
@@ -236,5 +244,6 @@ func testConnection(cfg *config.Config) error {
 	}
 
 	log.Printf("Connection test completed successfully")
+
 	return nil
 }

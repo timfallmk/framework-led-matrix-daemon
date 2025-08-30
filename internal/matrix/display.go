@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// ClientInterface defines the interface that DisplayManager needs from a client
+// ClientInterface defines the interface that DisplayManager needs from a client.
 type ClientInterface interface {
 	ShowPercentage(percent byte) error
 	ShowZigZag() error
@@ -17,11 +17,11 @@ type ClientInterface interface {
 }
 
 type DisplayManager struct {
-	client       ClientInterface
-	mu           sync.RWMutex
 	lastUpdate   time.Time
-	updateRate   time.Duration
+	client       ClientInterface
 	currentState map[string]interface{}
+	updateRate   time.Duration
+	mu           sync.RWMutex
 }
 
 func NewDisplayManager(client ClientInterface) *DisplayManager {
@@ -35,12 +35,14 @@ func NewDisplayManager(client ClientInterface) *DisplayManager {
 func (dm *DisplayManager) SetUpdateRate(rate time.Duration) {
 	dm.mu.Lock()
 	defer dm.mu.Unlock()
+
 	dm.updateRate = rate
 }
 
 func (dm *DisplayManager) shouldUpdate() bool {
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
+
 	return time.Since(dm.lastUpdate) >= dm.updateRate
 }
 
@@ -112,6 +114,7 @@ func (dm *DisplayManager) ShowStatus(status string) error {
 	defer dm.mu.Unlock()
 
 	var err error
+
 	switch status {
 	case "normal":
 		err = dm.client.ShowGradient()
@@ -159,6 +162,7 @@ func (dm *DisplayManager) GetCurrentState() map[string]interface{} {
 	for k, v := range dm.currentState {
 		state[k] = v
 	}
+
 	return state
 }
 
@@ -166,10 +170,11 @@ func abs(x float64) float64 {
 	if x < 0 {
 		return -x
 	}
+
 	return x
 }
 
-// MultiDisplayManager manages multiple DisplayManagers for dual matrix support
+// MultiDisplayManager manages multiple DisplayManagers for dual matrix support.
 type MultiDisplayManager struct {
 	displays    map[string]*DisplayManager
 	multiClient *MultiClient
@@ -212,12 +217,14 @@ func (mdm *MultiDisplayManager) UpdateMetric(metricName string, value float64, s
 func (mdm *MultiDisplayManager) updateMirrorMode(metricName string, value float64) error {
 	// Show the same content on all matrices
 	var lastErr error
+
 	for _, display := range mdm.displays {
 		if err := display.UpdatePercentage(metricName, value); err != nil {
 			lastErr = err
 			log.Printf("Error updating mirror display: %v", err)
 		}
 	}
+
 	return lastErr
 }
 
@@ -233,9 +240,11 @@ func (mdm *MultiDisplayManager) updateSplitMode(metricName string, value float64
 
 		// Check if this matrix should display the current metric
 		shouldDisplay := false
+
 		for _, assignedMetric := range matrixConfig.Metrics {
 			if assignedMetric == metricName {
 				shouldDisplay = true
+
 				break
 			}
 		}
@@ -257,6 +266,7 @@ func (mdm *MultiDisplayManager) updateSplitMode(metricName string, value float64
 			}
 		}
 	}
+
 	return lastErr
 }
 
@@ -277,12 +287,14 @@ func (mdm *MultiDisplayManager) UpdateActivity(active bool) error {
 	defer mdm.mu.RUnlock()
 
 	var lastErr error
+
 	for name, display := range mdm.displays {
 		if err := display.ShowActivity(active); err != nil {
 			lastErr = err
 			log.Printf("Error updating activity on display %s: %v", name, err)
 		}
 	}
+
 	return lastErr
 }
 
@@ -291,12 +303,14 @@ func (mdm *MultiDisplayManager) UpdateStatus(status string) error {
 	defer mdm.mu.RUnlock()
 
 	var lastErr error
+
 	for name, display := range mdm.displays {
 		if err := display.ShowStatus(status); err != nil {
 			lastErr = err
 			log.Printf("Error updating status on display %s: %v", name, err)
 		}
 	}
+
 	return lastErr
 }
 
@@ -305,12 +319,14 @@ func (mdm *MultiDisplayManager) SetBrightness(level byte) error {
 	defer mdm.mu.RUnlock()
 
 	var lastErr error
+
 	for name, display := range mdm.displays {
 		if err := display.SetBrightness(level); err != nil {
 			lastErr = err
 			log.Printf("Error setting brightness on display %s: %v", name, err)
 		}
 	}
+
 	return lastErr
 }
 
@@ -326,11 +342,13 @@ func (mdm *MultiDisplayManager) SetUpdateRate(rate time.Duration) {
 func (mdm *MultiDisplayManager) GetDisplayManager(name string) *DisplayManager {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
+
 	return mdm.displays[name]
 }
 
 func (mdm *MultiDisplayManager) HasMultipleDisplays() bool {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
+
 	return len(mdm.displays) > 1
 }

@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// LogLevel represents the logging level
+// LogLevel represents the logging level.
 type LogLevel string
 
 const (
@@ -22,7 +22,7 @@ const (
 	LevelError LogLevel = "error"
 )
 
-// LogFormat represents the logging format
+// LogFormat represents the logging format.
 type LogFormat string
 
 const (
@@ -30,7 +30,7 @@ const (
 	FormatText LogFormat = "text"
 )
 
-// Config holds the logger configuration
+// Config holds the logger configuration.
 type Config struct {
 	Level           LogLevel  `yaml:"level" json:"level"`
 	Format          LogFormat `yaml:"format" json:"format"`
@@ -51,19 +51,22 @@ func DefaultConfig() Config {
 	}
 }
 
-// Logger wraps slog.Logger with additional functionality
+// Logger wraps slog.Logger with additional functionality.
 type Logger struct {
+	writer io.Writer
 	*slog.Logger
 	config Config
-	writer io.Writer
 }
 
 // Timestamps in log records are rendered using RFC3339.
 func NewLogger(config Config) (*Logger, error) {
-	var writer io.Writer
-	var err error
+	var (
+		writer io.Writer
+		err    error
+	)
 
 	// Determine output writer
+
 	switch config.Output {
 	case "stdout", "":
 		writer = os.Stdout
@@ -74,6 +77,7 @@ func NewLogger(config Config) (*Logger, error) {
 		if err := os.MkdirAll(filepath.Dir(config.Output), 0o755); err != nil {
 			return nil, fmt.Errorf("failed to create log directory: %w", err)
 		}
+
 		writer, err = os.OpenFile(config.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open log file: %w", err)
@@ -97,6 +101,7 @@ func NewLogger(config Config) (*Logger, error) {
 
 	// Create handler based on format
 	var handler slog.Handler
+
 	opts := &slog.HandlerOptions{
 		Level:     level,
 		AddSource: config.AddSource,
@@ -105,6 +110,7 @@ func NewLogger(config Config) (*Logger, error) {
 			if a.Key == slog.TimeKey {
 				a.Value = slog.StringValue(a.Value.Time().Format(time.RFC3339))
 			}
+
 			return a
 		},
 	}
@@ -127,7 +133,7 @@ func NewLogger(config Config) (*Logger, error) {
 	return logger, nil
 }
 
-// WithContext returns a logger with the given context
+// WithContext returns a logger with the given context.
 func (l *Logger) WithContext(ctx context.Context) *Logger {
 	// Extract relevant context values and add as fields
 	// Example: if there's a request ID in context
@@ -135,35 +141,36 @@ func (l *Logger) WithContext(ctx context.Context) *Logger {
 	// Add context extraction logic here (e.g., if reqID := ctx.Value(requestIDKey); reqID != nil { args = append(args, "request_id", reqID) })
 
 	return &Logger{
-		Logger: l.Logger.With(args...),
+		Logger: l.With(args...),
 		config: l.config,
 		writer: l.writer,
 	}
 }
 
-// WithComponent adds a component field to the logger
+// WithComponent adds a component field to the logger.
 func (l *Logger) WithComponent(component string) *Logger {
 	return &Logger{
-		Logger: l.Logger.With("component", component),
+		Logger: l.With("component", component),
 		config: l.config,
 		writer: l.writer,
 	}
 }
 
-// WithFields adds structured fields to the logger
+// WithFields adds structured fields to the logger.
 func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
 	args := make([]interface{}, 0, len(fields)*2)
 	for k, v := range fields {
 		args = append(args, k, v)
 	}
+
 	return &Logger{
-		Logger: l.Logger.With(args...),
+		Logger: l.With(args...),
 		config: l.config,
 		writer: l.writer,
 	}
 }
 
-// Close closes the logger and any associated resources
+// Close closes the logger and any associated resources.
 func (l *Logger) Close() error {
 	defer func() {
 		l.writer = nil
@@ -185,10 +192,11 @@ func (l *Logger) Close() error {
 	if closer, ok := l.writer.(io.Closer); ok {
 		return closer.Close()
 	}
+
 	return nil
 }
 
-// LogEvent represents a structured log event for metrics
+// LogEvent represents a structured log event for metrics.
 type LogEvent struct {
 	Level     string                 `json:"level"`
 	Message   string                 `json:"message"`
@@ -198,12 +206,13 @@ type LogEvent struct {
 	Error     string                 `json:"error,omitempty"`
 }
 
-// EventLogger provides structured event logging for observability
+// EventLogger provides structured event logging for observability.
 type EventLogger struct {
-	logger *Logger
-	events chan LogEvent
-	done   chan struct{}
-	wg     sync.WaitGroup
+	logger    *Logger
+	events    chan LogEvent
+	done      chan struct{}
+	wg        sync.WaitGroup
+	closeOnce sync.Once
 }
 
 // NewEventLogger creates and returns an EventLogger that asynchronously processes structured observability events.
@@ -223,52 +232,58 @@ func NewEventLogger(logger *Logger) *EventLogger {
 	}
 
 	el.wg.Add(1)
+
 	go el.processEvents()
+
 	return el
 }
 
-// LogMatrix logs matrix-related events
+// LogMatrix logs matrix-related events.
 func (el *EventLogger) LogMatrix(level LogLevel, message string, matrixID string, fields map[string]interface{}) {
 	if fields == nil {
 		fields = make(map[string]interface{})
 	}
+
 	fields["matrix_id"] = matrixID
 
 	el.logEvent(level, "matrix", message, fields, nil)
 }
 
-// LogStats logs statistics collection events
+// LogStats logs statistics collection events.
 func (el *EventLogger) LogStats(level LogLevel, message string, statsType string, value float64, fields map[string]interface{}) {
 	if fields == nil {
 		fields = make(map[string]interface{})
 	}
+
 	fields["stats_type"] = statsType
 	fields["value"] = value
 
 	el.logEvent(level, "stats", message, fields, nil)
 }
 
-// LogConfig logs configuration-related events
+// LogConfig logs configuration-related events.
 func (el *EventLogger) LogConfig(level LogLevel, message string, configPath string, fields map[string]interface{}) {
 	if fields == nil {
 		fields = make(map[string]interface{})
 	}
+
 	fields["config_path"] = configPath
 
 	el.logEvent(level, "config", message, fields, nil)
 }
 
-// LogDaemon logs daemon lifecycle events
+// LogDaemon logs daemon lifecycle events.
 func (el *EventLogger) LogDaemon(level LogLevel, message string, action string, fields map[string]interface{}) {
 	if fields == nil {
 		fields = make(map[string]interface{})
 	}
+
 	fields["action"] = action
 
 	el.logEvent(level, "daemon", message, fields, nil)
 }
 
-// LogError logs error events with stack trace context
+// LogError logs error events with stack trace context.
 func (el *EventLogger) LogError(err error, message string, fields map[string]interface{}) {
 	if fields == nil {
 		fields = make(map[string]interface{})
@@ -277,6 +292,7 @@ func (el *EventLogger) LogError(err error, message string, fields map[string]int
 	// Add stack trace context
 	if pc, file, line, ok := runtime.Caller(1); ok {
 		fields["caller_file"] = filepath.Base(file)
+
 		fields["caller_line"] = line
 		if fn := runtime.FuncForPC(pc); fn != nil {
 			fields["caller_func"] = fn.Name()
@@ -337,6 +353,7 @@ func (el *EventLogger) logEventDirect(event LogEvent) {
 
 func (el *EventLogger) processEvents() {
 	defer el.wg.Done()
+
 	for {
 		select {
 		case event := <-el.events:
@@ -355,13 +372,15 @@ func (el *EventLogger) processEvents() {
 	}
 }
 
-// Close stops the event logger and waits for all events to drain
+// Close stops the event logger and waits for all events to drain.
 func (el *EventLogger) Close() {
-	close(el.done)
-	el.wg.Wait()
+	el.closeOnce.Do(func() {
+		close(el.done)
+		el.wg.Wait()
+	})
 }
 
-// MetricsLogger provides structured metrics logging
+// MetricsLogger provides structured metrics logging.
 type MetricsLogger struct {
 	logger *Logger
 }
@@ -374,7 +393,7 @@ func NewMetricsLogger(logger *Logger) *MetricsLogger {
 	}
 }
 
-// LogCounter logs a counter metric
+// LogCounter logs a counter metric.
 func (ml *MetricsLogger) LogCounter(name string, value int64, labels map[string]string) {
 	fields := map[string]interface{}{
 		"metric_type": "counter",
@@ -389,7 +408,7 @@ func (ml *MetricsLogger) LogCounter(name string, value int64, labels map[string]
 	ml.logger.Info("counter metric", slog.Any("fields", fields))
 }
 
-// LogGauge logs a gauge metric
+// LogGauge logs a gauge metric.
 func (ml *MetricsLogger) LogGauge(name string, value float64, labels map[string]string) {
 	fields := map[string]interface{}{
 		"metric_type": "gauge",
@@ -404,7 +423,7 @@ func (ml *MetricsLogger) LogGauge(name string, value float64, labels map[string]
 	ml.logger.Info("gauge metric", slog.Any("fields", fields))
 }
 
-// LogHistogram logs a histogram metric
+// LogHistogram logs a histogram metric.
 func (ml *MetricsLogger) LogHistogram(name string, value float64, labels map[string]string) {
 	fields := map[string]interface{}{
 		"metric_type": "histogram",
@@ -419,7 +438,7 @@ func (ml *MetricsLogger) LogHistogram(name string, value float64, labels map[str
 	ml.logger.Info("histogram metric", slog.Any("fields", fields))
 }
 
-// LogTiming logs timing information
+// LogTiming logs timing information.
 func (ml *MetricsLogger) LogTiming(name string, duration time.Duration, labels map[string]string) {
 	fields := map[string]interface{}{
 		"metric_type":     "timing",
@@ -435,15 +454,15 @@ func (ml *MetricsLogger) LogTiming(name string, duration time.Duration, labels m
 	ml.logger.Info("timing metric", slog.Any("fields", fields))
 }
 
-// Performance tracking helpers
+// Performance tracking helpers.
 type PerformanceTracker struct {
-	logger    *MetricsLogger
 	startTime time.Time
-	operation string
+	logger    *MetricsLogger
 	labels    map[string]string
+	operation string
 }
 
-// StartTracking begins performance tracking for an operation
+// StartTracking begins performance tracking for an operation.
 func (ml *MetricsLogger) StartTracking(operation string, labels map[string]string) *PerformanceTracker {
 	return &PerformanceTracker{
 		logger:    ml,
@@ -453,14 +472,15 @@ func (ml *MetricsLogger) StartTracking(operation string, labels map[string]strin
 	}
 }
 
-// Finish completes the performance tracking and logs the duration
+// Finish completes the performance tracking and logs the duration.
 func (pt *PerformanceTracker) Finish() time.Duration {
 	duration := time.Since(pt.startTime)
 	pt.logger.LogTiming(pt.operation, duration, pt.labels)
+
 	return duration
 }
 
-// FinishWithError completes tracking and logs an error if one occurred
+// FinishWithError completes tracking and logs an error if one occurred.
 func (pt *PerformanceTracker) FinishWithError(err error) time.Duration {
 	duration := time.Since(pt.startTime)
 
@@ -477,38 +497,66 @@ func (pt *PerformanceTracker) FinishWithError(err error) time.Duration {
 	}
 
 	pt.logger.LogTiming(pt.operation, duration, labels)
+
 	return duration
 }
 
-// Global logger instance
-var globalLogger *Logger
+// Global logger instance.
+var (
+	globalLogger   *Logger
+	globalLoggerMu sync.RWMutex
+)
 
 // SetGlobalLogger sets the package-level global logger used by the convenience logging helpers.
 // Passing nil clears the global logger; GetGlobalLogger will create and return a default logger on next use.
 func SetGlobalLogger(logger *Logger) {
+	globalLoggerMu.Lock()
+	defer globalLoggerMu.Unlock()
+
 	globalLogger = logger
 }
 
 // GetGlobalLogger returns the package-level global *Logger.
 // If no global logger has been set, it lazily creates and caches a default logger using DefaultConfig.
-// Note: logger construction errors are ignored; if creation fails, this may return nil.
+// If construction fails, this panics to fail fast.
 func GetGlobalLogger() *Logger {
-	if globalLogger == nil {
-		// Fallback to default logger
-		config := DefaultConfig()
-		logger, err := NewLogger(config)
-		if err != nil {
-			// Fall back to a minimal logger that writes to stderr
-			// This ensures we always have a logger even if the default config fails
-			panic(fmt.Sprintf("failed to create default logger: %v", err))
-		}
-		globalLogger = logger
+	globalLoggerMu.RLock()
+
+	if globalLogger != nil {
+		defer globalLoggerMu.RUnlock()
+
+		return globalLogger
 	}
+
+	globalLoggerMu.RUnlock()
+
+	// Need to create a logger - upgrade to write lock
+	globalLoggerMu.Lock()
+	defer globalLoggerMu.Unlock()
+
+	// Double-check after acquiring write lock
+	if globalLogger != nil {
+		return globalLogger
+	}
+
+	// Fallback to default logger
+	config := DefaultConfig()
+
+	logger, err := NewLogger(config)
+	if err != nil {
+		// Fall back to a minimal logger that writes to stderr
+		// This ensures we always have a logger even if the default config fails
+		panic(fmt.Sprintf("failed to create default logger: %v", err))
+	}
+
+	globalLogger = logger
+
 	return globalLogger
 }
 
 // Debug logs a message at the debug level using the package global logger.
-// Any additional arguments are forwarded to the global Logger's Debug method (typically key/value pairs for structured fields).
+// Any additional arguments are forwarded to the global Logger's Debug method
+// (typically key/value pairs for structured fields).
 func Debug(msg string, args ...interface{}) {
 	GetGlobalLogger().Debug(msg, args...)
 }

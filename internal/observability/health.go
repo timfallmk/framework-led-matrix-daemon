@@ -10,15 +10,16 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 )
 
-// errString returns the error message as a string, or empty string if err is nil
+// errString returns the error message as a string, or empty string if err is nil.
 func errString(err error) string {
 	if err == nil {
 		return ""
 	}
+
 	return err.Error()
 }
 
-// HealthStatus represents the health status of a component
+// HealthStatus represents the health status of a component.
 type HealthStatus string
 
 const (
@@ -28,38 +29,35 @@ const (
 	StatusStarting  HealthStatus = "starting"
 )
 
-// HealthCheck represents a single health check
+// HealthCheck represents a single health check.
 type HealthCheck struct {
+	LastChecked time.Time     `json:"last_checked"`
 	Name        string        `json:"name"`
 	Status      HealthStatus  `json:"status"`
 	Message     string        `json:"message,omitempty"`
-	LastChecked time.Time     `json:"last_checked"`
-	Duration    time.Duration `json:"duration"`
 	Error       string        `json:"error,omitempty"`
+	Duration    time.Duration `json:"duration"`
 }
 
-// HealthChecker defines the interface for health checks
+// HealthChecker defines the interface for health checks.
 type HealthChecker interface {
 	Check(ctx context.Context) error
 	Name() string
 	Timeout() time.Duration
 }
 
-// HealthMonitor monitors the health of various system components
+// HealthMonitor monitors the health of various system components.
 type HealthMonitor struct {
-	checkers map[string]HealthChecker
-	results  map[string]*HealthCheck
-	logger   *logging.EventLogger
-	metrics  *ApplicationMetrics
-	mu       sync.RWMutex
-
-	checkInterval time.Duration
 	ctx           context.Context
+	checkers      map[string]HealthChecker
+	results       map[string]*HealthCheck
+	logger        *logging.EventLogger
+	metrics       *ApplicationMetrics
 	cancel        context.CancelFunc
+	checkSem      chan struct{}
 	wg            sync.WaitGroup
-
-	// Semaphore to limit concurrent health checks
-	checkSem chan struct{}
+	checkInterval time.Duration
+	mu            sync.RWMutex
 }
 
 // NewHealthMonitor creates a HealthMonitor that coordinates periodic health checks.
@@ -98,7 +96,7 @@ func NewHealthMonitor(logger *logging.Logger, metrics *ApplicationMetrics, check
 	return hm
 }
 
-// RegisterChecker registers a health checker
+// RegisterChecker registers a health checker.
 func (hm *HealthMonitor) RegisterChecker(checker HealthChecker) {
 	hm.mu.Lock()
 	defer hm.mu.Unlock()
@@ -115,15 +113,16 @@ func (hm *HealthMonitor) RegisterChecker(checker HealthChecker) {
 	})
 }
 
-// Start begins health monitoring
+// Start begins health monitoring.
 func (hm *HealthMonitor) Start() {
 	hm.wg.Add(1)
+
 	go hm.monitorLoop()
 
 	hm.logger.LogDaemon(logging.LevelInfo, "health monitor started", "start", nil)
 }
 
-// Stop stops health monitoring
+// Stop stops health monitoring.
 func (hm *HealthMonitor) Stop() {
 	hm.cancel()
 	hm.wg.Wait()
@@ -132,7 +131,7 @@ func (hm *HealthMonitor) Stop() {
 	hm.logger.Close()
 }
 
-// GetHealth returns the current health status of all components
+// GetHealth returns the current health status of all components.
 func (hm *HealthMonitor) GetHealth() map[string]*HealthCheck {
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
@@ -148,10 +147,11 @@ func (hm *HealthMonitor) GetHealth() map[string]*HealthCheck {
 			Error:       check.Error,
 		}
 	}
+
 	return result
 }
 
-// GetOverallHealth returns the overall system health
+// GetOverallHealth returns the overall system health.
 func (hm *HealthMonitor) GetOverallHealth() HealthStatus {
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
@@ -175,6 +175,7 @@ func (hm *HealthMonitor) GetOverallHealth() HealthStatus {
 	if hasUnhealthy {
 		return StatusUnhealthy
 	}
+
 	if hasStarting {
 		return StatusStarting
 	}
@@ -182,7 +183,7 @@ func (hm *HealthMonitor) GetOverallHealth() HealthStatus {
 	return StatusHealthy
 }
 
-// IsHealthy returns true if all components are healthy
+// IsHealthy returns true if all components are healthy.
 func (hm *HealthMonitor) IsHealthy() bool {
 	return hm.GetOverallHealth() == StatusHealthy
 }
@@ -208,16 +209,19 @@ func (hm *HealthMonitor) monitorLoop() {
 
 func (hm *HealthMonitor) runAllChecks() {
 	hm.mu.RLock()
+
 	checkers := make([]HealthChecker, 0, len(hm.checkers))
 	for _, checker := range hm.checkers {
 		checkers = append(checkers, checker)
 	}
+
 	hm.mu.RUnlock()
 
 	// Run checks in parallel with concurrency control
 	var wg sync.WaitGroup
 	for _, checker := range checkers {
 		wg.Add(1)
+
 		go func(c HealthChecker) {
 			defer wg.Done()
 
@@ -225,6 +229,7 @@ func (hm *HealthMonitor) runAllChecks() {
 			select {
 			case hm.checkSem <- struct{}{}:
 				defer func() { <-hm.checkSem }() // Release semaphore
+
 				hm.runCheck(c)
 			case <-hm.ctx.Done():
 				// Context cancelled, skip this check
@@ -232,6 +237,7 @@ func (hm *HealthMonitor) runAllChecks() {
 			}
 		}(checker)
 	}
+
 	wg.Wait()
 }
 
@@ -253,6 +259,7 @@ func (hm *HealthMonitor) runCheck(checker HealthChecker) {
 
 	// Update results
 	hm.mu.Lock()
+
 	result := &HealthCheck{
 		Name:        checker.Name(),
 		LastChecked: time.Now(),
@@ -292,10 +299,10 @@ func (hm *HealthMonitor) runCheck(checker HealthChecker) {
 
 // Predefined health checkers
 
-// MatrixHealthChecker checks matrix connectivity
+// MatrixHealthChecker checks matrix connectivity.
 type MatrixHealthChecker struct {
-	name     string
 	testFunc func(ctx context.Context) error
+	name     string
 	timeout  time.Duration
 }
 
@@ -320,13 +327,14 @@ func (m *MatrixHealthChecker) Check(ctx context.Context) error {
 	if m.testFunc == nil {
 		return fmt.Errorf("no test function provided")
 	}
+
 	return m.testFunc(ctx)
 }
 
-// StatsHealthChecker checks stats collection
+// StatsHealthChecker checks stats collection.
 type StatsHealthChecker struct {
-	name     string
 	testFunc func(ctx context.Context) error
+	name     string
 	timeout  time.Duration
 }
 
@@ -354,13 +362,14 @@ func (s *StatsHealthChecker) Check(ctx context.Context) error {
 	if s.testFunc == nil {
 		return fmt.Errorf("no test function provided")
 	}
+
 	return s.testFunc(ctx)
 }
 
-// ConfigHealthChecker checks configuration validity
+// ConfigHealthChecker checks configuration validity.
 type ConfigHealthChecker struct {
-	name     string
 	testFunc func(ctx context.Context) error
+	name     string
 	timeout  time.Duration
 }
 
@@ -388,10 +397,11 @@ func (c *ConfigHealthChecker) Check(ctx context.Context) error {
 	if c.testFunc == nil {
 		return fmt.Errorf("no test function provided")
 	}
+
 	return c.testFunc(ctx)
 }
 
-// MemoryHealthChecker checks memory usage
+// MemoryHealthChecker checks memory usage.
 type MemoryHealthChecker struct {
 	name           string
 	maxMemoryBytes uint64
@@ -429,10 +439,11 @@ func (m *MemoryHealthChecker) Check(ctx context.Context) error {
 			memStats.Alloc, m.maxMemoryBytes,
 		)
 	}
+
 	return nil
 }
 
-// DiskSpaceHealthChecker checks available disk space
+// DiskSpaceHealthChecker checks available disk space.
 type DiskSpaceHealthChecker struct {
 	name         string
 	path         string
@@ -461,8 +472,15 @@ func (d *DiskSpaceHealthChecker) Timeout() time.Duration {
 }
 
 func (d *DiskSpaceHealthChecker) Check(ctx context.Context) error {
-	// This would need to be implemented with actual disk space checking
-	// For now, we'll always return healthy
-	// In a real implementation, you'd use syscall.Statfs or similar
+	total, free, err := diskFreeBytes(d.path)
+	if err != nil {
+		return fmt.Errorf("disk stat failed for %q: %w", d.path, err)
+	}
+
+	if free < d.minFreeBytes {
+		return fmt.Errorf("low disk space at %q: free=%d total=%d required_free=%d",
+			d.path, free, total, d.minFreeBytes)
+	}
+
 	return nil
 }

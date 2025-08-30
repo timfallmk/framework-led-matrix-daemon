@@ -15,12 +15,12 @@ import (
 )
 
 type Collector struct {
-	mu              sync.RWMutex
 	lastStats       *SystemStats
-	lastNetStats    []net.IOCountersStat
 	lastDiskStats   map[string]disk.IOCountersStat
-	collectInterval time.Duration
+	lastNetStats    []net.IOCountersStat
 	thresholds      Thresholds
+	collectInterval time.Duration
+	mu              sync.RWMutex
 }
 
 func NewCollector(interval time.Duration) *Collector {
@@ -34,12 +34,14 @@ func NewCollector(interval time.Duration) *Collector {
 func (c *Collector) SetThresholds(t Thresholds) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	c.thresholds = t
 }
 
 func (c *Collector) GetThresholds() Thresholds {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.thresholds
 }
 
@@ -50,18 +52,21 @@ func (c *Collector) CollectCPUStats() (CPUStats, error) {
 	if err != nil {
 		return stats, fmt.Errorf("failed to get physical CPU count: %w", err)
 	}
+
 	stats.PhysicalCores = physicalCount
 
 	logicalCount, err := cpu.Counts(true)
 	if err != nil {
 		return stats, fmt.Errorf("failed to get logical CPU count: %w", err)
 	}
+
 	stats.LogicalCores = logicalCount
 
 	totalPercent, err := cpu.Percent(0, false)
 	if err != nil {
 		return stats, fmt.Errorf("failed to get total CPU usage: %w", err)
 	}
+
 	if len(totalPercent) > 0 {
 		stats.UsagePercent = totalPercent[0]
 	}
@@ -122,6 +127,7 @@ func (c *Collector) CollectDiskStats() (DiskStats, error) {
 		usage, err := disk.Usage(partition.Mountpoint)
 		if err != nil {
 			log.Printf("Warning: failed to get usage for partition %s: %v", partition.Device, err)
+
 			continue
 		}
 
@@ -158,8 +164,10 @@ func (c *Collector) CollectDiskStats() (DiskStats, error) {
 		}
 
 		c.mu.Lock()
+
 		if c.lastDiskStats != nil {
 			var totalActivity uint64
+
 			for device, current := range ioCounters {
 				if last, exists := c.lastDiskStats[device]; exists {
 					readDiff := current.ReadBytes - last.ReadBytes
@@ -167,8 +175,10 @@ func (c *Collector) CollectDiskStats() (DiskStats, error) {
 					totalActivity += readDiff + writeDiff
 				}
 			}
+
 			stats.ActivityRate = float64(totalActivity) / c.collectInterval.Seconds()
 		}
+
 		c.lastDiskStats = ioCounters
 		c.mu.Unlock()
 	}
@@ -193,11 +203,13 @@ func (c *Collector) CollectNetworkStats() (NetworkStats, error) {
 		stats.TotalBytesRecv = netIO[0].BytesRecv
 
 		c.mu.Lock()
+
 		if len(c.lastNetStats) > 0 {
 			sentDiff := netIO[0].BytesSent - c.lastNetStats[0].BytesSent
 			recvDiff := netIO[0].BytesRecv - c.lastNetStats[0].BytesRecv
 			stats.ActivityRate = float64(sentDiff+recvDiff) / c.collectInterval.Seconds()
 		}
+
 		c.lastNetStats = netIO
 		c.mu.Unlock()
 	}
@@ -214,24 +226,28 @@ func (c *Collector) CollectSystemStats() (*SystemStats, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect CPU stats: %w", err)
 	}
+
 	stats.CPU = cpuStats
 
 	memStats, err := c.CollectMemoryStats()
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect memory stats: %w", err)
 	}
+
 	stats.Memory = memStats
 
 	diskStats, err := c.CollectDiskStats()
 	if err != nil {
 		log.Printf("Warning: failed to collect disk stats: %v", err)
 	}
+
 	stats.Disk = diskStats
 
 	netStats, err := c.CollectNetworkStats()
 	if err != nil {
 		log.Printf("Warning: failed to collect network stats: %v", err)
 	}
+
 	stats.Network = netStats
 
 	uptime, err := host.Uptime()
@@ -258,6 +274,7 @@ func (c *Collector) CollectSystemStats() (*SystemStats, error) {
 func (c *Collector) GetLastStats() *SystemStats {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.lastStats
 }
 

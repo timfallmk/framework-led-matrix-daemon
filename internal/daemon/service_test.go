@@ -10,16 +10,16 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
 )
 
-// MockDaemon implements a mock daemon for testing service management
+// MockDaemon implements a mock daemon for testing service management.
 type MockDaemon struct {
-	installed  bool
-	running    bool
-	status     string
 	installErr error
 	removeErr  error
 	startErr   error
 	stopErr    error
 	statusErr  error
+	status     string
+	installed  bool
+	running    bool
 }
 
 func NewMockDaemon() *MockDaemon {
@@ -32,7 +32,9 @@ func (m *MockDaemon) Install() (string, error) {
 	if m.installErr != nil {
 		return "", m.installErr
 	}
+
 	m.installed = true
+
 	return "Service installed successfully", nil
 }
 
@@ -40,8 +42,10 @@ func (m *MockDaemon) Remove() (string, error) {
 	if m.removeErr != nil {
 		return "", m.removeErr
 	}
+
 	m.installed = false
 	m.running = false
+
 	return "Service removed successfully", nil
 }
 
@@ -49,11 +53,14 @@ func (m *MockDaemon) Start() (string, error) {
 	if m.startErr != nil {
 		return "", m.startErr
 	}
+
 	if !m.installed {
 		return "", errors.New("service not installed")
 	}
+
 	m.running = true
 	m.status = "running"
+
 	return "Service started successfully", nil
 }
 
@@ -61,8 +68,10 @@ func (m *MockDaemon) Stop() (string, error) {
 	if m.stopErr != nil {
 		return "", m.stopErr
 	}
+
 	m.running = false
 	m.status = "stopped"
+
 	return "Service stopped successfully", nil
 }
 
@@ -70,6 +79,7 @@ func (m *MockDaemon) Status() (string, error) {
 	if m.statusErr != nil {
 		return "", m.statusErr
 	}
+
 	return m.status, nil
 }
 
@@ -148,12 +158,14 @@ func TestServiceInitialization(t *testing.T) {
 		if err.Error() == "" {
 			t.Error("Initialize() error should have meaningful message")
 		}
+
 		t.Logf("Initialize() failed as expected with mock hardware: %v", err)
 	}
 }
 
 func TestServiceLifecycle(t *testing.T) {
 	cfg := config.DefaultConfig()
+
 	service, err := NewService(cfg)
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
@@ -225,6 +237,7 @@ func TestServiceConfigReload(t *testing.T) {
 		if thresholds.CPUWarning != 75.0 {
 			t.Errorf("Reload should update CPU warning threshold to 75.0, got %.1f", thresholds.CPUWarning)
 		}
+
 		if thresholds.CPUCritical != 90.0 {
 			t.Errorf("Reload should update CPU critical threshold to 90.0, got %.1f", thresholds.CPUCritical)
 		}
@@ -233,6 +246,7 @@ func TestServiceConfigReload(t *testing.T) {
 
 func TestServiceDaemonOperations(t *testing.T) {
 	cfg := config.DefaultConfig()
+
 	service, err := NewService(cfg)
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
@@ -249,6 +263,7 @@ func TestServiceDaemonOperations(t *testing.T) {
 		if status == "" {
 			t.Error("Status() should return non-empty status")
 		}
+
 		t.Logf("Service status: %s", status)
 	}
 
@@ -278,6 +293,7 @@ func TestServiceDaemonOperations(t *testing.T) {
 
 func TestServiceConcurrency(t *testing.T) {
 	cfg := config.DefaultConfig()
+
 	service, err := NewService(cfg)
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
@@ -285,6 +301,7 @@ func TestServiceConcurrency(t *testing.T) {
 
 	// Test concurrent access to service operations
 	var wg sync.WaitGroup
+
 	numGoroutines := 5
 
 	wg.Add(numGoroutines)
@@ -299,6 +316,7 @@ func TestServiceConcurrency(t *testing.T) {
 				if err != nil {
 					t.Logf("Goroutine %d Status() error: %v", id, err)
 				}
+
 				time.Sleep(1 * time.Millisecond)
 			}
 		}(i)
@@ -315,6 +333,7 @@ func TestServiceConcurrency(t *testing.T) {
 
 func TestServiceContextCancellation(t *testing.T) {
 	cfg := config.DefaultConfig()
+
 	service, err := NewService(cfg)
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
@@ -346,6 +365,7 @@ func TestServiceContextCancellation(t *testing.T) {
 
 func TestServiceStopChannel(t *testing.T) {
 	cfg := config.DefaultConfig()
+
 	service, err := NewService(cfg)
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
@@ -372,7 +392,7 @@ func TestServiceStopChannel(t *testing.T) {
 }
 
 // Integration test that tests the full service workflow
-// This test is more comprehensive but may fail without proper hardware/permissions
+// This test is more comprehensive but may fail without proper hardware/permissions.
 func TestServiceIntegration(t *testing.T) {
 	// Skip this test in short mode or CI environments
 	if testing.Short() {
@@ -400,6 +420,7 @@ func TestServiceIntegration(t *testing.T) {
 
 	// Start service components in separate goroutine
 	done := make(chan error, 1)
+
 	go func() {
 		// Simulate running for a short time
 		select {
@@ -422,7 +443,7 @@ func TestServiceIntegration(t *testing.T) {
 	// Wait for completion
 	select {
 	case err := <-done:
-		if err != nil && err != context.DeadlineExceeded {
+		if err != nil && !errors.Is(err, context.DeadlineExceeded) {
 			t.Errorf("Service run error: %v", err)
 		}
 	case <-time.After(2 * time.Second):
@@ -430,7 +451,7 @@ func TestServiceIntegration(t *testing.T) {
 	}
 }
 
-// Test error conditions
+// Test error conditions.
 func TestServiceErrorHandling(t *testing.T) {
 	// Test with invalid config
 	cfg := config.DefaultConfig()
@@ -440,6 +461,7 @@ func TestServiceErrorHandling(t *testing.T) {
 	service, err := NewService(cfg)
 	if err != nil {
 		t.Logf("NewService() with invalid config error (expected): %v", err)
+
 		return
 	}
 
@@ -453,11 +475,12 @@ func TestServiceErrorHandling(t *testing.T) {
 	}
 }
 
-// Benchmark service creation
+// Benchmark service creation.
 func BenchmarkServiceCreation(b *testing.B) {
 	cfg := config.DefaultConfig()
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		service, err := NewService(cfg)
 		if err != nil {
@@ -469,9 +492,10 @@ func BenchmarkServiceCreation(b *testing.B) {
 	}
 }
 
-// Benchmark daemon status calls
+// Benchmark daemon status calls.
 func BenchmarkServiceStatus(b *testing.B) {
 	cfg := config.DefaultConfig()
+
 	service, err := NewService(cfg)
 	if err != nil {
 		b.Fatalf("NewService() error = %v", err)
@@ -479,6 +503,7 @@ func BenchmarkServiceStatus(b *testing.B) {
 	defer service.cancel()
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		_, err := service.Status()
 		if err != nil {
@@ -488,11 +513,11 @@ func BenchmarkServiceStatus(b *testing.B) {
 	}
 }
 
-// Test service configuration validation
+// Test service configuration validation.
 func TestServiceConfigValidation(t *testing.T) {
 	tests := []struct {
-		name      string
 		configMod func(*config.Config)
+		name      string
 		expectErr bool
 	}{
 		{
@@ -525,6 +550,7 @@ func TestServiceConfigValidation(t *testing.T) {
 
 			if (err != nil) != tt.expectErr {
 				t.Errorf("NewService() error = %v, expectErr %v", err, tt.expectErr)
+
 				return
 			}
 

@@ -9,15 +9,15 @@ import (
 	"go.bug.st/serial"
 )
 
-// MockPort implements a mock serial port for testing
+// MockPort implements a mock serial port for testing.
 type MockPort struct {
+	writeError  error
+	readError   error
 	writeData   []byte
 	readData    []byte
 	readIndex   int
-	writeError  error
-	readError   error
-	closed      bool
 	readTimeout time.Duration
+	closed      bool
 }
 
 func NewMockPort() *MockPort {
@@ -30,7 +30,9 @@ func (m *MockPort) Write(data []byte) (int, error) {
 	if m.writeError != nil {
 		return 0, m.writeError
 	}
+
 	m.writeData = append(m.writeData, data...)
+
 	return len(data), nil
 }
 
@@ -45,16 +47,19 @@ func (m *MockPort) Read(buffer []byte) (int, error) {
 
 	n := copy(buffer, m.readData[m.readIndex:])
 	m.readIndex += n
+
 	return n, nil
 }
 
 func (m *MockPort) Close() error {
 	m.closed = true
+
 	return nil
 }
 
 func (m *MockPort) SetReadTimeout(timeout time.Duration) error {
 	m.readTimeout = timeout
+
 	return nil
 }
 
@@ -137,9 +142,9 @@ func TestClientSendCommand(t *testing.T) {
 	client.port = mockPort
 
 	tests := []struct {
+		writeError  error
 		name        string
 		command     Command
-		writeError  error
 		expectError bool
 	}{
 		{
@@ -165,11 +170,13 @@ func TestClientSendCommand(t *testing.T) {
 
 			if (err != nil) != tt.expectError {
 				t.Errorf("SendCommand() error = %v, expectError %v", err, tt.expectError)
+
 				return
 			}
 
 			if !tt.expectError {
 				expectedData := tt.command.ToBytes()
+
 				writtenData := mockPort.GetWrittenData()
 				if !reflect.DeepEqual(writtenData, expectedData) {
 					t.Errorf("SendCommand() wrote %v, want %v", writtenData, expectedData)
@@ -199,10 +206,10 @@ func TestClientReadResponse(t *testing.T) {
 	client.port = mockPort
 
 	tests := []struct {
+		readError     error
 		name          string
 		readData      []byte
 		expectedBytes int
-		readError     error
 		expectError   bool
 	}{
 		{
@@ -237,6 +244,7 @@ func TestClientReadResponse(t *testing.T) {
 
 			if (err != nil) != tt.expectError {
 				t.Errorf("ReadResponse() error = %v, expectError %v", err, tt.expectError)
+
 				return
 			}
 
@@ -268,6 +276,7 @@ func TestClientGetVersion(t *testing.T) {
 
 	// Check that version command was sent
 	writtenData := mockPort.GetWrittenData()
+
 	expectedCommand := VersionCommand().ToBytes()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
 		t.Errorf("GetVersion() sent %v, want %v", writtenData, expectedCommand)
@@ -285,12 +294,14 @@ func TestClientSetBrightness(t *testing.T) {
 	client.port = mockPort
 
 	level := byte(128)
+
 	err := client.SetBrightness(level)
 	if err != nil {
 		t.Fatalf("SetBrightness() error = %v", err)
 	}
 
 	expectedCommand := BrightnessCommand(level).ToBytes()
+
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
 		t.Errorf("SetBrightness() sent %v, want %v", writtenData, expectedCommand)
@@ -303,12 +314,14 @@ func TestClientShowPercentage(t *testing.T) {
 	client.port = mockPort
 
 	percent := byte(75)
+
 	err := client.ShowPercentage(percent)
 	if err != nil {
 		t.Fatalf("ShowPercentage() error = %v", err)
 	}
 
 	expectedCommand := PercentageCommand(percent).ToBytes()
+
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
 		t.Errorf("ShowPercentage() sent %v, want %v", writtenData, expectedCommand)
@@ -326,6 +339,7 @@ func TestClientShowGradient(t *testing.T) {
 	}
 
 	expectedCommand := GradientCommand().ToBytes()
+
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
 		t.Errorf("ShowGradient() sent %v, want %v", writtenData, expectedCommand)
@@ -343,6 +357,7 @@ func TestClientShowZigZag(t *testing.T) {
 	}
 
 	expectedCommand := ZigZagCommand().ToBytes()
+
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
 		t.Errorf("ShowZigZag() sent %v, want %v", writtenData, expectedCommand)
@@ -360,6 +375,7 @@ func TestClientShowFullBright(t *testing.T) {
 	}
 
 	expectedCommand := FullBrightCommand().ToBytes()
+
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
 		t.Errorf("ShowFullBright() sent %v, want %v", writtenData, expectedCommand)
@@ -389,6 +405,7 @@ func TestClientSetAnimate(t *testing.T) {
 			}
 
 			expectedCommand := AnimateCommand(tt.enable).ToBytes()
+
 			writtenData := mockPort.GetWrittenData()
 			if !reflect.DeepEqual(writtenData, expectedCommand) {
 				t.Errorf("SetAnimate() sent %v, want %v", writtenData, expectedCommand)
@@ -413,6 +430,7 @@ func TestClientDrawBitmap(t *testing.T) {
 	}
 
 	expectedCommand := DrawBWCommand(pixels).ToBytes()
+
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
 		t.Errorf("DrawBitmap() sent %v, want %v", writtenData, expectedCommand)
@@ -425,6 +443,7 @@ func TestClientStageColumn(t *testing.T) {
 	client.port = mockPort
 
 	col := byte(5)
+
 	pixels := [34]byte{}
 	for i := range pixels {
 		pixels[i] = byte(i + 10)
@@ -436,6 +455,7 @@ func TestClientStageColumn(t *testing.T) {
 	}
 
 	expectedCommand := StageColCommand(col, pixels).ToBytes()
+
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
 		t.Errorf("StageColumn() sent %v, want %v", writtenData, expectedCommand)
@@ -453,6 +473,7 @@ func TestClientFlushColumns(t *testing.T) {
 	}
 
 	expectedCommand := FlushColsCommand().ToBytes()
+
 	writtenData := mockPort.GetWrittenData()
 	if !reflect.DeepEqual(writtenData, expectedCommand) {
 		t.Errorf("FlushColumns() sent %v, want %v", writtenData, expectedCommand)
@@ -498,7 +519,7 @@ func TestConstants(t *testing.T) {
 	}
 }
 
-// Integration-style tests that test multiple operations together
+// Integration-style tests that test multiple operations together.
 func TestClientCommandSequence(t *testing.T) {
 	client := NewClient()
 	mockPort := NewMockPort()
@@ -506,8 +527,8 @@ func TestClientCommandSequence(t *testing.T) {
 
 	// Sequence of commands
 	commands := []struct {
-		name    string
 		execute func() error
+		name    string
 	}{
 		{"set brightness", func() error { return client.SetBrightness(128) }},
 		{"show percentage", func() error { return client.ShowPercentage(75) }},
@@ -532,6 +553,7 @@ func TestClientCommandSequence(t *testing.T) {
 
 	// Each command should start with magic bytes
 	magicByteCount := 0
+
 	for i := 0; i < len(writtenData)-1; i++ {
 		if writtenData[i] == MagicByte1 && writtenData[i+1] == MagicByte2 {
 			magicByteCount++
@@ -543,17 +565,19 @@ func TestClientCommandSequence(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkClientSendCommand(b *testing.B) {
 	client := NewClient()
 	mockPort := NewMockPort()
 	client.port = mockPort
 
 	cmd := BrightnessCommand(128)
+
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		mockPort.writeData = nil // Reset
+
 		client.SendCommand(cmd)
 	}
 }
@@ -567,6 +591,7 @@ func BenchmarkClientShowPercentage(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		mockPort.writeData = nil // Reset
+
 		client.ShowPercentage(50)
 	}
 }
@@ -585,6 +610,7 @@ func BenchmarkClientDrawBitmap(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		mockPort.writeData = nil // Reset
+
 		client.DrawBitmap(pixels)
 	}
 }

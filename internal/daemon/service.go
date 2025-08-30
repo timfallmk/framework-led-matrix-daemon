@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/takama/daemon"
+
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/matrix"
@@ -20,30 +21,27 @@ import (
 )
 
 type Service struct {
+	startTime time.Time
 	daemon.Daemon
-	config *config.Config
-	// Legacy single matrix support
-	matrix  *matrix.Client
-	display *matrix.DisplayManager
-	// Multi-matrix support
-	multiClient     *matrix.MultiClient
-	multiDisplay    *matrix.MultiDisplayManager
-	collector       *stats.Collector
-	visualizer      *visualizer.Visualizer
-	multiVisualizer *visualizer.MultiVisualizer
-	// Observability
-	logger           *logging.Logger
-	eventLogger      *logging.EventLogger
-	metricsCollector *observability.MetricsCollector
-	appMetrics       *observability.ApplicationMetrics
-	healthMonitor    *observability.HealthMonitor
 	ctx              context.Context
+	eventLogger      *logging.EventLogger
+	appMetrics       *observability.ApplicationMetrics
+	multiDisplay     *matrix.MultiDisplayManager
+	collector        *stats.Collector
+	visualizer       *visualizer.Visualizer
+	multiVisualizer  *visualizer.MultiVisualizer
+	logger           *logging.Logger
+	display          *matrix.DisplayManager
+	metricsCollector *observability.MetricsCollector
+	multiClient      *matrix.MultiClient
+	healthMonitor    *observability.HealthMonitor
+	matrix           *matrix.Client
 	cancel           context.CancelFunc
-	wg               sync.WaitGroup
+	config           *config.Config
 	stopCh           chan struct{}
+	wg               sync.WaitGroup
 	stopOnce         sync.Once
 	usingMultiple    bool
-	startTime        time.Time
 }
 
 // NewService creates and returns a configured Service instance.
@@ -129,6 +127,7 @@ func (s *Service) initializeSingleMatrix() error {
 		s.eventLogger.LogMatrix(logging.LevelError, "failed to connect to LED matrix", "single", map[string]interface{}{
 			"port": s.config.Matrix.Port,
 		})
+
 		return fmt.Errorf("failed to connect to LED matrix: %w", err)
 	}
 
@@ -161,6 +160,7 @@ func (s *Service) initializeSingleMatrix() error {
 	s.visualizer = visualizer.NewVisualizer(s.display, s.config)
 
 	s.eventLogger.LogDaemon(logging.LevelInfo, "single matrix daemon initialized successfully", "initialize_single_complete", nil)
+
 	return nil
 }
 
@@ -172,6 +172,7 @@ func (s *Service) registerHealthChecks() {
 		} else if s.matrix != nil {
 			return nil // Single matrix health check would be implemented
 		}
+
 		return fmt.Errorf("no matrix client initialized")
 	})
 	s.healthMonitor.RegisterChecker(matrixChecker)
@@ -183,6 +184,7 @@ func (s *Service) registerHealthChecks() {
 		}
 		// Try to collect stats to verify it's working
 		_, err := s.collector.CollectSystemStats()
+
 		return err
 	})
 	s.healthMonitor.RegisterChecker(statsChecker)
@@ -192,6 +194,7 @@ func (s *Service) registerHealthChecks() {
 		if s.config == nil {
 			return fmt.Errorf("configuration not loaded")
 		}
+
 		return s.config.Validate()
 	})
 	s.healthMonitor.RegisterChecker(configChecker)
@@ -218,6 +221,7 @@ func (s *Service) initializeMultiMatrix() error {
 		s.eventLogger.LogMatrix(logging.LevelWarn, "multi-matrix initialization failed, falling back to single matrix", "multi", map[string]interface{}{
 			"error": err.Error(),
 		})
+
 		return s.initializeSingleMatrix()
 	}
 
@@ -250,10 +254,11 @@ func (s *Service) initializeMultiMatrix() error {
 	s.eventLogger.LogDaemon(logging.LevelInfo, "multi-matrix daemon initialized successfully", "initialize_multi_complete", map[string]interface{}{
 		"matrix_count": len(s.multiClient.GetClients()),
 	})
+
 	return nil
 }
 
-// convertConfigMatrices converts config.SingleMatrixConfig to matrix.SingleMatrixConfig
+// convertConfigMatrices converts config.SingleMatrixConfig to matrix.SingleMatrixConfig.
 func (s *Service) convertConfigMatrices(configMatrices []config.SingleMatrixConfig) []matrix.SingleMatrixConfig {
 	var matrices []matrix.SingleMatrixConfig
 
@@ -278,22 +283,27 @@ func (s *Service) Start() error {
 		s.eventLogger.LogDaemon(logging.LevelError, "failed to initialize service", "start_error", map[string]interface{}{
 			"error": err.Error(),
 		})
+
 		return fmt.Errorf("failed to initialize service: %w", err)
 	}
 
 	s.wg.Add(1)
+
 	go s.runSystemLoop()
 
 	s.wg.Add(1)
+
 	go s.runRuntimeMetrics()
 
 	s.wg.Add(1)
+
 	go s.handleSignals()
 
 	// Initialize start time only after successful startup
 	s.startTime = time.Now()
 
 	s.eventLogger.LogDaemon(logging.LevelInfo, "daemon started successfully", "start_complete", nil)
+
 	return nil
 }
 
@@ -360,6 +370,7 @@ func (s *Service) Run() error {
 	}
 
 	<-s.stopCh
+
 	return s.Stop()
 }
 
@@ -385,13 +396,14 @@ func (s *Service) runSystemLoop() {
 			// Collect stats first
 			statsTimer := s.metricsCollector.StartTimer("stats_collection_duration", nil)
 			collectedStats, err := s.collector.CollectSystemStats()
-			statsDuration := statsTimer.StopWithSuccess(err == nil)
 
+			statsDuration := statsTimer.StopWithSuccess(err == nil)
 			if err != nil {
 				s.eventLogger.LogStats(logging.LevelWarn, "failed to collect system stats", "system", 0, map[string]interface{}{
 					"error":    err.Error(),
 					"duration": statsDuration.String(),
 				})
+
 				continue
 			}
 
@@ -426,6 +438,7 @@ func (s *Service) runSystemLoop() {
 
 				// Use appropriate visualizer based on mode
 				var updateErr error
+
 				mode := "single"
 				if s.usingMultiple && s.multiVisualizer != nil {
 					mode = "multi"
@@ -494,11 +507,13 @@ func (s *Service) handleSignals() {
 					"signal": sig.String(),
 				})
 				s.stopOnce.Do(func() { close(s.stopCh) })
+
 				return
 			case syscall.SIGHUP:
 				s.eventLogger.LogDaemon(logging.LevelInfo, "received SIGHUP, reloading configuration", "signal", map[string]interface{}{
 					"signal": sig.String(),
 				})
+
 				if err := s.reloadConfig(); err != nil {
 					s.eventLogger.LogConfig(logging.LevelWarn, "failed to reload config", "", map[string]interface{}{
 						"error": err.Error(),
@@ -516,6 +531,7 @@ func (s *Service) reloadConfig() error {
 	if err != nil {
 		duration := timer.StopWithSuccess(false)
 		s.appMetrics.RecordConfigReload(false, duration)
+
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
@@ -540,6 +556,7 @@ func (s *Service) reloadConfig() error {
 	s.eventLogger.LogConfig(logging.LevelInfo, "configuration reloaded successfully", "", map[string]interface{}{
 		"duration": duration.String(),
 	})
+
 	return nil
 }
 

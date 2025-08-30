@@ -10,7 +10,7 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
 )
 
-// DisplayManagerInterface defines the interface for display managers
+// DisplayManagerInterface defines the interface for display managers.
 type DisplayManagerInterface interface {
 	UpdatePercentage(key string, percent float64) error
 	ShowActivity(active bool) error
@@ -20,7 +20,7 @@ type DisplayManagerInterface interface {
 	SetUpdateRate(rate time.Duration)
 }
 
-// MultiDisplayManagerInterface defines the interface for multi-display managers
+// MultiDisplayManagerInterface defines the interface for multi-display managers.
 type MultiDisplayManagerInterface interface {
 	UpdateMetric(metricName string, value float64, stats map[string]float64) error
 	UpdateActivity(active bool) error
@@ -98,6 +98,7 @@ func (v *Visualizer) updatePercentageMode(summary *stats.StatsSummary) error {
 	}
 
 	v.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -107,6 +108,7 @@ func (v *Visualizer) updateGradientMode(summary *stats.StatsSummary) error {
 	}
 
 	v.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -118,6 +120,7 @@ func (v *Visualizer) updateActivityMode(summary *stats.StatsSummary) error {
 	}
 
 	v.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -129,6 +132,7 @@ func (v *Visualizer) updateStatusMode(summary *stats.StatsSummary) error {
 	}
 
 	v.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -227,7 +231,7 @@ func (v *Visualizer) GetCurrentState() map[string]interface{} {
 	return v.display.GetCurrentState()
 }
 
-// MultiVisualizer methods for dual matrix support
+// MultiVisualizer methods for dual matrix support.
 func (mv *MultiVisualizer) UpdateDisplay(summary *stats.StatsSummary) error {
 	if time.Since(mv.lastUpdate) < mv.config.Display.UpdateRate {
 		return nil
@@ -258,6 +262,7 @@ func (mv *MultiVisualizer) updatePercentageMode(summary *stats.StatsSummary) err
 
 	// Update each configured metric
 	var lastErr error
+
 	for metric, value := range statsMap {
 		if err := mv.multiDisplay.UpdateMetric(metric, value, statsMap); err != nil {
 			lastErr = err
@@ -266,6 +271,7 @@ func (mv *MultiVisualizer) updatePercentageMode(summary *stats.StatsSummary) err
 	}
 
 	mv.lastUpdate = time.Now()
+
 	return lastErr
 }
 
@@ -275,6 +281,7 @@ func (mv *MultiVisualizer) updateGradientMode(summary *stats.StatsSummary) error
 	}
 
 	mv.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -286,6 +293,7 @@ func (mv *MultiVisualizer) updateActivityMode(summary *stats.StatsSummary) error
 	}
 
 	mv.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -297,6 +305,7 @@ func (mv *MultiVisualizer) updateStatusMode(summary *stats.StatsSummary) error {
 	}
 
 	mv.lastUpdate = time.Now()
+
 	return nil
 }
 

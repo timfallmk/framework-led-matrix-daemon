@@ -8,9 +8,9 @@ import (
 func TestNewCommand(t *testing.T) {
 	tests := []struct {
 		name     string
-		id       byte
-		params   []byte
 		expected Command
+		params   []byte
+		id       byte
 	}{
 		{
 			name:     "command without parameters",
@@ -78,8 +78,8 @@ func TestCommandToBytes(t *testing.T) {
 func TestBrightnessCommand(t *testing.T) {
 	tests := []struct {
 		name     string
-		level    byte
 		expected Command
+		level    byte
 	}{
 		{"minimum brightness", 0, Command{ID: CmdBrightness, Params: []byte{0}}},
 		{"medium brightness", 128, Command{ID: CmdBrightness, Params: []byte{128}}},
@@ -99,9 +99,9 @@ func TestBrightnessCommand(t *testing.T) {
 func TestPatternCommand(t *testing.T) {
 	tests := []struct {
 		name     string
-		pattern  byte
-		params   []byte
 		expected Command
+		params   []byte
+		pattern  byte
 	}{
 		{
 			name:     "gradient pattern",
@@ -136,8 +136,8 @@ func TestPatternCommand(t *testing.T) {
 func TestPercentageCommand(t *testing.T) {
 	tests := []struct {
 		name     string
-		percent  byte
 		expected Command
+		percent  byte
 	}{
 		{"0 percent", 0, Command{ID: CmdPattern, Params: []byte{PatternPercentage, 0}}},
 		{"50 percent", 50, Command{ID: CmdPattern, Params: []byte{PatternPercentage, 50}}},
@@ -184,8 +184,8 @@ func TestFullBrightCommand(t *testing.T) {
 func TestAnimateCommand(t *testing.T) {
 	tests := []struct {
 		name     string
-		enable   bool
 		expected Command
+		enable   bool
 	}{
 		{"enable animation", true, Command{ID: CmdAnimate, Params: []byte{1}}},
 		{"disable animation", false, Command{ID: CmdAnimate, Params: []byte{0}}},
@@ -226,6 +226,7 @@ func TestDrawBWCommand(t *testing.T) {
 
 func TestStageColCommand(t *testing.T) {
 	col := byte(5)
+
 	pixels := [34]byte{}
 	for i := range pixels {
 		pixels[i] = byte(i + 10)
@@ -331,9 +332,10 @@ func TestPatternConstants(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkCommandToBytes(b *testing.B) {
 	cmd := Command{ID: CmdPattern, Params: []byte{PatternPercentage, 50}}
+
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -352,6 +354,7 @@ func BenchmarkDrawBWCommand(b *testing.B) {
 	for i := range pixels {
 		pixels[i] = byte(i)
 	}
+
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {

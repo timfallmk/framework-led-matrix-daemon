@@ -23,8 +23,8 @@ const (
 )
 
 type Command struct {
-	ID     byte
 	Params []byte
+	ID     byte
 }
 
 func NewCommand(id byte, params ...byte) Command {
@@ -37,6 +37,7 @@ func NewCommand(id byte, params ...byte) Command {
 func (c Command) ToBytes() []byte {
 	result := []byte{MagicByte1, MagicByte2, c.ID}
 	result = append(result, c.Params...)
+
 	return result
 }
 
@@ -47,6 +48,7 @@ func BrightnessCommand(level byte) Command {
 func PatternCommand(pattern byte, params ...byte) Command {
 	args := []byte{pattern}
 	args = append(args, params...)
+
 	return NewCommand(CmdPattern, args...)
 }
 
@@ -71,6 +73,7 @@ func AnimateCommand(enable bool) Command {
 	if enable {
 		param = 1
 	}
+
 	return NewCommand(CmdAnimate, param)
 }
 
@@ -81,6 +84,7 @@ func DrawBWCommand(pixels [39]byte) Command {
 func StageColCommand(col byte, pixels [34]byte) Command {
 	params := []byte{col}
 	params = append(params, pixels[:]...)
+
 	return NewCommand(CmdStageCol, params...)
 }
 

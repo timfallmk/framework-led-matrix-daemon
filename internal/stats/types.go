@@ -3,12 +3,12 @@ package stats
 import "time"
 
 type CPUStats struct {
-	UsagePercent   float64
-	PerCorePercent []float64
-	PhysicalCores  int
-	LogicalCores   int
 	ModelName      string
 	VendorID       string
+	PerCorePercent []float64
+	UsagePercent   float64
+	PhysicalCores  int
+	LogicalCores   int
 }
 
 type MemoryStats struct {
@@ -23,8 +23,8 @@ type MemoryStats struct {
 }
 
 type DiskStats struct {
-	Partitions   []PartitionStat
 	IOCounters   map[string]IOCounterStat
+	Partitions   []PartitionStat
 	TotalReads   uint64
 	TotalWrites  uint64
 	ReadBytes    uint64
@@ -62,22 +62,22 @@ type NetworkStats struct {
 }
 
 type SystemStats struct {
-	CPU       CPUStats
-	Memory    MemoryStats
-	Disk      DiskStats
-	Network   NetworkStats
 	Timestamp time.Time
-	Uptime    time.Duration
+	CPU       CPUStats
 	LoadAvg   []float64
+	Disk      DiskStats
+	Memory    MemoryStats
+	Network   NetworkStats
+	Uptime    time.Duration
 }
 
 type StatsSummary struct {
+	Timestamp       time.Time
 	CPUUsage        float64
 	MemoryUsage     float64
 	DiskActivity    float64
 	NetworkActivity float64
 	Status          SystemStatus
-	Timestamp       time.Time
 }
 
 type SystemStatus int

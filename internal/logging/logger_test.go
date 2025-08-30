@@ -14,9 +14,9 @@ import (
 
 func TestNewLogger(t *testing.T) {
 	tests := []struct {
+		want   error
 		name   string
 		config Config
-		want   error
 	}{
 		{
 			name: "default config",
@@ -46,6 +46,7 @@ func TestNewLogger(t *testing.T) {
 			if (err != nil) != (tt.want != nil) {
 				t.Errorf("NewLogger() error = %v, want %v", err, tt.want)
 			}
+
 			if logger != nil {
 				logger.Close()
 			}
@@ -256,9 +257,11 @@ func TestPerformanceTracker(t *testing.T) {
 
 	// Test error operation tracking
 	errorTracker := metricsLogger.StartTracking("error_operation", nil)
+
 	time.Sleep(5 * time.Millisecond)
 
 	testError := &testError{msg: "test error"}
+
 	errorDuration := errorTracker.FinishWithError(testError)
 	if errorDuration < 5*time.Millisecond {
 		t.Errorf("Expected error duration >= 5ms, got %v", errorDuration)
@@ -269,6 +272,7 @@ func TestGlobalLogger(t *testing.T) {
 	// Test default global logger
 	originalLogger := globalLogger
 	globalLogger = nil // Reset for test
+
 	defer func() { globalLogger = originalLogger }()
 
 	logger := GetGlobalLogger()
@@ -333,7 +337,7 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
-// Test error type for testing error logging
+// Test error type for testing error logging.
 type testError struct {
 	msg string
 }
@@ -370,6 +374,7 @@ func TestEventLogger_LogError(t *testing.T) {
 
 func TestLogger_WithContext(t *testing.T) {
 	config := DefaultConfig()
+
 	logger, err := NewLogger(config)
 	if err != nil {
 		t.Fatalf("NewLogger() error = %v", err)
@@ -381,6 +386,7 @@ func TestLogger_WithContext(t *testing.T) {
 
 	if contextLogger == nil {
 		t.Error("Expected non-nil context logger")
+
 		return
 	}
 

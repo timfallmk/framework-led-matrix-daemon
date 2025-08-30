@@ -60,10 +60,10 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestConfigValidation(t *testing.T) {
 	tests := []struct {
-		name    string
 		config  *Config
-		wantErr bool
+		name    string
 		errMsg  string
+		wantErr bool
 	}{
 		{
 			name:    "valid config",
@@ -75,6 +75,7 @@ func TestConfigValidation(t *testing.T) {
 			config: func() *Config {
 				cfg := DefaultConfig()
 				cfg.Matrix.BaudRate = -1
+
 				return cfg
 			}(),
 			wantErr: true,
@@ -85,6 +86,7 @@ func TestConfigValidation(t *testing.T) {
 			config: func() *Config {
 				cfg := DefaultConfig()
 				cfg.Stats.CollectInterval = -1 * time.Second
+
 				return cfg
 			}(),
 			wantErr: true,
@@ -95,6 +97,7 @@ func TestConfigValidation(t *testing.T) {
 			config: func() *Config {
 				cfg := DefaultConfig()
 				cfg.Display.Mode = "invalid"
+
 				return cfg
 			}(),
 			wantErr: true,
@@ -105,6 +108,7 @@ func TestConfigValidation(t *testing.T) {
 			config: func() *Config {
 				cfg := DefaultConfig()
 				cfg.Display.PrimaryMetric = "invalid"
+
 				return cfg
 			}(),
 			wantErr: true,
@@ -116,6 +120,7 @@ func TestConfigValidation(t *testing.T) {
 				cfg := DefaultConfig()
 				cfg.Stats.Thresholds.CPUWarning = 95.0
 				cfg.Stats.Thresholds.CPUCritical = 90.0
+
 				return cfg
 			}(),
 			wantErr: true,
@@ -127,6 +132,7 @@ func TestConfigValidation(t *testing.T) {
 				cfg := DefaultConfig()
 				cfg.Stats.Thresholds.MemoryWarning = 95.0
 				cfg.Stats.Thresholds.MemoryCritical = 90.0
+
 				return cfg
 			}(),
 			wantErr: true,
@@ -139,8 +145,10 @@ func TestConfigValidation(t *testing.T) {
 			err := tt.config.Validate()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
+
 			if tt.wantErr && err.Error() != tt.errMsg {
 				t.Errorf("Validate() error = %v, want %v", err.Error(), tt.errMsg)
 			}
@@ -157,10 +165,10 @@ func TestLoadConfig(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	tests := []struct {
+		validate func(*Config) error
 		name     string
 		yamlData string
 		wantErr  bool
-		validate func(*Config) error
 	}{
 		{
 			name: "valid YAML config",
@@ -195,6 +203,7 @@ display:
 				if cfg.Display.PrimaryMetric != "memory" {
 					t.Errorf("Expected primary metric 'memory', got %s", cfg.Display.PrimaryMetric)
 				}
+
 				return nil
 			},
 		},
@@ -220,6 +229,7 @@ matrix:
 		t.Run(tt.name, func(t *testing.T) {
 			// Create temporary config file
 			configFile := filepath.Join(tmpDir, "test_config.yaml")
+
 			err := os.WriteFile(configFile, []byte(tt.yamlData), 0o644)
 			if err != nil {
 				t.Fatal(err)
@@ -228,6 +238,7 @@ matrix:
 			cfg, err := LoadConfig(configFile)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LoadConfig() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 
@@ -304,9 +315,11 @@ func TestGetConfigPaths(t *testing.T) {
 
 	// Should include common paths
 	found := false
+
 	for _, path := range paths {
 		if filepath.Base(path) == "config.yaml" {
 			found = true
+
 			break
 		}
 	}
@@ -335,7 +348,9 @@ func TestFindConfig(t *testing.T) {
 
 	// Create configs directory and file
 	os.MkdirAll("configs", 0o755)
+
 	configFile := "configs/config.yaml"
+
 	err = os.WriteFile(configFile, []byte("matrix:\n  baud_rate: 115200"), 0o644)
 	if err != nil {
 		t.Fatal(err)
@@ -381,6 +396,7 @@ func TestFindConfigNotFound(t *testing.T) {
 func TestConfigEnvironmentVariables(t *testing.T) {
 	// Test XDG_CONFIG_HOME environment variable
 	originalXDG := os.Getenv("XDG_CONFIG_HOME")
+
 	defer func() {
 		if originalXDG != "" {
 			os.Setenv("XDG_CONFIG_HOME", originalXDG)
@@ -400,7 +416,7 @@ func TestConfigEnvironmentVariables(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkDefaultConfig(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		DefaultConfig()
@@ -409,6 +425,7 @@ func BenchmarkDefaultConfig(b *testing.B) {
 
 func BenchmarkConfigValidation(b *testing.B) {
 	cfg := DefaultConfig()
+
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -418,7 +435,7 @@ func BenchmarkConfigValidation(b *testing.B) {
 
 func BenchmarkLoadConfig(b *testing.B) {
 	// Create temporary config file
-	tmpFile, err := os.CreateTemp("", "benchmark_config_*.yaml")
+	tmpFile, err := os.CreateTemp(b.TempDir(), "benchmark_config_*.yaml")
 	if err != nil {
 		b.Fatal(err)
 	}

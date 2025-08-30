@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	// These are set by the build system via -ldflags
+	// These are set by the build system via -ldflags.
 	version   = "dev"     // Set via -X main.version=...
 	buildTime = "unknown" // Set via -X main.buildTime=...
 )
@@ -57,8 +57,10 @@ func main() {
 
 	// Load configuration
 	cfg := config.DefaultConfig()
+
 	if *configPath != "" {
 		var err error
+
 		cfg, err = config.LoadConfig(*configPath)
 		if err != nil {
 			log.Fatalf("Failed to load config: %v", err)
@@ -78,6 +80,7 @@ func main() {
 	fmt.Println()
 
 	start := time.Now()
+
 	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
 
@@ -88,6 +91,7 @@ func main() {
 			systemStats, err := collector.CollectSystemStats()
 			if err != nil {
 				log.Printf("Error collecting stats: %v", err)
+
 				continue
 			}
 
@@ -95,6 +99,7 @@ func main() {
 			summary, err := collector.GetSummary()
 			if err != nil {
 				log.Printf("Error getting summary: %v", err)
+
 				continue
 			}
 
@@ -102,6 +107,7 @@ func main() {
 			err = viz.UpdateDisplay(summary)
 			if err != nil {
 				log.Printf("Error updating display: %v", err)
+
 				continue
 			}
 
@@ -111,23 +117,26 @@ func main() {
 		default:
 			if time.Since(start) > *duration {
 				fmt.Println("\nSimulation completed!")
+
 				return
 			}
+
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
 
-// MockDisplayManager simulates the LED matrix display
+// MockDisplayManager simulates the LED matrix display.
 type MockDisplayManager struct {
+	lastUpdate     time.Time
 	currentPattern []byte
 	brightness     byte
-	lastUpdate     time.Time
 }
 
 func (m *MockDisplayManager) UpdatePercentage(key string, percent float64) error {
 	m.currentPattern = createProgressBar(percent)
 	m.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -137,7 +146,9 @@ func (m *MockDisplayManager) ShowActivity(active bool) error {
 	} else {
 		m.currentPattern = createGradientPattern()
 	}
+
 	m.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -150,12 +161,15 @@ func (m *MockDisplayManager) ShowStatus(status string) error {
 	case "critical":
 		m.currentPattern = createSolidPattern()
 	}
+
 	m.lastUpdate = time.Now()
+
 	return nil
 }
 
 func (m *MockDisplayManager) SetBrightness(level byte) error {
 	m.brightness = level
+
 	return nil
 }
 
@@ -171,7 +185,7 @@ func (m *MockDisplayManager) SetUpdateRate(rate time.Duration) {
 	// Mock implementation - no-op
 }
 
-// Helper functions to create patterns
+// Helper functions to create patterns.
 func createProgressBar(percentage float64) []byte {
 	pattern := make([]byte, LEDWidth*LEDHeight)
 	totalPixels := LEDWidth * LEDHeight
@@ -180,6 +194,7 @@ func createProgressBar(percentage float64) []byte {
 	for i := 0; i < pixelsToFill && i < len(pattern); i++ {
 		pattern[i] = 1
 	}
+
 	return pattern
 }
 
@@ -190,21 +205,25 @@ func createZigZagPattern() []byte {
 			pattern[i] = 1
 		}
 	}
+
 	return pattern
 }
 
 func createGradientPattern() []byte {
 	pattern := make([]byte, LEDWidth*LEDHeight)
+
 	center := LEDWidth / 2
 	for row := 0; row < LEDHeight; row++ {
 		for col := 0; col < LEDWidth; col++ {
 			distance := abs(col - center)
+
 			intensity := 1.0 - float64(distance)/float64(center)
 			if intensity > 0.3 {
 				pattern[row*LEDWidth+col] = 1
 			}
 		}
 	}
+
 	return pattern
 }
 
@@ -213,6 +232,7 @@ func createSolidPattern() []byte {
 	for i := range pattern {
 		pattern[i] = 1
 	}
+
 	return pattern
 }
 
@@ -220,10 +240,11 @@ func abs(x int) int {
 	if x < 0 {
 		return -x
 	}
+
 	return x
 }
 
-// Print ASCII representation of the LED matrix
+// Print ASCII representation of the LED matrix.
 func printSimulatedDisplay(summary *stats.StatsSummary, systemStats *stats.SystemStats, cfg *config.Config) {
 	fmt.Printf("\r\033[2J\033[H") // Clear screen
 
@@ -240,9 +261,11 @@ func printSimulatedDisplay(summary *stats.StatsSummary, systemStats *stats.Syste
 	fmt.Println("┌──────────────────────────────────┐")
 
 	var pattern []byte
+
 	switch cfg.Display.Mode {
 	case "percentage":
 		var percentage float64
+
 		switch cfg.Display.PrimaryMetric {
 		case "cpu":
 			percentage = summary.CPUUsage
@@ -253,6 +276,7 @@ func printSimulatedDisplay(summary *stats.StatsSummary, systemStats *stats.Syste
 		case "network":
 			percentage = (summary.NetworkActivity / (10 * 1024 * 1024)) * 100 // Scale for display
 		}
+
 		pattern = createProgressBar(percentage)
 
 	case "activity":
@@ -284,6 +308,7 @@ func printSimulatedDisplay(summary *stats.StatsSummary, systemStats *stats.Syste
 	// Render the pattern
 	for row := 0; row < LEDHeight; row++ {
 		fmt.Print("│")
+
 		for col := 0; col < LEDWidth; col++ {
 			if pattern[row*LEDWidth+col] == 1 {
 				fmt.Print("█")
@@ -291,6 +316,7 @@ func printSimulatedDisplay(summary *stats.StatsSummary, systemStats *stats.Syste
 				fmt.Print("░")
 			}
 		}
+
 		fmt.Println("│")
 	}
 
