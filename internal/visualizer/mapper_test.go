@@ -341,9 +341,9 @@ func TestVisualizerUpdateDisplayStatusMode(t *testing.T) {
 		expected string
 		status   stats.SystemStatus
 	}{
-		{"normal status", stats.StatusNormal, "normal"},
-		{"warning status", stats.StatusWarning, "warning"},
-		{"critical status", stats.StatusCritical, "critical"},
+		{"normal status", "normal", stats.StatusNormal},
+		{"warning status", "warning", stats.StatusWarning},
+		{"critical status", "critical", stats.StatusCritical},
 	}
 
 	for _, tt := range tests {
