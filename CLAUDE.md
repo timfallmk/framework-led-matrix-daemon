@@ -13,6 +13,7 @@ This is a Go daemon that monitors system metrics (CPU, memory, disk, network) an
 **Configuration System**: YAML-based configuration in `internal/config/` with hot-reload capabilities via fsnotify. Configuration supports command-line overrides and environment variable substitution. The config package handles both single matrix and dual matrix setups with different modes (mirror, split, extended, independent).
 
 **Matrix Communication**: The `internal/matrix/` package manages serial communication with LED matrices using the `go.bug.st/serial` library. Key components:
+
 - `Client`: Individual matrix communication with Framework protocol (magic bytes 0x32 0xAC)
 - `MultiClient`: Manages multiple matrix connections
 - `DisplayManager`/`MultiDisplayManager`: Higher-level display control
@@ -21,6 +22,7 @@ This is a Go daemon that monitors system metrics (CPU, memory, disk, network) an
 **System Monitoring**: `internal/stats/collector.go` uses `gopsutil` to collect system metrics. The collector runs in its own goroutine with configurable intervals and supports enabling/disabling specific metrics (CPU, memory, disk I/O, network).
 
 **Visualization Pipeline**: `internal/visualizer/` converts metrics to LED patterns:
+
 - `Visualizer`: Single matrix pattern generation
 - `MultiVisualizer`: Dual matrix coordination
 - `Mapper`: Maps metrics to visual representations (percentage bars, gradients, activity indicators)
@@ -37,6 +39,7 @@ This is a Go daemon that monitors system metrics (CPU, memory, disk, network) an
 ## Development Commands
 
 ### Essential Commands
+
 ```bash
 # Build the daemon
 make build
@@ -57,7 +60,9 @@ make run           # Run daemon with default config
 ```
 
 ### Testing Without Hardware
+
 The project includes comprehensive hardware mocking via `TESTING.md`. Key test commands:
+
 ```bash
 # Package-specific tests
 make test-matrix      # LED matrix communication
@@ -74,6 +79,7 @@ make test-bench       # Benchmark tests
 ```
 
 ### Cross-Platform Building
+
 ```bash
 # Cross-compile (Linux amd64/arm64, Windows amd64)
 make cross-compile
@@ -83,6 +89,7 @@ make release
 ```
 
 ### Hardware Testing
+
 ```bash
 # Test actual hardware connection
 make test-connection
@@ -106,13 +113,10 @@ make show-config
 ## Testing Strategy
 
 The project emphasizes hardware-independent development through comprehensive mocking:
+
 - **MockClient**: Simulates LED matrix hardware
 - **MockPort**: Simulates serial communication
 - **Visual Simulator**: ASCII representation of LED patterns
 - **Hardware Protocol Accuracy**: Exact Framework LED Matrix command format simulation
 
 This allows full development and testing without requiring physical hardware access.
-
-## Build Tags and Cross-Compilation
-
-The project previously supported a `nocgo` build tag for cross-compilation compatibility with the serial library, but current implementation focuses on Linux and Windows platforms with CGO enabled for full hardware support.
