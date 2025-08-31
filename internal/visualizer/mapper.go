@@ -102,7 +102,7 @@ func (v *Visualizer) updatePercentageMode(summary *stats.StatsSummary) error {
 	return nil
 }
 
-func (v *Visualizer) updateGradientMode(summary *stats.StatsSummary) error {
+func (v *Visualizer) updateGradientMode(_ *stats.StatsSummary) error {
 	if err := v.display.ShowStatus("normal"); err != nil {
 		return fmt.Errorf("failed to show gradient: %w", err)
 	}
@@ -275,7 +275,7 @@ func (mv *MultiVisualizer) updatePercentageMode(summary *stats.StatsSummary) err
 	return lastErr
 }
 
-func (mv *MultiVisualizer) updateGradientMode(summary *stats.StatsSummary) error {
+func (mv *MultiVisualizer) updateGradientMode(_ *stats.StatsSummary) error {
 	if err := mv.multiDisplay.UpdateStatus("normal"); err != nil {
 		return fmt.Errorf("failed to show gradient: %w", err)
 	}

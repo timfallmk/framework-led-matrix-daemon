@@ -1,3 +1,5 @@
+// Package daemon provides the core service management and orchestration for the Framework LED Matrix daemon.
+// It coordinates system statistics collection, LED matrix display updates, and service lifecycle management.
 package daemon
 
 import (
@@ -20,6 +22,8 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/visualizer"
 )
 
+// Service represents the main daemon service that orchestrates LED matrix display operations.
+// It manages system statistics collection, display updates, and service lifecycle.
 type Service struct {
 	startTime time.Time
 	daemon.Daemon
@@ -99,6 +103,8 @@ func NewService(cfg *config.Config) (*Service, error) {
 	return service, nil
 }
 
+// Initialize sets up the service components including LED matrix connections,
+// system statistics collection, and display management.
 func (s *Service) Initialize() error {
 	s.eventLogger.LogDaemon(logging.LevelInfo, "initializing Framework LED Matrix daemon", "initialize", nil)
 
@@ -276,6 +282,7 @@ func (s *Service) convertConfigMatrices(configMatrices []config.SingleMatrixConf
 	return matrices
 }
 
+// Start begins the daemon service operation, starting statistics collection and display updates.
 func (s *Service) Start() error {
 	s.eventLogger.LogDaemon(logging.LevelInfo, "starting Framework LED Matrix daemon", "start", nil)
 
@@ -307,6 +314,8 @@ func (s *Service) Start() error {
 	return nil
 }
 
+// Stop gracefully shuts down the service by canceling contexts, waiting for goroutines,
+// clearing displays, and releasing resources.
 func (s *Service) Stop() error {
 	s.eventLogger.LogDaemon(logging.LevelInfo, "stopping Framework LED Matrix daemon", "stop", nil)
 
@@ -359,11 +368,12 @@ func (s *Service) Stop() error {
 
 	// Close logging resources
 	s.eventLogger.Close()
-	s.logger.Close()
+	_ = s.logger.Close()
 
 	return nil
 }
 
+// Run starts the service and blocks until it receives a stop signal, then shuts down gracefully.
 func (s *Service) Run() error {
 	if err := s.Start(); err != nil {
 		return err
@@ -560,22 +570,27 @@ func (s *Service) reloadConfig() error {
 	return nil
 }
 
+// Install installs the service as a system daemon.
 func (s *Service) Install() (string, error) {
 	return s.Daemon.Install()
 }
 
+// Remove removes the service from the system.
 func (s *Service) Remove() (string, error) {
 	return s.Daemon.Remove()
 }
 
+// Status returns the current status of the system service.
 func (s *Service) Status() (string, error) {
 	return s.Daemon.Status()
 }
 
+// StartService starts the system service.
 func (s *Service) StartService() (string, error) {
 	return s.Daemon.Start()
 }
 
+// StopService stops the system service.
 func (s *Service) StopService() (string, error) {
 	return s.Daemon.Stop()
 }

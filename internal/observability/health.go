@@ -22,6 +22,7 @@ func errString(err error) string {
 // HealthStatus represents the health status of a component.
 type HealthStatus string
 
+// Health status constants for component monitoring.
 const (
 	StatusHealthy   HealthStatus = "healthy"
 	StatusUnhealthy HealthStatus = "unhealthy"
@@ -306,7 +307,7 @@ type MatrixHealthChecker struct {
 	timeout  time.Duration
 }
 
-// will return an error).
+// NewMatrixHealthChecker creates a new MatrixHealthChecker with the specified name and test function.
 func NewMatrixHealthChecker(name string, testFunc func(ctx context.Context) error) *MatrixHealthChecker {
 	return &MatrixHealthChecker{
 		name:     name,
@@ -315,14 +316,17 @@ func NewMatrixHealthChecker(name string, testFunc func(ctx context.Context) erro
 	}
 }
 
+// Name returns the name of the matrix health checker.
 func (m *MatrixHealthChecker) Name() string {
 	return m.name
 }
 
+// Timeout returns the timeout duration for the matrix health check.
 func (m *MatrixHealthChecker) Timeout() time.Duration {
 	return m.timeout
 }
 
+// Check performs the matrix health check using the configured test function.
 func (m *MatrixHealthChecker) Check(ctx context.Context) error {
 	if m.testFunc == nil {
 		return fmt.Errorf("no test function provided")
@@ -350,14 +354,17 @@ func NewStatsHealthChecker(name string, testFunc func(ctx context.Context) error
 	}
 }
 
+// Name returns the name of the stats health checker.
 func (s *StatsHealthChecker) Name() string {
 	return s.name
 }
 
+// Timeout returns the timeout duration for the stats health check.
 func (s *StatsHealthChecker) Timeout() time.Duration {
 	return s.timeout
 }
 
+// Check performs the stats health check using the configured test function.
 func (s *StatsHealthChecker) Check(ctx context.Context) error {
 	if s.testFunc == nil {
 		return fmt.Errorf("no test function provided")
@@ -385,14 +392,17 @@ func NewConfigHealthChecker(name string, testFunc func(ctx context.Context) erro
 	}
 }
 
+// Name returns the name of the config health checker.
 func (c *ConfigHealthChecker) Name() string {
 	return c.name
 }
 
+// Timeout returns the timeout duration for the config health check.
 func (c *ConfigHealthChecker) Timeout() time.Duration {
 	return c.timeout
 }
 
+// Check performs the config health check using the configured test function.
 func (c *ConfigHealthChecker) Check(ctx context.Context) error {
 	if c.testFunc == nil {
 		return fmt.Errorf("no test function provided")

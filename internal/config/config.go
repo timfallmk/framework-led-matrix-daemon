@@ -1,3 +1,6 @@
+// Package config provides configuration management for the Framework LED Matrix daemon.
+// It supports YAML-based configuration files with environment variable substitution,
+// validation, and hot-reload capabilities via filesystem watchers.
 package config
 
 import (
@@ -14,6 +17,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	stringTrue     = "true"
+	stringFalse    = "false"
+	stringGradient = "gradient"
+)
+
+// Config represents the main configuration structure for the Framework LED Matrix daemon.
+// It contains all configuration sections including display, daemon, matrix, logging, and stats settings.
 type Config struct {
 	Display DisplayConfig `yaml:"display"`
 	Daemon  DaemonConfig  `yaml:"daemon"`
@@ -22,6 +33,8 @@ type Config struct {
 	Stats   StatsConfig   `yaml:"stats"`
 }
 
+// MatrixConfig holds configuration settings for LED matrix hardware communication.
+// It includes serial port settings, dual matrix support, and device discovery options.
 type MatrixConfig struct {
 	Port         string                   `yaml:"port"`
 	DualMode     string                   `yaml:"dual_mode"`
@@ -32,6 +45,8 @@ type MatrixConfig struct {
 	Brightness   byte                     `yaml:"brightness"`
 }
 
+// StatsConfig defines system statistics collection settings.
+// It controls which metrics are collected and at what intervals.
 type StatsConfig struct {
 	CollectInterval time.Duration `yaml:"collect_interval"`
 	EnableCPU       bool          `yaml:"enable_cpu"`
@@ -41,6 +56,8 @@ type StatsConfig struct {
 	Thresholds      Thresholds    `yaml:"thresholds"`
 }
 
+// Thresholds defines warning and critical threshold values for system metrics.
+// Values are expressed as percentages (0-100) for CPU and memory, or absolute values for disk.
 type Thresholds struct {
 	CPUWarning     float64 `yaml:"cpu_warning"`
 	CPUCritical    float64 `yaml:"cpu_critical"`
@@ -50,6 +67,8 @@ type Thresholds struct {
 	DiskCritical   float64 `yaml:"disk_critical"`
 }
 
+// DisplayConfig controls LED matrix display behavior and visual settings.
+// It defines display modes, update rates, and custom pattern configurations.
 type DisplayConfig struct {
 	CustomPatterns  map[string]PatternConfig `yaml:"custom_patterns"`
 	Mode            string                   `yaml:"mode"`
@@ -59,11 +78,15 @@ type DisplayConfig struct {
 	EnableAnimation bool                     `yaml:"enable_animation"`
 }
 
+// PatternConfig defines a custom LED display pattern with its parameters.
+// Patterns can be customized through the parameters map for different visual effects.
 type PatternConfig struct {
 	Parameters map[string]interface{} `yaml:"parameters"`
 	Pattern    string                 `yaml:"pattern"`
 }
 
+// DaemonConfig contains system service configuration settings.
+// It defines service name, user/group, and file locations for daemon operation.
 type DaemonConfig struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
@@ -73,6 +96,8 @@ type DaemonConfig struct {
 	LogFile     string `yaml:"log_file"`
 }
 
+// LoggingConfig defines logging behavior and output settings.
+// It controls log levels, formats, and output destinations for the daemon.
 type LoggingConfig struct {
 	Level           string `yaml:"level"`
 	Format          string `yaml:"format"`
@@ -86,6 +111,7 @@ type LoggingConfig struct {
 	Compress        bool   `yaml:"compress"`
 }
 
+// DefaultConfig returns a Config instance with sensible default values.
 // Use this as the base configuration before applying file-based loading or environment overrides.
 func DefaultConfig() *Config {
 	return &Config{
@@ -148,6 +174,8 @@ func DefaultConfig() *Config {
 	}
 }
 
+// LoadConfig reads and parses a configuration file from the given path.
+// If path is empty, it uses the default configuration path.
 func LoadConfig(path string) (*Config, error) {
 	if path == "" {
 		path = getDefaultConfigPath()
@@ -174,6 +202,8 @@ func LoadConfig(path string) (*Config, error) {
 	return config, nil
 }
 
+// SaveConfig writes the configuration to a YAML file at the specified path.
+// If path is empty, it uses the default configuration path.
 func (c *Config) SaveConfig(path string) error {
 	if path == "" {
 		path = getDefaultConfigPath()
@@ -371,6 +401,8 @@ func getDefaultConfigPath() string {
 	return "./config.yaml"
 }
 
+// GetConfigPaths returns a list of candidate configuration file paths in order of precedence.
+// It checks XDG_CONFIG_HOME, user config directory, system config, and local paths.
 func GetConfigPaths() []string {
 	var paths []string
 
@@ -398,7 +430,7 @@ func FindConfig() (string, error) {
 		if _, err := os.Stat(path); err == nil {
 			absPath, err := filepath.Abs(path)
 			if err != nil {
-				return path, nil // fallback to original path
+				return path, nil //nolint:nilerr // fallback to original path as documented
 			}
 
 			return absPath, nil
@@ -654,7 +686,7 @@ func (c *Config) ApplyEnvironmentOverrides() {
 				c.Matrix.BaudRate = i
 			}
 		},
-		"FRAMEWORK_LED_AUTO_DISCOVER": func(v string) { c.Matrix.AutoDiscover = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_AUTO_DISCOVER": func(v string) { c.Matrix.AutoDiscover = strings.ToLower(v) == stringTrue },
 		"FRAMEWORK_LED_BRIGHTNESS": func(v string) {
 			if i, err := strconv.Atoi(v); err == nil && i >= 0 && i <= 255 {
 				c.Matrix.Brightness = byte(i)
@@ -666,10 +698,10 @@ func (c *Config) ApplyEnvironmentOverrides() {
 				c.Stats.CollectInterval = d
 			}
 		},
-		"FRAMEWORK_LED_ENABLE_CPU":     func(v string) { c.Stats.EnableCPU = strings.ToLower(v) == "true" },
-		"FRAMEWORK_LED_ENABLE_MEMORY":  func(v string) { c.Stats.EnableMemory = strings.ToLower(v) == "true" },
-		"FRAMEWORK_LED_ENABLE_DISK":    func(v string) { c.Stats.EnableDisk = strings.ToLower(v) == "true" },
-		"FRAMEWORK_LED_ENABLE_NETWORK": func(v string) { c.Stats.EnableNetwork = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_ENABLE_CPU":     func(v string) { c.Stats.EnableCPU = strings.ToLower(v) == stringTrue },
+		"FRAMEWORK_LED_ENABLE_MEMORY":  func(v string) { c.Stats.EnableMemory = strings.ToLower(v) == stringTrue },
+		"FRAMEWORK_LED_ENABLE_DISK":    func(v string) { c.Stats.EnableDisk = strings.ToLower(v) == stringTrue },
+		"FRAMEWORK_LED_ENABLE_NETWORK": func(v string) { c.Stats.EnableNetwork = strings.ToLower(v) == stringTrue },
 		"FRAMEWORK_LED_UPDATE_RATE": func(v string) {
 			if d, err := time.ParseDuration(v); err == nil {
 				c.Display.UpdateRate = d
@@ -677,7 +709,7 @@ func (c *Config) ApplyEnvironmentOverrides() {
 		},
 		"FRAMEWORK_LED_DISPLAY_MODE":   func(v string) { c.Display.Mode = v },
 		"FRAMEWORK_LED_PRIMARY_METRIC": func(v string) { c.Display.PrimaryMetric = v },
-		"FRAMEWORK_LED_SHOW_ACTIVITY":  func(v string) { c.Display.ShowActivity = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_SHOW_ACTIVITY":  func(v string) { c.Display.ShowActivity = strings.ToLower(v) == stringTrue },
 		"FRAMEWORK_LED_LOG_LEVEL":      func(v string) { c.Logging.Level = v },
 		// Legacy var: map to Output for compatibility
 		"FRAMEWORK_LED_LOG_FILE": func(v string) {
@@ -688,7 +720,7 @@ func (c *Config) ApplyEnvironmentOverrides() {
 		},
 		"FRAMEWORK_LED_LOG_FORMAT":     func(v string) { c.Logging.Format = v }, // "text" or "json"
 		"FRAMEWORK_LED_LOG_OUTPUT":     func(v string) { c.Logging.Output = v }, // "stdout", "stderr", or file path
-		"FRAMEWORK_LED_LOG_ADD_SOURCE": func(v string) { c.Logging.AddSource = strings.ToLower(v) == "true" },
+		"FRAMEWORK_LED_LOG_ADD_SOURCE": func(v string) { c.Logging.AddSource = strings.ToLower(v) == stringTrue },
 		"FRAMEWORK_LED_LOG_EVENT_BUFFER_SIZE": func(v string) {
 			if i, err := strconv.Atoi(v); err == nil && i > 0 {
 				c.Logging.EventBufferSize = i
@@ -740,7 +772,7 @@ func (w *ConfigWatcher) Start(ctx context.Context) error {
 
 	// Add config file to watcher
 	if err := w.watcher.Add(w.configPath); err != nil {
-		w.watcher.Close()
+		_ = w.watcher.Close()
 
 		return fmt.Errorf("failed to add config file to watcher: %w", err)
 	}
@@ -755,7 +787,7 @@ func (w *ConfigWatcher) Stop() {
 	close(w.stopCh)
 
 	if w.watcher != nil {
-		w.watcher.Close()
+		_ = w.watcher.Close()
 	}
 }
 

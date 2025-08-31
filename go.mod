@@ -1,6 +1,6 @@
 module github.com/timfallmk/framework-led-matrix-daemon
 
-go 1.24.5
+go 1.25
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0

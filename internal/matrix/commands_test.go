@@ -8,8 +8,8 @@ import (
 func TestNewCommand(t *testing.T) {
 	tests := []struct {
 		name     string
-		expected Command
 		params   []byte
+		expected Command
 		id       byte
 	}{
 		{
@@ -45,8 +45,8 @@ func TestNewCommand(t *testing.T) {
 func TestCommandToBytes(t *testing.T) {
 	tests := []struct {
 		name     string
-		command  Command
 		expected []byte
+		command  Command
 	}{
 		{
 			name:     "version command",
@@ -99,8 +99,8 @@ func TestBrightnessCommand(t *testing.T) {
 func TestPatternCommand(t *testing.T) {
 	tests := []struct {
 		name     string
-		expected Command
 		params   []byte
+		expected Command
 		pattern  byte
 	}{
 		{

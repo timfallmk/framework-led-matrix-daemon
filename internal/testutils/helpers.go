@@ -15,21 +15,18 @@ import (
 func CreateTempConfig(t *testing.T, configData string) string {
 	t.Helper()
 
-	tmpDir, err := os.MkdirTemp("", "config_test")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
+	tmpDir := t.TempDir()
 
 	configFile := filepath.Join(tmpDir, "test_config.yaml")
 
-	err = os.WriteFile(configFile, []byte(configData), 0o644)
+	err := os.WriteFile(configFile, []byte(configData), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
 	// Clean up function
 	t.Cleanup(func() {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 	})
 
 	return configFile

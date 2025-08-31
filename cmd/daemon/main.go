@@ -106,9 +106,7 @@ func main() {
 
 		fmt.Println(status)
 	case "config":
-		if err := showConfiguration(cfg); err != nil {
-			log.Fatalf("Failed to show configuration: %v", err)
-		}
+		showConfiguration(cfg)
 	case "test":
 		if err := testConnection(cfg); err != nil {
 			log.Fatalf("Connection test failed: %v", err)
@@ -204,7 +202,7 @@ CONFIGURATION:
 `, name, name, name, name, name, name, name, name)
 }
 
-func showConfiguration(cfg *config.Config) error {
+func showConfiguration(cfg *config.Config) {
 	fmt.Printf("Current Configuration:\n")
 	fmt.Printf("  Matrix:\n")
 	fmt.Printf("    Port: %s\n", cfg.Matrix.Port)
@@ -227,8 +225,6 @@ func showConfiguration(cfg *config.Config) error {
 		cfg.Stats.Thresholds.CPUWarning, cfg.Stats.Thresholds.CPUCritical)
 	fmt.Printf("    Memory Warning/Critical: %.1f%% / %.1f%%\n",
 		cfg.Stats.Thresholds.MemoryWarning, cfg.Stats.Thresholds.MemoryCritical)
-
-	return nil
 }
 
 func testConnection(cfg *config.Config) error {

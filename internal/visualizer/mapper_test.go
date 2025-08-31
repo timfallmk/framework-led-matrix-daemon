@@ -10,6 +10,13 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
 )
 
+const (
+	modePercentage = "percentage"
+	modeGradient   = "gradient"
+	modeActivity   = "activity"
+	modeStatus     = "status"
+)
+
 // MockDisplayManager implements a mock display manager for testing.
 type MockDisplayManager struct {
 	updateError         error
@@ -141,7 +148,7 @@ func TestNewVisualizer(t *testing.T) {
 func TestVisualizerUpdateDisplayPercentageMode(t *testing.T) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "percentage"
+	cfg.Display.Mode = modePercentage
 	cfg.Display.UpdateRate = 1 * time.Millisecond // Allow frequent updates
 
 	visualizer := NewVisualizer(mockDisplay, cfg)
@@ -231,7 +238,7 @@ func TestVisualizerUpdateDisplayPercentageMode(t *testing.T) {
 func TestVisualizerUpdateDisplayGradientMode(t *testing.T) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "gradient"
+	cfg.Display.Mode = modeGradient
 	cfg.Display.UpdateRate = 1 * time.Millisecond
 
 	visualizer := NewVisualizer(mockDisplay, cfg)
@@ -261,7 +268,7 @@ func TestVisualizerUpdateDisplayGradientMode(t *testing.T) {
 func TestVisualizerUpdateDisplayActivityMode(t *testing.T) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "activity"
+	cfg.Display.Mode = modeActivity
 	cfg.Display.UpdateRate = 1 * time.Millisecond
 
 	visualizer := NewVisualizer(mockDisplay, cfg)
@@ -331,7 +338,7 @@ func TestVisualizerUpdateDisplayActivityMode(t *testing.T) {
 func TestVisualizerUpdateDisplayStatusMode(t *testing.T) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "status"
+	cfg.Display.Mode = modeStatus
 	cfg.Display.UpdateRate = 1 * time.Millisecond
 
 	visualizer := NewVisualizer(mockDisplay, cfg)
@@ -416,7 +423,7 @@ func TestVisualizerUpdateDisplayInvalidMode(t *testing.T) {
 func TestVisualizerUpdateThrottling(t *testing.T) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "percentage"
+	cfg.Display.Mode = modePercentage
 	cfg.Display.UpdateRate = 100 * time.Millisecond // Long update rate
 
 	visualizer := NewVisualizer(mockDisplay, cfg)
@@ -885,7 +892,7 @@ func TestVisualizerDrawCustomBitmap(t *testing.T) {
 func BenchmarkVisualizerUpdateDisplayPercentage(b *testing.B) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "percentage"
+	cfg.Display.Mode = modePercentage
 	cfg.Display.UpdateRate = 1 * time.Nanosecond // Allow all updates
 
 	visualizer := NewVisualizer(mockDisplay, cfg)

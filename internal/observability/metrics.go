@@ -10,6 +10,10 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 )
 
+const (
+	stringFalse = "false"
+)
+
 // MetricType represents the type of metric.
 type MetricType string
 
@@ -308,7 +312,7 @@ func (am *ApplicationMetrics) RecordMatrixOperation(operation string, matrixID s
 	}
 
 	if !success {
-		labels["success"] = "false"
+		labels["success"] = stringFalse
 	}
 
 	// Count operations
@@ -341,7 +345,7 @@ func (am *ApplicationMetrics) RecordConfigReload(success bool, duration time.Dur
 	}
 
 	if !success {
-		labels["success"] = "false"
+		labels["success"] = stringFalse
 	}
 
 	am.collector.IncCounter("config_reloads_total", labels)
@@ -373,7 +377,7 @@ func (am *ApplicationMetrics) RecordDisplayUpdate(mode string, success bool, dur
 	}
 
 	if !success {
-		labels["success"] = "false"
+		labels["success"] = stringFalse
 	}
 
 	am.collector.IncCounter("display_updates_total", labels)
@@ -388,7 +392,7 @@ func (am *ApplicationMetrics) RecordHealthCheck(component string, healthy bool, 
 	}
 
 	if !healthy {
-		labels["healthy"] = "false"
+		labels["healthy"] = stringFalse
 	}
 
 	am.collector.IncCounter("health_checks_total", labels)
@@ -441,7 +445,7 @@ func (t *Timer) StopWithSuccess(success bool) time.Duration {
 
 	labels["success"] = "true"
 	if !success {
-		labels["success"] = "false"
+		labels["success"] = stringFalse
 	}
 
 	t.collector.RecordDuration(t.name, duration, labels)

@@ -1,3 +1,5 @@
+// Package logging provides structured logging functionality with support for JSON and text formats,
+// configurable output destinations, event logging, and performance tracking.
 package logging
 
 import (
@@ -15,6 +17,7 @@ import (
 // LogLevel represents the logging level.
 type LogLevel string
 
+// Log levels for controlling verbosity.
 const (
 	LevelDebug LogLevel = "debug"
 	LevelInfo  LogLevel = "info"
@@ -25,6 +28,7 @@ const (
 // LogFormat represents the logging format.
 type LogFormat string
 
+// Log output formats.
 const (
 	FormatJSON LogFormat = "json"
 	FormatText LogFormat = "text"
@@ -58,6 +62,7 @@ type Logger struct {
 	config Config
 }
 
+// NewLogger creates a new Logger instance with the specified configuration.
 // Timestamps in log records are rendered using RFC3339.
 func NewLogger(config Config) (*Logger, error) {
 	var (
@@ -454,7 +459,7 @@ func (ml *MetricsLogger) LogTiming(name string, duration time.Duration, labels m
 	ml.logger.Info("timing metric", slog.Any("fields", fields))
 }
 
-// Performance tracking helpers.
+// PerformanceTracker provides timing and performance measurement capabilities.
 type PerformanceTracker struct {
 	startTime time.Time
 	logger    *MetricsLogger

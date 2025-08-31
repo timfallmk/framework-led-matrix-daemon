@@ -158,11 +158,7 @@ func TestConfigValidation(t *testing.T) {
 
 func TestLoadConfig(t *testing.T) {
 	// Create temporary directory for test files
-	tmpDir, err := os.MkdirTemp("", "config_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	tests := []struct {
 		validate func(*Config) error
@@ -180,7 +176,7 @@ stats:
   collect_interval: 5s
   enable_network: true
 display:
-  mode: "gradient"
+  mode: stringGradient
   primary_metric: "memory"
 `,
 			wantErr: false,
@@ -197,7 +193,7 @@ display:
 				if !cfg.Stats.EnableNetwork {
 					t.Error("Expected network monitoring to be enabled")
 				}
-				if cfg.Display.Mode != "gradient" {
+				if cfg.Display.Mode != stringGradient {
 					t.Errorf("Expected display mode 'gradient', got %s", cfg.Display.Mode)
 				}
 				if cfg.Display.PrimaryMetric != "memory" {
@@ -269,19 +265,15 @@ func TestLoadConfigNonExistentFile(t *testing.T) {
 }
 
 func TestSaveConfig(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "config_save_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	cfg := DefaultConfig()
 	cfg.Matrix.BaudRate = 9600
-	cfg.Display.Mode = "gradient"
+	cfg.Display.Mode = stringGradient
 
 	configFile := filepath.Join(tmpDir, "saved_config.yaml")
 
-	err = cfg.SaveConfig(configFile)
+	err := cfg.SaveConfig(configFile)
 	if err != nil {
 		t.Fatalf("SaveConfig() failed: %v", err)
 	}
@@ -301,7 +293,7 @@ func TestSaveConfig(t *testing.T) {
 		t.Errorf("Expected saved baud rate 9600, got %d", loadedCfg.Matrix.BaudRate)
 	}
 
-	if loadedCfg.Display.Mode != "gradient" {
+	if loadedCfg.Display.Mode != stringGradient {
 		t.Errorf("Expected saved display mode 'gradient', got %s", loadedCfg.Display.Mode)
 	}
 }
@@ -331,20 +323,17 @@ func TestGetConfigPaths(t *testing.T) {
 
 func TestFindConfig(t *testing.T) {
 	// Create a temporary config file in current directory
-	tmpDir, err := os.MkdirTemp("", "find_config_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Change to temp directory
 	originalDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalDir)
 
-	os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(originalDir) }()
+
+	_ = os.Chdir(tmpDir)
 
 	// Create configs directory and file
 	os.MkdirAll("configs", 0o755)
@@ -372,20 +361,17 @@ func TestFindConfig(t *testing.T) {
 
 func TestFindConfigNotFound(t *testing.T) {
 	// Create empty temporary directory
-	tmpDir, err := os.MkdirTemp("", "find_config_not_found_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Change to temp directory
 	originalDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalDir)
 
-	os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(originalDir) }()
+
+	_ = os.Chdir(tmpDir)
 
 	_, err = FindConfig()
 	if err == nil {
@@ -399,14 +385,14 @@ func TestConfigEnvironmentVariables(t *testing.T) {
 
 	defer func() {
 		if originalXDG != "" {
-			os.Setenv("XDG_CONFIG_HOME", originalXDG)
+			t.Setenv("XDG_CONFIG_HOME", originalXDG)
 		} else {
 			os.Unsetenv("XDG_CONFIG_HOME")
 		}
 	}()
 
 	testDir := "/tmp/test_xdg"
-	os.Setenv("XDG_CONFIG_HOME", testDir)
+	t.Setenv("XDG_CONFIG_HOME", testDir)
 
 	paths := GetConfigPaths()
 

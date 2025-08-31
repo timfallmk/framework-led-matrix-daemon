@@ -1,3 +1,5 @@
+// Package matrix provides communication interfaces for Framework LED matrix modules.
+// It handles serial communication, device discovery, and display command execution.
 package matrix
 
 import (
@@ -9,16 +11,19 @@ import (
 	"go.bug.st/serial/enumerator"
 )
 
+// Client manages serial communication with a single LED matrix module.
 type Client struct {
 	port   serial.Port
 	config *serial.Mode
 }
 
+// Communication constants for LED matrix modules.
 const (
 	DefaultBaudRate = 115200
 	DefaultTimeout  = 1 * time.Second
 )
 
+// NewClient creates a new LED matrix client with default configuration.
 func NewClient() *Client {
 	return &Client{
 		config: &serial.Mode{
@@ -27,6 +32,7 @@ func NewClient() *Client {
 	}
 }
 
+// DiscoverPort automatically discovers the first available Framework LED matrix port.
 func (c *Client) DiscoverPort() (string, error) {
 	ports, err := c.DiscoverPorts()
 	if err != nil {
@@ -40,6 +46,7 @@ func (c *Client) DiscoverPort() (string, error) {
 	return ports[0], nil
 }
 
+// DiscoverPorts returns all available Framework LED matrix ports.
 func (c *Client) DiscoverPorts() ([]string, error) {
 	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
@@ -78,6 +85,8 @@ func (c *Client) DiscoverPorts() ([]string, error) {
 	return frameworkPorts, nil
 }
 
+// Connect establishes a connection to the LED matrix on the specified port.
+// If portName is empty, it automatically discovers the first available port.
 func (c *Client) Connect(portName string) error {
 	if portName == "" {
 		discoveredPort, err := c.DiscoverPort()
@@ -100,6 +109,7 @@ func (c *Client) Connect(portName string) error {
 	return nil
 }
 
+// Disconnect closes the connection to the LED matrix.
 func (c *Client) Disconnect() error {
 	if c.port == nil {
 		return nil
@@ -111,6 +121,7 @@ func (c *Client) Disconnect() error {
 	return err
 }
 
+// SendCommand transmits a command to the LED matrix.
 func (c *Client) SendCommand(cmd Command) error {
 	if c.port == nil {
 		return fmt.Errorf("not connected to any port")
@@ -128,6 +139,7 @@ func (c *Client) SendCommand(cmd Command) error {
 	return nil
 }
 
+// ReadResponse reads a response from the LED matrix with the specified number of expected bytes.
 func (c *Client) ReadResponse(expectedBytes int) ([]byte, error) {
 	if c.port == nil {
 		return nil, fmt.Errorf("not connected to any port")
@@ -135,7 +147,7 @@ func (c *Client) ReadResponse(expectedBytes int) ([]byte, error) {
 
 	buffer := make([]byte, expectedBytes)
 
-	c.port.SetReadTimeout(DefaultTimeout)
+	_ = c.port.SetReadTimeout(DefaultTimeout)
 
 	n, err := c.port.Read(buffer)
 	if err != nil {
@@ -145,6 +157,7 @@ func (c *Client) ReadResponse(expectedBytes int) ([]byte, error) {
 	return buffer[:n], nil
 }
 
+// GetVersion retrieves the firmware version from the LED matrix.
 func (c *Client) GetVersion() ([]byte, error) {
 	if err := c.SendCommand(VersionCommand()); err != nil {
 		return nil, err
@@ -153,38 +166,47 @@ func (c *Client) GetVersion() ([]byte, error) {
 	return c.ReadResponse(3)
 }
 
+// SetBrightness sets the brightness level of the LED matrix (0-255).
 func (c *Client) SetBrightness(level byte) error {
 	return c.SendCommand(BrightnessCommand(level))
 }
 
+// ShowPercentage displays a percentage value (0-100) on the LED matrix.
 func (c *Client) ShowPercentage(percent byte) error {
 	return c.SendCommand(PercentageCommand(percent))
 }
 
+// ShowGradient displays a gradient pattern on the LED matrix.
 func (c *Client) ShowGradient() error {
 	return c.SendCommand(GradientCommand())
 }
 
+// ShowZigZag displays a zigzag pattern on the LED matrix.
 func (c *Client) ShowZigZag() error {
 	return c.SendCommand(ZigZagCommand())
 }
 
+// ShowFullBright illuminates all LEDs at maximum brightness.
 func (c *Client) ShowFullBright() error {
 	return c.SendCommand(FullBrightCommand())
 }
 
+// SetAnimate enables or disables animation effects on the LED matrix.
 func (c *Client) SetAnimate(enable bool) error {
 	return c.SendCommand(AnimateCommand(enable))
 }
 
+// DrawBitmap draws a black and white bitmap on the LED matrix using a 39-byte pixel array.
 func (c *Client) DrawBitmap(pixels [39]byte) error {
 	return c.SendCommand(DrawBWCommand(pixels))
 }
 
+// StageColumn stages a column of pixels for display on the LED matrix.
 func (c *Client) StageColumn(col byte, pixels [34]byte) error {
 	return c.SendCommand(StageColCommand(col, pixels))
 }
 
+// FlushColumns applies all staged columns to the LED matrix display.
 func (c *Client) FlushColumns() error {
 	return c.SendCommand(FlushColsCommand())
 }
