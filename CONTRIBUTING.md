@@ -25,7 +25,7 @@ Thank you for your interest in contributing to the Framework LED Matrix Daemon! 
 - **Git** for version control
 - **Make** for build automation
 - **Framework Laptop** with LED Matrix module (for hardware testing)
-- **Linux, macOS, or Windows** (cross-platform support)
+- **Linux or Windows** (cross-platform support)
 
 ### Quick Setup
 

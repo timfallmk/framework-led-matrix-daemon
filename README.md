@@ -7,7 +7,7 @@ A cross-platform Go daemon that displays real-time system statistics on Framewor
 - **Real-time System Monitoring**: CPU, memory, disk I/O, and network statistics
 - **Dual Matrix Support**: Configure up to two LED matrices with different display modes
 - **Multiple Display Modes**: Percentage bars, gradients, activity indicators, and status displays
-- **Cross-platform Support**: Linux, Windows, macOS with automated service management
+- **Cross-platform Support**: Linux, Windows with automated service management
 - **Configurable Thresholds**: Customizable warning and critical levels
 - **Automatic Port Discovery**: Finds Framework LED matrices automatically
 - **Flexible Matrix Modes**: Mirror, split, extended, and independent dual matrix configurations
@@ -458,7 +458,6 @@ display:
 - Serial port access permissions
 - Linux: `udev` rules or user in `dialout` group
 - Windows: Administrator privileges for service installation
-- macOS: No additional requirements
 
 ## Building
 
@@ -466,7 +465,7 @@ display:
 
 ```bash
 # Install Go 1.24.5+
-# Install make (usually pre-installed on Linux/macOS)
+# Install make (usually pre-installed on Linux)
 
 # Clone and build
 git clone https://github.com/timfallmk/framework-led-matrix-daemon

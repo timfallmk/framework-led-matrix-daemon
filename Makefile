@@ -179,14 +179,6 @@ cross-compile:
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=windows GOARCH=amd64 go build $(GO_BUILD_FLAGS) $(LDFLAGS) \
 		-o $(BINARY_DIR)/$(BINARY_NAME)-windows-amd64.exe ./$(CMD_DIR)
 	
-	@echo "Building for macOS amd64..."
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=darwin GOARCH=amd64 go build $(GO_BUILD_FLAGS) $(LDFLAGS) \
-		-o $(BINARY_DIR)/$(BINARY_NAME)-darwin-amd64 ./$(CMD_DIR)
-	
-	@echo "Building for macOS arm64..."
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=darwin GOARCH=arm64 go build $(GO_BUILD_FLAGS) $(LDFLAGS) \
-		-o $(BINARY_DIR)/$(BINARY_NAME)-darwin-arm64 ./$(CMD_DIR)
-	
 	@echo "Cross-compilation complete"
 
 # Create release packages
@@ -204,14 +196,6 @@ release: cross-compile
 	
 	@zip -j $(BINARY_DIR)/release/$(BINARY_NAME)-$(VERSION)-windows-amd64.zip \
 		$(BINARY_DIR)/$(BINARY_NAME)-windows-amd64.exe configs/config.yaml LICENSE
-	
-	@tar -czf $(BINARY_DIR)/release/$(BINARY_NAME)-$(VERSION)-darwin-amd64.tar.gz \
-		-C $(BINARY_DIR) $(BINARY_NAME)-darwin-amd64 \
-		-C .. configs/config.yaml LICENSE
-	
-	@tar -czf $(BINARY_DIR)/release/$(BINARY_NAME)-$(VERSION)-darwin-arm64.tar.gz \
-		-C $(BINARY_DIR) $(BINARY_NAME)-darwin-arm64 \
-		-C .. configs/config.yaml LICENSE
 	
 	@echo "Release packages created in $(BINARY_DIR)/release/"
 
