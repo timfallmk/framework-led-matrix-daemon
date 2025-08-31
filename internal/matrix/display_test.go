@@ -359,8 +359,8 @@ func TestDisplayManagerShowActivity(t *testing.T) {
 		expectedPattern string
 		active          bool
 	}{
-		{"show active", true, "zigzag"},
-		{"show inactive", false, "gradient"},
+		{"show active", "zigzag", true},
+		{"show inactive", "gradient", false},
 	}
 
 	for _, tt := range tests {
@@ -565,10 +565,10 @@ func TestDisplayManagerErrorHandling(t *testing.T) {
 		op   func() error
 		name string
 	}{
-		{"UpdatePercentage", func() error { return dm.UpdatePercentage("cpu", 50.0) }},
-		{"ShowActivity", func() error { return dm.ShowActivity(true) }},
-		{"ShowStatus", func() error { return dm.ShowStatus("normal") }},
-		{"SetBrightness", func() error { return dm.SetBrightness(128) }},
+		{func() error { return dm.UpdatePercentage("cpu", 50.0) }, "UpdatePercentage"},
+		{func() error { return dm.ShowActivity(true) }, "ShowActivity"},
+		{func() error { return dm.ShowStatus("normal") }, "ShowStatus"},
+		{func() error { return dm.SetBrightness(128) }, "SetBrightness"},
 	}
 
 	for _, tt := range tests {

@@ -10,10 +10,10 @@ func TestSystemStatusString(t *testing.T) {
 		expected string
 		status   SystemStatus
 	}{
-		{StatusNormal, "normal"},
-		{StatusWarning, "warning"},
-		{StatusCritical, "critical"},
-		{SystemStatus(999), "unknown"}, // Invalid status
+		{"normal", StatusNormal},
+		{"warning", StatusWarning},
+		{"critical", StatusCritical},
+		{"unknown", SystemStatus(999)}, // Invalid status
 	}
 
 	for _, tt := range tests {

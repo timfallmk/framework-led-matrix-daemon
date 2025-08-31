@@ -81,9 +81,9 @@ func TestBrightnessCommand(t *testing.T) {
 		expected Command
 		level    byte
 	}{
-		{"minimum brightness", 0, Command{ID: CmdBrightness, Params: []byte{0}}},
-		{"medium brightness", 128, Command{ID: CmdBrightness, Params: []byte{128}}},
-		{"maximum brightness", 255, Command{ID: CmdBrightness, Params: []byte{255}}},
+		{"minimum brightness", Command{ID: CmdBrightness, Params: []byte{0}}, 0},
+		{"medium brightness", Command{ID: CmdBrightness, Params: []byte{128}}, 128},
+		{"maximum brightness", Command{ID: CmdBrightness, Params: []byte{255}}, 255},
 	}
 
 	for _, tt := range tests {
@@ -139,9 +139,9 @@ func TestPercentageCommand(t *testing.T) {
 		expected Command
 		percent  byte
 	}{
-		{"0 percent", 0, Command{ID: CmdPattern, Params: []byte{PatternPercentage, 0}}},
-		{"50 percent", 50, Command{ID: CmdPattern, Params: []byte{PatternPercentage, 50}}},
-		{"100 percent", 100, Command{ID: CmdPattern, Params: []byte{PatternPercentage, 100}}},
+		{"0 percent", Command{ID: CmdPattern, Params: []byte{PatternPercentage, 0}}, 0},
+		{"50 percent", Command{ID: CmdPattern, Params: []byte{PatternPercentage, 50}}, 50},
+		{"100 percent", Command{ID: CmdPattern, Params: []byte{PatternPercentage, 100}}, 100},
 	}
 
 	for _, tt := range tests {
@@ -187,8 +187,8 @@ func TestAnimateCommand(t *testing.T) {
 		expected Command
 		enable   bool
 	}{
-		{"enable animation", true, Command{ID: CmdAnimate, Params: []byte{1}}},
-		{"disable animation", false, Command{ID: CmdAnimate, Params: []byte{0}}},
+		{"enable animation", Command{ID: CmdAnimate, Params: []byte{1}}, true},
+		{"disable animation", Command{ID: CmdAnimate, Params: []byte{0}}, false},
 	}
 
 	for _, tt := range tests {

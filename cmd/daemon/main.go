@@ -131,7 +131,7 @@ func loadConfiguration() (*config.Config, error) {
 	if err != nil {
 		log.Printf("No configuration file found, using defaults")
 
-		return config.DefaultConfig(), err
+		return config.DefaultConfig(), nil //nolint:nilerr
 	}
 
 	return config.LoadConfig(configFile)

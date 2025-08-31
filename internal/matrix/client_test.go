@@ -530,11 +530,11 @@ func TestClientCommandSequence(t *testing.T) {
 		execute func() error
 		name    string
 	}{
-		{"set brightness", func() error { return client.SetBrightness(128) }},
-		{"show percentage", func() error { return client.ShowPercentage(75) }},
-		{"enable animation", func() error { return client.SetAnimate(true) }},
-		{"show gradient", func() error { return client.ShowGradient() }},
-		{"disable animation", func() error { return client.SetAnimate(false) }},
+		{func() error { return client.SetBrightness(128) }, "set brightness"},
+		{func() error { return client.ShowPercentage(75) }, "show percentage"},
+		{func() error { return client.SetAnimate(true) }, "enable animation"},
+		{func() error { return client.ShowGradient() }, "show gradient"},
+		{func() error { return client.SetAnimate(false) }, "disable animation"},
 	}
 
 	for _, cmd := range commands {
