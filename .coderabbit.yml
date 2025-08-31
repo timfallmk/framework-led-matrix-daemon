@@ -33,10 +33,7 @@ reviews:
   poem: true
 
   path_filters:
-    - "!**/*.md"
     - "!**/go.sum"
-    - "!**/*.yml"
-    - "!**/*.yaml"
     - "!**/LICENSE"
     - "!**/.gitignore"
 
