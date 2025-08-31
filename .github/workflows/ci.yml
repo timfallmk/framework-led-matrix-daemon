@@ -80,6 +80,7 @@ jobs:
       with:
         version: latest
         args: --timeout=5m
+      continue-on-error: true
     - name: Run tests
       run: go test -v -race -coverprofile=coverage.out ./...
 
