@@ -33,11 +33,13 @@ jobs:
         run: go mod download
 
       - name: Install development tools and run quality checks
+        shell: bash
         run: |
           make dev-deps
           make quality-check
 
       - name: Run tests
+        shell: bash
         run: make test-ci
 
   build:
@@ -78,6 +80,7 @@ jobs:
         run: go mod download
 
       - name: Build release package using makefile
+        shell: bash
         run: make release-${{ matrix.goos }}-${{ matrix.goarch }}
 
       - name: Create release package
@@ -156,6 +159,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Install development tools and generate SBOM
+        shell: bash
         run: |
           make dev-deps
           VERSION=${GITHUB_REF#refs/tags/}
