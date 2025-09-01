@@ -400,6 +400,243 @@ func TestConfigEnvironmentVariables(t *testing.T) {
 	}
 }
 
+func TestConfigConvertMatrices(t *testing.T) {
+	tests := []struct {
+		name     string
+		matrices []map[string]interface{}
+		expected []SingleMatrixConfig
+	}{
+		{
+			name:     "empty matrices",
+			matrices: []map[string]interface{}{},
+			expected: []SingleMatrixConfig{},
+		},
+		{
+			name: "single matrix with all fields",
+			matrices: []map[string]interface{}{
+				{
+					"name":       "matrix1",
+					"port":       "/dev/ttyUSB0",
+					"role":       "primary",
+					"brightness": 80,
+					"metrics":    []interface{}{"cpu", "memory"},
+				},
+			},
+			expected: []SingleMatrixConfig{
+				{
+					Name:       "matrix1",
+					Port:       "/dev/ttyUSB0",
+					Role:       "primary",
+					Brightness: 80,
+					Metrics:    []string{"cpu", "memory"},
+				},
+			},
+		},
+		{
+			name: "matrix with float brightness",
+			matrices: []map[string]interface{}{
+				{
+					"name":       "matrix2",
+					"port":       "/dev/ttyUSB1",
+					"brightness": 90.5,
+				},
+			},
+			expected: []SingleMatrixConfig{
+				{
+					Name:       "matrix2",
+					Port:       "/dev/ttyUSB1",
+					Brightness: 90,
+					Metrics:    nil,
+				},
+			},
+		},
+		{
+			name: "matrix with missing fields",
+			matrices: []map[string]interface{}{
+				{
+					"name": "matrix3",
+				},
+			},
+			expected: []SingleMatrixConfig{
+				{
+					Name:       "matrix3",
+					Port:       "",
+					Role:       "",
+					Brightness: 0,
+					Metrics:    nil,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				Matrix: MatrixConfig{
+					Matrices: tt.matrices,
+				},
+			}
+
+			result := cfg.ConvertMatrices()
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected %d matrices, got %d", len(tt.expected), len(result))
+				return
+			}
+
+			for i, expected := range tt.expected {
+				if result[i].Name != expected.Name {
+					t.Errorf("Matrix %d: expected name %q, got %q", i, expected.Name, result[i].Name)
+				}
+				if result[i].Port != expected.Port {
+					t.Errorf("Matrix %d: expected port %q, got %q", i, expected.Port, result[i].Port)
+				}
+				if result[i].Role != expected.Role {
+					t.Errorf("Matrix %d: expected role %q, got %q", i, expected.Role, result[i].Role)
+				}
+				if result[i].Brightness != expected.Brightness {
+					t.Errorf("Matrix %d: expected brightness %d, got %d", i, expected.Brightness, result[i].Brightness)
+				}
+				if !reflect.DeepEqual(result[i].Metrics, expected.Metrics) {
+					t.Errorf("Matrix %d: expected metrics %v, got %v", i, expected.Metrics, result[i].Metrics)
+				}
+			}
+		})
+	}
+}
+
+func TestValidationErrorError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      ValidationError
+		expected string
+	}{
+		{
+			name: "basic validation error",
+			err: ValidationError{
+				Field:   "matrix.baud_rate",
+				Value:   0,
+				Message: "must be greater than 0",
+			},
+			expected: "validation error for field 'matrix.baud_rate' (value: 0): must be greater than 0",
+		},
+		{
+			name: "string value error",
+			err: ValidationError{
+				Field:   "display.mode",
+				Value:   "invalid",
+				Message: "must be one of: percentage, gradient, activity, status",
+			},
+			expected: "validation error for field 'display.mode' (value: invalid): must be one of: percentage, gradient, activity, status",
+		},
+		{
+			name: "nil value error",
+			err: ValidationError{
+				Field:   "config.file",
+				Value:   nil,
+				Message: "config file not found",
+			},
+			expected: "validation error for field 'config.file' (value: <nil>): config file not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.err.Error()
+			if result != tt.expected {
+				t.Errorf("Expected error message %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestConfigValidateDetailed(t *testing.T) {
+	tests := []struct {
+		name          string
+		modifyConfig  func(*Config)
+		expectedCount int
+		expectedFields []string
+	}{
+		{
+			name:          "valid config returns no errors",
+			modifyConfig:  func(c *Config) {}, // no changes
+			expectedCount: 0,
+			expectedFields: []string{},
+		},
+		{
+			name: "invalid baud rate",
+			modifyConfig: func(c *Config) {
+				c.Matrix.BaudRate = 0
+			},
+			expectedCount: 1,
+			expectedFields: []string{"matrix.baud_rate"},
+		},
+		{
+			name: "invalid collect interval",
+			modifyConfig: func(c *Config) {
+				c.Stats.CollectInterval = 0
+			},
+			expectedCount: 2, // triggers both validation rules
+			expectedFields: []string{"stats.collect_interval"},
+		},
+		{
+			name: "collect interval too short",
+			modifyConfig: func(c *Config) {
+				c.Stats.CollectInterval = 50 * time.Millisecond
+			},
+			expectedCount: 1,
+			expectedFields: []string{"stats.collect_interval"},
+		},
+		{
+			name: "invalid display mode",
+			modifyConfig: func(c *Config) {
+				c.Display.Mode = "invalid_mode"
+			},
+			expectedCount: 1,
+			expectedFields: []string{"display.mode"},
+		},
+		{
+			name: "multiple validation errors",
+			modifyConfig: func(c *Config) {
+				c.Matrix.BaudRate = -1
+				c.Stats.CollectInterval = 0
+				c.Display.Mode = "invalid"
+			},
+			expectedCount: 4, // baud_rate + 2 collect_interval + display_mode
+			expectedFields: []string{"matrix.baud_rate", "stats.collect_interval", "display.mode"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			tt.modifyConfig(cfg)
+
+			errors := cfg.ValidateDetailed()
+
+			if len(errors) != tt.expectedCount {
+				t.Errorf("Expected %d validation errors, got %d", tt.expectedCount, len(errors))
+				for i, err := range errors {
+					t.Logf("Error %d: %s", i, err.Error())
+				}
+				return
+			}
+
+			// Check that expected fields are present
+			errorFields := make(map[string]bool)
+			for _, err := range errors {
+				errorFields[err.Field] = true
+			}
+
+			for _, expectedField := range tt.expectedFields {
+				if !errorFields[expectedField] {
+					t.Errorf("Expected validation error for field %q, but not found", expectedField)
+				}
+			}
+		})
+	}
+}
+
 // Benchmark tests.
 func BenchmarkDefaultConfig(b *testing.B) {
 	for i := 0; i < b.N; i++ {
