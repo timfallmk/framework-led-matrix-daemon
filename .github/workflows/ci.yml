@@ -1,0 +1,184 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        go-version: ['1.25.x']
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+        cache: true
+        cache-dependency-path: '**/go.sum'
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Verify dependencies
+      run: go mod verify
+
+    - name: Install development tools
+      run: |
+        go install honnef.co/go/tools/cmd/staticcheck@latest
+        go install mvdan.cc/gofumpt@latest
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        go install golang.org/x/tools/cmd/goimports@latest
+
+    - name: Run gofumpt
+      run: |
+        gofumpt -l .
+        if [ "$(gofumpt -l . | wc -l)" -gt 0 ]; then
+          echo "::error::The following files need gofumpt formatting:"
+          gofumpt -l . | while read -r file; do
+            echo "::error file=$file::File needs gofumpt formatting"
+          done
+          echo "To fix locally, run: gofumpt -w ."
+          exit 1
+        fi
+      shell: bash
+
+    - name: Run goimports
+      run: |
+        goimports -l .
+        if [ "$(goimports -l . | wc -l)" -gt 0 ]; then
+          echo "::error::The following files need goimports formatting:"
+          goimports -l . | while read -r file; do
+            echo "::error file=$file::File needs goimports formatting"
+          done
+          echo "To fix locally, run: goimports -w ."
+          exit 1
+        fi
+      shell: bash
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Run staticcheck
+      run: staticcheck ./...
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: latest
+        args: --timeout=5m
+      continue-on-error: true
+    - name: Run tests with coverage check
+      shell: bash
+      run: |
+        # Use makefile target for consistent test execution and coverage checking
+        if ! make test-ci 2>&1 | tee test_output.log; then
+          echo "::error::Tests failed. See details below:"
+          # Extract and annotate specific test failures
+          grep -E "(FAIL:|--- FAIL:|panic:)" test_output.log | while read -r line; do
+            echo "::error::$line"
+          done
+          exit 1
+        fi
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+
+    - name: Install govulncheck
+      run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+    - name: Run govulncheck
+      run: govulncheck ./...
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: go
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    strategy:
+      matrix:
+        include:
+        - goos: linux
+          goarch: amd64
+        - goos: linux
+          goarch: arm64
+        - goos: windows
+          goarch: amd64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-1.25-${{ hashFiles('**/go.sum') }}
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Build binary
+      env:
+        CGO_ENABLED: 0
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        BINARY_BASE=framework-led-daemon
+        EXT=""
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          EXT=".exe"
+        fi
+
+        OUT="bin/${BINARY_BASE}-${{ matrix.goos }}-${{ matrix.goarch }}${EXT}"
+
+        go build \
+          -ldflags="-w -s -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}" \
+          -trimpath \
+          -o "${OUT}" \
+          ./cmd/daemon
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: framework-led-daemon-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: bin/framework-led-daemon-${{ matrix.goos }}-${{ matrix.goarch }}*
+        retention-days: 30

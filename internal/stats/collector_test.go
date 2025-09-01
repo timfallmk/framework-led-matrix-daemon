@@ -86,6 +86,7 @@ func TestCollectorThreadSafety(t *testing.T) {
 			}
 			collector.SetThresholds(thresholds)
 		}
+
 		done <- true
 	}()
 
@@ -99,6 +100,7 @@ func TestCollectorThreadSafety(t *testing.T) {
 					thresholds.CPUWarning, thresholds.CPUCritical)
 			}
 		}
+
 		done <- true
 	}()
 
@@ -125,6 +127,8 @@ func TestCollectorGetLastStats(t *testing.T) {
 	stats = collector.GetLastStats()
 	if stats == nil {
 		t.Error("GetLastStats() should return stats after collection")
+
+		return
 	}
 
 	// Timestamp should be recent
@@ -148,8 +152,8 @@ func TestCollectorDetermineStatus(t *testing.T) {
 	collector.SetThresholds(thresholds)
 
 	tests := []struct {
-		name           string
 		summary        *StatsSummary
+		name           string
 		expectedStatus SystemStatus
 	}{
 		{
@@ -244,12 +248,15 @@ func TestCollectorGetSummaryBasic(t *testing.T) {
 	// Status should be valid
 	validStatuses := []SystemStatus{StatusNormal, StatusWarning, StatusCritical}
 	statusValid := false
+
 	for _, validStatus := range validStatuses {
 		if summary.Status == validStatus {
 			statusValid = true
+
 			break
 		}
 	}
+
 	if !statusValid {
 		t.Errorf("GetSummary() Status = %v, should be one of %v", summary.Status, validStatuses)
 	}
@@ -261,7 +268,7 @@ func TestCollectorGetSummaryBasic(t *testing.T) {
 }
 
 // Integration test that attempts to collect real system stats
-// This test may be skipped on systems where gopsutil doesn't work properly
+// This test may be skipped on systems where gopsutil doesn't work properly.
 func TestCollectorCollectCPUStats(t *testing.T) {
 	collector := NewCollector(time.Second)
 
@@ -305,7 +312,7 @@ func TestCollectorCollectMemoryStats(t *testing.T) {
 	}
 
 	// Basic validation
-	if memStats.Total <= 0 {
+	if memStats.Total == 0 {
 		t.Errorf("CollectMemoryStats() Total = %d, should be > 0", memStats.Total)
 	}
 
@@ -367,18 +374,9 @@ func TestCollectorCollectDiskStats(t *testing.T) {
 	}
 
 	// IO counters validation
-	for device, counter := range diskStats.IOCounters {
+	for device := range diskStats.IOCounters {
 		if device == "" {
 			t.Error("CollectDiskStats() IOCounters has empty device name")
-		}
-
-		// Counters should be non-negative
-		if counter.ReadCount < 0 || counter.WriteCount < 0 {
-			t.Errorf("CollectDiskStats() IOCounter[%s] has negative counts", device)
-		}
-
-		if counter.ReadBytes < 0 || counter.WriteBytes < 0 {
-			t.Errorf("CollectDiskStats() IOCounter[%s] has negative byte counts", device)
 		}
 	}
 
@@ -397,21 +395,7 @@ func TestCollectorCollectNetworkStats(t *testing.T) {
 	}
 
 	// Basic validation - all counters should be non-negative
-	if netStats.BytesSent < 0 {
-		t.Errorf("CollectNetworkStats() BytesSent = %d, should be >= 0", netStats.BytesSent)
-	}
-
-	if netStats.BytesRecv < 0 {
-		t.Errorf("CollectNetworkStats() BytesRecv = %d, should be >= 0", netStats.BytesRecv)
-	}
-
-	if netStats.PacketsSent < 0 {
-		t.Errorf("CollectNetworkStats() PacketsSent = %d, should be >= 0", netStats.PacketsSent)
-	}
-
-	if netStats.PacketsRecv < 0 {
-		t.Errorf("CollectNetworkStats() PacketsRecv = %d, should be >= 0", netStats.PacketsRecv)
-	}
+	// uint64 fields are always non-negative, no need to check
 
 	if netStats.ActivityRate < 0 {
 		t.Errorf("CollectNetworkStats() ActivityRate = %.1f, should be >= 0", netStats.ActivityRate)
@@ -435,7 +419,7 @@ func TestCollectorCollectSystemStatsIntegration(t *testing.T) {
 		t.Error("CollectSystemStats() CPU stats not properly populated")
 	}
 
-	if stats.Memory.Total <= 0 {
+	if stats.Memory.Total == 0 {
 		t.Error("CollectSystemStats() Memory stats not properly populated")
 	}
 
@@ -448,6 +432,8 @@ func TestCollectorCollectSystemStatsIntegration(t *testing.T) {
 	lastStats := collector.GetLastStats()
 	if lastStats == nil {
 		t.Error("CollectSystemStats() should update last stats")
+
+		return
 	}
 
 	if !lastStats.Timestamp.Equal(stats.Timestamp) {
@@ -455,7 +441,7 @@ func TestCollectorCollectSystemStatsIntegration(t *testing.T) {
 	}
 }
 
-// Test activity rate calculation over multiple collections
+// Test activity rate calculation over multiple collections.
 func TestCollectorActivityRateCalculation(t *testing.T) {
 	collector := NewCollector(100 * time.Millisecond) // Short interval for testing
 
@@ -479,11 +465,12 @@ func TestCollectorActivityRateCalculation(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkCollectorGetThresholds(b *testing.B) {
 	collector := NewCollector(time.Second)
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		collector.GetThresholds()
 	}
@@ -494,6 +481,7 @@ func BenchmarkCollectorSetThresholds(b *testing.B) {
 	thresholds := DefaultThresholds()
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		collector.SetThresholds(thresholds)
 	}
@@ -507,16 +495,18 @@ func BenchmarkCollectorDetermineStatus(b *testing.B) {
 	}
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		collector.determineStatus(summary)
 	}
 }
 
-// Test that would collect real system stats (may be slow)
+// Test that would collect real system stats (may be slow).
 func BenchmarkCollectorCollectSystemStats(b *testing.B) {
 	collector := NewCollector(time.Second)
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		_, err := collector.CollectSystemStats()
 		if err != nil {
@@ -525,7 +515,7 @@ func BenchmarkCollectorCollectSystemStats(b *testing.B) {
 	}
 }
 
-// Test concurrent access patterns
+// Test concurrent access patterns.
 func TestCollectorConcurrentAccess(t *testing.T) {
 	collector := NewCollector(time.Second)
 
@@ -538,6 +528,7 @@ func TestCollectorConcurrentAccess(t *testing.T) {
 			collector.CollectSystemStats()
 			time.Sleep(10 * time.Millisecond)
 		}
+
 		done <- true
 	}()
 
@@ -547,6 +538,7 @@ func TestCollectorConcurrentAccess(t *testing.T) {
 			collector.GetSummary()
 			time.Sleep(15 * time.Millisecond)
 		}
+
 		done <- true
 	}()
 
@@ -560,8 +552,10 @@ func TestCollectorConcurrentAccess(t *testing.T) {
 			} else {
 				collector.GetThresholds()
 			}
+
 			time.Sleep(5 * time.Millisecond)
 		}
+
 		done <- true
 	}()
 

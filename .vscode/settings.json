@@ -1,0 +1,6 @@
+{
+    "yaml.schemas": {
+        "https://coderabbit.ai/integrations/schema.v2.json": ".coderabbit.yml"
+    },
+    "cSpell.enabled": false
+}

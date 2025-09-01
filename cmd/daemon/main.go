@@ -11,8 +11,13 @@ import (
 )
 
 const (
-	version = "1.0.0"
-	name    = "framework-led-daemon"
+	name = "framework-led-daemon"
+)
+
+var (
+	// These are set by the build system via -ldflags.
+	version   = "dev"     // Set via -X main.version=...
+	buildTime = "unknown" // Set via -X main.buildTime=...
 )
 
 var (
@@ -36,6 +41,7 @@ func main() {
 
 	if *showVersion {
 		fmt.Printf("%s version %s\n", name, version)
+		fmt.Printf("Build time: %s\n", buildTime)
 		os.Exit(0)
 	}
 
@@ -46,12 +52,17 @@ func main() {
 
 	applyCommandLineOverrides(cfg)
 
-	if len(os.Args) < 2 {
+	if err = cfg.Validate(); err != nil {
+		log.Fatalf("Invalid configuration after command-line overrides: %v", err)
+	}
+
+	if flag.NArg() < 1 {
 		showUsage()
 		os.Exit(1)
 	}
 
-	command := os.Args[len(os.Args)-1]
+	args := flag.Args()
+	command := args[0]
 
 	service, err := daemon.NewService(cfg)
 	if err != nil {
@@ -68,39 +79,43 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to install service: %v", err)
 		}
+
 		fmt.Println(status)
 	case "remove", "uninstall":
 		status, err := service.Remove()
 		if err != nil {
 			log.Fatalf("Failed to remove service: %v", err)
 		}
+
 		fmt.Println(status)
 	case "start":
 		status, err := service.StartService()
 		if err != nil {
 			log.Fatalf("Failed to start service: %v", err)
 		}
+
 		fmt.Println(status)
 	case "stop":
 		status, err := service.StopService()
 		if err != nil {
 			log.Fatalf("Failed to stop service: %v", err)
 		}
+
 		fmt.Println(status)
 	case "status":
 		status, err := service.Status()
 		if err != nil {
 			log.Fatalf("Failed to get service status: %v", err)
 		}
+
 		fmt.Println(status)
 	case "config":
-		if err := showConfiguration(cfg); err != nil {
-			log.Fatalf("Failed to show configuration: %v", err)
-		}
+		showConfiguration(cfg)
 	case "test":
 		if err := testConnection(cfg); err != nil {
 			log.Fatalf("Connection test failed: %v", err)
 		}
+
 		fmt.Println("Connection test successful!")
 	default:
 		fmt.Printf("Unknown command: %s\n\n", command)
@@ -117,7 +132,8 @@ func loadConfiguration() (*config.Config, error) {
 	configFile, err := config.FindConfig()
 	if err != nil {
 		log.Printf("No configuration file found, using defaults")
-		return config.DefaultConfig(), nil
+
+		return config.DefaultConfig(), nil //nolint:nilerr
 	}
 
 	return config.LoadConfig(configFile)
@@ -190,7 +206,7 @@ CONFIGURATION:
 `, name, name, name, name, name, name, name, name)
 }
 
-func showConfiguration(cfg *config.Config) error {
+func showConfiguration(cfg *config.Config) {
 	fmt.Printf("Current Configuration:\n")
 	fmt.Printf("  Matrix:\n")
 	fmt.Printf("    Port: %s\n", cfg.Matrix.Port)
@@ -213,8 +229,6 @@ func showConfiguration(cfg *config.Config) error {
 		cfg.Stats.Thresholds.CPUWarning, cfg.Stats.Thresholds.CPUCritical)
 	fmt.Printf("    Memory Warning/Critical: %.1f%% / %.1f%%\n",
 		cfg.Stats.Thresholds.MemoryWarning, cfg.Stats.Thresholds.MemoryCritical)
-
-	return nil
 }
 
 func testConnection(cfg *config.Config) error {
@@ -230,5 +244,6 @@ func testConnection(cfg *config.Config) error {
 	}
 
 	log.Printf("Connection test completed successfully")
+
 	return nil
 }

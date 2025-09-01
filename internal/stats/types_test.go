@@ -7,13 +7,13 @@ import (
 
 func TestSystemStatusString(t *testing.T) {
 	tests := []struct {
-		status   SystemStatus
 		expected string
+		status   SystemStatus
 	}{
-		{StatusNormal, "normal"},
-		{StatusWarning, "warning"},
-		{StatusCritical, "critical"},
-		{SystemStatus(999), "unknown"}, // Invalid status
+		{"normal", StatusNormal},
+		{"warning", StatusWarning},
+		{"critical", StatusCritical},
+		{"unknown", SystemStatus(999)}, // Invalid status
 	}
 
 	for _, tt := range tests {
@@ -128,6 +128,26 @@ func TestMemoryStatsStructure(t *testing.T) {
 	if stats.SwapPercent != 25.0 {
 		t.Errorf("MemoryStats.SwapPercent = %.1f, want 25.0", stats.SwapPercent)
 	}
+
+	if stats.Available != 8*1024*1024*1024 {
+		t.Errorf("MemoryStats.Available = %d, want %d", stats.Available, 8*1024*1024*1024)
+	}
+
+	if stats.Used != 8*1024*1024*1024 {
+		t.Errorf("MemoryStats.Used = %d, want %d", stats.Used, 8*1024*1024*1024)
+	}
+
+	if stats.Free != 8*1024*1024*1024 {
+		t.Errorf("MemoryStats.Free = %d, want %d", stats.Free, 8*1024*1024*1024)
+	}
+
+	if stats.SwapTotal != 4*1024*1024*1024 {
+		t.Errorf("MemoryStats.SwapTotal = %d, want %d", stats.SwapTotal, 4*1024*1024*1024)
+	}
+
+	if stats.SwapUsed != 1024*1024*1024 {
+		t.Errorf("MemoryStats.SwapUsed = %d, want %d", stats.SwapUsed, 1024*1024*1024)
+	}
 }
 
 func TestDiskStatsStructure(t *testing.T) {
@@ -182,6 +202,7 @@ func TestDiskStatsStructure(t *testing.T) {
 		if counter.ReadCount != 1000 {
 			t.Errorf("IOCounter.ReadCount = %d, want 1000", counter.ReadCount)
 		}
+
 		if counter.WriteCount != 500 {
 			t.Errorf("IOCounter.WriteCount = %d, want 500", counter.WriteCount)
 		}
@@ -189,6 +210,22 @@ func TestDiskStatsStructure(t *testing.T) {
 
 	if stats.ActivityRate != 1024.0*1024.0 {
 		t.Errorf("DiskStats.ActivityRate = %.1f, want %.1f", stats.ActivityRate, 1024.0*1024.0)
+	}
+
+	if stats.TotalReads != 1000 {
+		t.Errorf("DiskStats.TotalReads = %d, want 1000", stats.TotalReads)
+	}
+
+	if stats.TotalWrites != 500 {
+		t.Errorf("DiskStats.TotalWrites = %d, want 500", stats.TotalWrites)
+	}
+
+	if stats.ReadBytes != 1024*1024*100 {
+		t.Errorf("DiskStats.ReadBytes = %d, want %d", stats.ReadBytes, 1024*1024*100)
+	}
+
+	if stats.WriteBytes != 1024*1024*50 {
+		t.Errorf("DiskStats.WriteBytes = %d, want %d", stats.WriteBytes, 1024*1024*50)
 	}
 }
 
@@ -213,6 +250,22 @@ func TestNetworkStatsStructure(t *testing.T) {
 
 	if stats.ActivityRate != 1024.0*1024.0 {
 		t.Errorf("NetworkStats.ActivityRate = %.1f, want %.1f", stats.ActivityRate, 1024.0*1024.0)
+	}
+
+	if stats.BytesRecv != 1024*1024*200 {
+		t.Errorf("NetworkStats.BytesRecv = %d, want %d", stats.BytesRecv, 1024*1024*200)
+	}
+
+	if stats.PacketsRecv != 20000 {
+		t.Errorf("NetworkStats.PacketsRecv = %d, want 20000", stats.PacketsRecv)
+	}
+
+	if stats.TotalBytesSent != 1024*1024*500 {
+		t.Errorf("NetworkStats.TotalBytesSent = %d, want %d", stats.TotalBytesSent, 1024*1024*500)
+	}
+
+	if stats.TotalBytesRecv != 1024*1024*1000 {
+		t.Errorf("NetworkStats.TotalBytesRecv = %d, want %d", stats.TotalBytesRecv, 1024*1024*1000)
 	}
 }
 
@@ -340,7 +393,6 @@ func TestThresholdsValidation(t *testing.T) {
 func TestDataStructureSizes(t *testing.T) {
 	// Test that our data structures are reasonable in size
 	// This helps ensure we're not accidentally including huge embedded data
-
 	cpu := CPUStats{}
 	if size := len(cpu.PerCorePercent); size > 0 {
 		// Should start empty
@@ -378,11 +430,12 @@ func TestSystemStatusConstants(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkSystemStatusString(b *testing.B) {
 	statuses := []SystemStatus{StatusNormal, StatusWarning, StatusCritical}
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		status := statuses[i%len(statuses)]
 		_ = status.String()
@@ -399,6 +452,7 @@ func BenchmarkStatsSummaryCreation(b *testing.B) {
 	now := time.Now()
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		_ = StatsSummary{
 			CPUUsage:        75.5,
@@ -415,6 +469,7 @@ func BenchmarkSystemStatsCreation(b *testing.B) {
 	now := time.Now()
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		_ = SystemStats{
 			CPU: CPUStats{

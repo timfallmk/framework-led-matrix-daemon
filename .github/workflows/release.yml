@@ -1,0 +1,334 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  test:
+    name: Test Before Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Install development tools
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install mvdan.cc/gofumpt@latest
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run quality checks
+        run: |
+          gofumpt -l .
+          go vet ./...
+          staticcheck ./...
+          golangci-lint run --timeout=5m
+          govulncheck ./...
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+  build:
+    name: Build Release Binaries
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: tar.gz
+          - goos: linux
+            goarch: arm64
+            suffix: tar.gz
+          - goos: windows
+            goarch: amd64
+            suffix: zip
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build binary
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          BINARY_NAME=framework-led-daemon
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            BINARY_NAME="${BINARY_NAME}.exe"
+          fi
+          
+          mkdir -p release
+          
+          go build \
+            -ldflags="-w -s -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}" \
+            -trimpath \
+            -o "release/${BINARY_NAME}" \
+            ./cmd/daemon
+
+      - name: Create release package
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          PACKAGE_NAME="framework-led-daemon-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          
+          cd release
+          
+          # Copy configuration and service files
+          cp ../configs/config.yaml .
+          cp ../LICENSE .
+          if [ "${{ matrix.goos }}" = "linux" ]; then
+            cp ../systemd/framework-led-daemon.service .
+          fi
+          
+          # Create README for the package
+          cat > README.txt <<-EOF
+          	Framework LED Matrix Daemon ${VERSION}
+          	
+          	Platform: ${{ matrix.goos }}/${{ matrix.goarch }}
+          	Built: $(date -u)
+          	
+          	Files:
+          	- framework-led-daemon$([ "${{ matrix.goos }}" = "windows" ] && echo ".exe" || echo ""): Main executable
+          	- config.yaml: Default configuration file
+          	- LICENSE: GNU Affero General Public License v3.0
+          	$([ "${{ matrix.goos }}" = "linux" ] && echo "- framework-led-daemon.service: systemd service file" || echo "")
+          	
+          	Installation:
+          	1. Extract this archive
+          	2. Copy the executable to your desired location
+          	3. Configure config.yaml for your setup
+          	$([ "${{ matrix.goos }}" = "linux" ] && echo "4. For Linux: Install systemd service if desired" || echo "")
+          	
+          	For detailed installation and usage instructions, visit:
+          	https://github.com/timfallmk/framework-led-matrix-daemon
+          	
+          	EOF
+          
+          # Create the appropriate archive
+          if [ "${{ matrix.suffix }}" = "tar.gz" ]; then
+            tar -czf "../${PACKAGE_NAME}.tar.gz" *
+          else
+            zip -r "../${PACKAGE_NAME}.zip" *
+          fi
+          
+          cd ..
+          
+          # Generate checksums
+          if [ "${{ matrix.suffix }}" = "tar.gz" ]; then
+            sha256sum "${PACKAGE_NAME}.tar.gz" > "${PACKAGE_NAME}.tar.gz.sha256"
+          else
+            sha256sum "${PACKAGE_NAME}.zip" > "${PACKAGE_NAME}.zip.sha256"
+          fi
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: framework-led-daemon-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            framework-led-daemon-*-${{ matrix.goos }}-${{ matrix.goarch }}.*
+          retention-days: 30
+
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install Syft
+        env:
+          SYFT_VERSION: v1.18.0
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+          | sh -s -- -b /usr/local/bin ${SYFT_VERSION}
+          syft version
+
+      - name: Generate SBOM
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          syft packages . -o spdx-json=framework-led-daemon-${VERSION}-sbom.spdx.json
+          syft packages . -o syft-json=framework-led-daemon-${VERSION}-sbom.syft.json
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: framework-led-daemon-sbom
+          path: |
+            framework-led-daemon-*-sbom.*
+          retention-days: 90
+
+  changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          
+          echo "# Release ${VERSION}" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "Released: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          
+          if [ -n "$PREVIOUS_TAG" ]; then
+            echo "## Changes since ${PREVIOUS_TAG}" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            
+            # Get commits since last tag
+            git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --reverse >> CHANGELOG.md
+          else
+            echo "## Initial Release" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "- Initial release of Framework LED Matrix Daemon" >> CHANGELOG.md
+          fi
+          
+          echo "" >> CHANGELOG.md
+          echo "## Checksums" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "SHA256 checksums are provided for all release files." >> CHANGELOG.md
+          
+          # Set output for use in release
+          {
+            echo 'changelog<<EOF'
+            cat CHANGELOG.md
+            echo EOF
+          } >> $GITHUB_OUTPUT
+
+      - name: Upload changelog
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build, sbom, changelog]
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Prepare release assets
+        run: |
+          # Collect all release files
+          find . -name "framework-led-daemon-*" -type f | grep -E '\.(tar\.gz|zip|sha256)$' > release_files.txt
+          find . -name "framework-led-daemon-*sbom.*" -type f >> release_files.txt
+          
+          echo "Release files:"
+          cat release_files.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          body: ${{ needs.changelog.outputs.changelog }}
+          files: |
+            framework-led-daemon-*/framework-led-daemon-*
+            framework-led-daemon-sbom/framework-led-daemon-*sbom.*
+            changelog/CHANGELOG.md
+          draft: false
+          prerelease: ${{ contains(github.ref, 'rc') || contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  docker:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

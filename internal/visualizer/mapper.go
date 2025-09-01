@@ -1,3 +1,6 @@
+// Package visualizer provides visualization components that convert system metrics to LED patterns.
+// It supports both single and multi-matrix configurations with various display modes including
+// percentage, gradient, activity, and status visualization modes.
 package visualizer
 
 import (
@@ -10,7 +13,7 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
 )
 
-// DisplayManagerInterface defines the interface for display managers
+// DisplayManagerInterface defines the interface for display managers.
 type DisplayManagerInterface interface {
 	UpdatePercentage(key string, percent float64) error
 	ShowActivity(active bool) error
@@ -20,7 +23,7 @@ type DisplayManagerInterface interface {
 	SetUpdateRate(rate time.Duration)
 }
 
-// MultiDisplayManagerInterface defines the interface for multi-display managers
+// MultiDisplayManagerInterface defines the interface for multi-display managers.
 type MultiDisplayManagerInterface interface {
 	UpdateMetric(metricName string, value float64, stats map[string]float64) error
 	UpdateActivity(active bool) error
@@ -30,18 +33,21 @@ type MultiDisplayManagerInterface interface {
 	HasMultipleDisplays() bool
 }
 
+// Visualizer converts system metrics into visual patterns for single LED matrix displays.
 type Visualizer struct {
 	display    DisplayManagerInterface
 	config     *config.Config
 	lastUpdate time.Time
 }
 
+// MultiVisualizer converts system metrics into visual patterns for multiple LED matrix displays.
 type MultiVisualizer struct {
 	multiDisplay MultiDisplayManagerInterface
 	config       *config.Config
 	lastUpdate   time.Time
 }
 
+// NewVisualizer creates a new Visualizer with the specified display manager and configuration.
 func NewVisualizer(display DisplayManagerInterface, cfg *config.Config) *Visualizer {
 	return &Visualizer{
 		display: display,
@@ -49,6 +55,7 @@ func NewVisualizer(display DisplayManagerInterface, cfg *config.Config) *Visuali
 	}
 }
 
+// NewMultiVisualizer creates a new MultiVisualizer with the specified multi-display manager and configuration.
 func NewMultiVisualizer(multiDisplay MultiDisplayManagerInterface, cfg *config.Config) *MultiVisualizer {
 	return &MultiVisualizer{
 		multiDisplay: multiDisplay,
@@ -56,6 +63,7 @@ func NewMultiVisualizer(multiDisplay MultiDisplayManagerInterface, cfg *config.C
 	}
 }
 
+// UpdateDisplay updates the LED matrix display based on the current system statistics and configured display mode.
 func (v *Visualizer) UpdateDisplay(summary *stats.StatsSummary) error {
 	if time.Since(v.lastUpdate) < v.config.Display.UpdateRate {
 		return nil
@@ -98,15 +106,17 @@ func (v *Visualizer) updatePercentageMode(summary *stats.StatsSummary) error {
 	}
 
 	v.lastUpdate = time.Now()
+
 	return nil
 }
 
-func (v *Visualizer) updateGradientMode(summary *stats.StatsSummary) error {
+func (v *Visualizer) updateGradientMode(_ *stats.StatsSummary) error {
 	if err := v.display.ShowStatus("normal"); err != nil {
 		return fmt.Errorf("failed to show gradient: %w", err)
 	}
 
 	v.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -118,6 +128,7 @@ func (v *Visualizer) updateActivityMode(summary *stats.StatsSummary) error {
 	}
 
 	v.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -129,6 +140,7 @@ func (v *Visualizer) updateStatusMode(summary *stats.StatsSummary) error {
 	}
 
 	v.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -181,6 +193,7 @@ func (v *Visualizer) isSystemActive(summary *stats.StatsSummary) bool {
 	return false
 }
 
+// CreateCustomPattern creates a custom LED pattern from normalized float data with specified dimensions.
 func (v *Visualizer) CreateCustomPattern(width, height int, data []float64) ([39]byte, error) {
 	var pixels [39]byte
 
@@ -200,10 +213,12 @@ func (v *Visualizer) CreateCustomPattern(width, height int, data []float64) ([39
 	return pixels, nil
 }
 
+// DrawCustomBitmap displays a custom bitmap pattern on the LED matrix (not yet implemented).
 func (v *Visualizer) DrawCustomBitmap(pixels [39]byte) error {
 	return fmt.Errorf("custom bitmap drawing not yet implemented")
 }
 
+// CreateProgressBar creates a progress bar pattern with the specified percentage and width.
 func (v *Visualizer) CreateProgressBar(percent float64, width int) []byte {
 	bar := make([]byte, width)
 	filled := int((percent / 100.0) * float64(width))
@@ -219,15 +234,17 @@ func (v *Visualizer) CreateProgressBar(percent float64, width int) []byte {
 	return bar
 }
 
+// SetBrightness sets the LED matrix brightness level.
 func (v *Visualizer) SetBrightness(level byte) error {
 	return v.display.SetBrightness(level)
 }
 
+// GetCurrentState returns the current display state.
 func (v *Visualizer) GetCurrentState() map[string]interface{} {
 	return v.display.GetCurrentState()
 }
 
-// MultiVisualizer methods for dual matrix support
+// UpdateDisplay updates multiple LED matrix displays based on system statistics and dual mode configuration.
 func (mv *MultiVisualizer) UpdateDisplay(summary *stats.StatsSummary) error {
 	if time.Since(mv.lastUpdate) < mv.config.Display.UpdateRate {
 		return nil
@@ -258,6 +275,7 @@ func (mv *MultiVisualizer) updatePercentageMode(summary *stats.StatsSummary) err
 
 	// Update each configured metric
 	var lastErr error
+
 	for metric, value := range statsMap {
 		if err := mv.multiDisplay.UpdateMetric(metric, value, statsMap); err != nil {
 			lastErr = err
@@ -266,15 +284,17 @@ func (mv *MultiVisualizer) updatePercentageMode(summary *stats.StatsSummary) err
 	}
 
 	mv.lastUpdate = time.Now()
+
 	return lastErr
 }
 
-func (mv *MultiVisualizer) updateGradientMode(summary *stats.StatsSummary) error {
+func (mv *MultiVisualizer) updateGradientMode(_ *stats.StatsSummary) error {
 	if err := mv.multiDisplay.UpdateStatus("normal"); err != nil {
 		return fmt.Errorf("failed to show gradient: %w", err)
 	}
 
 	mv.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -286,6 +306,7 @@ func (mv *MultiVisualizer) updateActivityMode(summary *stats.StatsSummary) error
 	}
 
 	mv.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -297,6 +318,7 @@ func (mv *MultiVisualizer) updateStatusMode(summary *stats.StatsSummary) error {
 	}
 
 	mv.lastUpdate = time.Now()
+
 	return nil
 }
 
@@ -346,6 +368,7 @@ func (mv *MultiVisualizer) determineSystemStatus(summary *stats.StatsSummary) st
 	return "normal"
 }
 
+// UpdateConfig updates the visualizer configuration and applies new settings including update rate and brightness.
 func (v *Visualizer) UpdateConfig(cfg *config.Config) {
 	v.config = cfg
 	v.display.SetUpdateRate(cfg.Display.UpdateRate)

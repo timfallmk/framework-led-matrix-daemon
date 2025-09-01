@@ -1,0 +1,603 @@
+// Package logging provides structured logging functionality with support for JSON and text formats,
+// configurable output destinations, event logging, and performance tracking.
+package logging
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sync"
+	"time"
+)
+
+// LogLevel represents the logging level.
+type LogLevel string
+
+// Log levels for controlling verbosity.
+const (
+	LevelDebug LogLevel = "debug"
+	LevelInfo  LogLevel = "info"
+	LevelWarn  LogLevel = "warn"
+	LevelError LogLevel = "error"
+)
+
+// LogFormat represents the logging format.
+type LogFormat string
+
+// Log output formats.
+const (
+	FormatJSON LogFormat = "json"
+	FormatText LogFormat = "text"
+)
+
+// Config holds the logger configuration.
+type Config struct {
+	Level           LogLevel  `yaml:"level" json:"level"`
+	Format          LogFormat `yaml:"format" json:"format"`
+	Output          string    `yaml:"output" json:"output"` // "stdout", "stderr", or file path
+	AddSource       bool      `yaml:"add_source" json:"add_source"`
+	EventBufferSize int       `yaml:"event_buffer_size" json:"event_buffer_size"` // Buffer size for async event logging
+}
+
+// DefaultConfig returns a Config populated with sensible defaults: Info level,
+// text format, stdout output, AddSource enabled, and 1000 event buffer size.
+func DefaultConfig() Config {
+	return Config{
+		Level:           LevelInfo,
+		Format:          FormatText,
+		Output:          "stdout",
+		AddSource:       true,
+		EventBufferSize: 1000,
+	}
+}
+
+// Logger wraps slog.Logger with additional functionality.
+type Logger struct {
+	writer io.Writer
+	*slog.Logger
+	config Config
+}
+
+// NewLogger creates a new Logger instance with the specified configuration.
+// Timestamps in log records are rendered using RFC3339.
+func NewLogger(config Config) (*Logger, error) {
+	var (
+		writer io.Writer
+		err    error
+	)
+
+	// Determine output writer
+
+	switch config.Output {
+	case "stdout", "":
+		writer = os.Stdout
+	case "stderr":
+		writer = os.Stderr
+	default:
+		// File output
+		if mkdirErr := os.MkdirAll(filepath.Dir(config.Output), 0o750); mkdirErr != nil {
+			return nil, fmt.Errorf("failed to create log directory: %w", mkdirErr)
+		}
+
+		writer, err = os.OpenFile(config.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open log file: %w", err)
+		}
+	}
+
+	// Convert level
+	var level slog.Level
+	switch config.Level {
+	case LevelDebug:
+		level = slog.LevelDebug
+	case LevelInfo:
+		level = slog.LevelInfo
+	case LevelWarn:
+		level = slog.LevelWarn
+	case LevelError:
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	// Create handler based on format
+	var handler slog.Handler
+
+	opts := &slog.HandlerOptions{
+		Level:     level,
+		AddSource: config.AddSource,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			// Customize timestamp format
+			if a.Key == slog.TimeKey {
+				a.Value = slog.StringValue(a.Value.Time().Format(time.RFC3339))
+			}
+
+			return a
+		},
+	}
+
+	switch config.Format {
+	case FormatJSON:
+		handler = slog.NewJSONHandler(writer, opts)
+	case FormatText:
+		handler = slog.NewTextHandler(writer, opts)
+	default:
+		handler = slog.NewTextHandler(writer, opts)
+	}
+
+	logger := &Logger{
+		Logger: slog.New(handler),
+		config: config,
+		writer: writer,
+	}
+
+	return logger, nil
+}
+
+// WithContext returns a logger with the given context.
+func (l *Logger) WithContext(ctx context.Context) *Logger {
+	// Extract relevant context values and add as fields
+	// Example: if there's a request ID in context
+	args := []interface{}{}
+	// Add context extraction logic here (e.g., if reqID := ctx.Value(requestIDKey); reqID != nil
+	// { args = append(args, "request_id", reqID) })
+
+	return &Logger{
+		Logger: l.With(args...),
+		config: l.config,
+		writer: l.writer,
+	}
+}
+
+// WithComponent adds a component field to the logger.
+func (l *Logger) WithComponent(component string) *Logger {
+	return &Logger{
+		Logger: l.With("component", component),
+		config: l.config,
+		writer: l.writer,
+	}
+}
+
+// WithFields adds structured fields to the logger.
+func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
+	args := make([]interface{}, 0, len(fields)*2)
+	for k, v := range fields {
+		args = append(args, k, v)
+	}
+
+	return &Logger{
+		Logger: l.With(args...),
+		config: l.config,
+		writer: l.writer,
+	}
+}
+
+// Close closes the logger and any associated resources.
+func (l *Logger) Close() error {
+	defer func() {
+		l.writer = nil
+	}()
+
+	// Skip closing if writer is os.Stdout or os.Stderr
+	if l.writer == os.Stdout || l.writer == os.Stderr {
+		return nil
+	}
+
+	// Also check if it's an *os.File with the same file descriptor
+	if osFile, ok := l.writer.(*os.File); ok {
+		if osFile.Fd() == os.Stdout.Fd() || osFile.Fd() == os.Stderr.Fd() {
+			return nil
+		}
+	}
+
+	// Safe to close other writers
+	if closer, ok := l.writer.(io.Closer); ok {
+		return closer.Close()
+	}
+
+	return nil
+}
+
+// LogEvent represents a structured log event for metrics.
+type LogEvent struct {
+	Level     string                 `json:"level"`
+	Message   string                 `json:"message"`
+	Component string                 `json:"component,omitempty"`
+	Timestamp time.Time              `json:"timestamp"`
+	Fields    map[string]interface{} `json:"fields,omitempty"`
+	Error     string                 `json:"error,omitempty"`
+}
+
+// EventLogger provides structured event logging for observability.
+type EventLogger struct {
+	logger    *Logger
+	events    chan LogEvent
+	done      chan struct{}
+	wg        sync.WaitGroup
+	closeOnce sync.Once
+}
+
+// NewEventLogger creates and returns an EventLogger that asynchronously processes structured observability events.
+// The returned EventLogger uses the provided Logger as its output, allocates a buffered event channel with capacity
+// from the Logger's EventBufferSize config (defaulting to 1000 if invalid), and starts a background goroutine to
+// process events. Call Close on the EventLogger to stop the processor and drain any pending events before shutdown.
+func NewEventLogger(logger *Logger) *EventLogger {
+	bufferSize := logger.config.EventBufferSize
+	if bufferSize <= 0 {
+		bufferSize = 1000 // Default buffer size
+	}
+
+	el := &EventLogger{
+		logger: logger,
+		events: make(chan LogEvent, bufferSize),
+		done:   make(chan struct{}),
+	}
+
+	el.wg.Add(1)
+
+	go el.processEvents()
+
+	return el
+}
+
+// LogMatrix logs matrix-related events.
+func (el *EventLogger) LogMatrix(level LogLevel, message string, matrixID string, fields map[string]interface{}) {
+	if fields == nil {
+		fields = make(map[string]interface{})
+	}
+
+	fields["matrix_id"] = matrixID
+
+	el.logEvent(level, "matrix", message, fields, nil)
+}
+
+// LogStats logs statistics collection events.
+func (el *EventLogger) LogStats(level LogLevel, message string, statsType string, value float64,
+	fields map[string]interface{},
+) {
+	if fields == nil {
+		fields = make(map[string]interface{})
+	}
+
+	fields["stats_type"] = statsType
+	fields["value"] = value
+
+	el.logEvent(level, "stats", message, fields, nil)
+}
+
+// LogConfig logs configuration-related events.
+func (el *EventLogger) LogConfig(level LogLevel, message string, configPath string, fields map[string]interface{}) {
+	if fields == nil {
+		fields = make(map[string]interface{})
+	}
+
+	fields["config_path"] = configPath
+
+	el.logEvent(level, "config", message, fields, nil)
+}
+
+// LogDaemon logs daemon lifecycle events.
+func (el *EventLogger) LogDaemon(level LogLevel, message string, action string, fields map[string]interface{}) {
+	if fields == nil {
+		fields = make(map[string]interface{})
+	}
+
+	fields["action"] = action
+
+	el.logEvent(level, "daemon", message, fields, nil)
+}
+
+// LogError logs error events with stack trace context.
+func (el *EventLogger) LogError(err error, message string, fields map[string]interface{}) {
+	if fields == nil {
+		fields = make(map[string]interface{})
+	}
+
+	// Add stack trace context
+	if pc, file, line, ok := runtime.Caller(1); ok {
+		fields["caller_file"] = filepath.Base(file)
+
+		fields["caller_line"] = line
+		if fn := runtime.FuncForPC(pc); fn != nil {
+			fields["caller_func"] = fn.Name()
+		}
+	}
+
+	el.logEvent(LevelError, "error", message, fields, err)
+}
+
+func (el *EventLogger) logEvent(level LogLevel, component, message string, fields map[string]interface{}, err error) {
+	event := LogEvent{
+		Level:     string(level),
+		Message:   message,
+		Component: component,
+		Timestamp: time.Now(),
+		Fields:    fields,
+	}
+
+	if err != nil {
+		event.Error = err.Error()
+	}
+
+	select {
+	case el.events <- event:
+	case <-el.done:
+		return
+	default:
+		// Channel full, log directly to avoid blocking
+		el.logEventDirect(event)
+	}
+}
+
+func (el *EventLogger) logEventDirect(event LogEvent) {
+	logger := el.logger.WithComponent(event.Component)
+
+	args := make([]interface{}, 0, len(event.Fields)*2+4)
+	args = append(args, "timestamp", event.Timestamp)
+
+	for k, v := range event.Fields {
+		args = append(args, k, v)
+	}
+
+	if event.Error != "" {
+		args = append(args, "error", event.Error)
+	}
+
+	switch LogLevel(event.Level) {
+	case LevelDebug:
+		logger.Debug(event.Message, args...)
+	case LevelInfo:
+		logger.Info(event.Message, args...)
+	case LevelWarn:
+		logger.Warn(event.Message, args...)
+	case LevelError:
+		logger.Error(event.Message, args...)
+	}
+}
+
+func (el *EventLogger) processEvents() {
+	defer el.wg.Done()
+
+	for {
+		select {
+		case event := <-el.events:
+			el.logEventDirect(event)
+		case <-el.done:
+			// Drain remaining events
+			for {
+				select {
+				case event := <-el.events:
+					el.logEventDirect(event)
+				default:
+					return
+				}
+			}
+		}
+	}
+}
+
+// Close stops the event logger and waits for all events to drain.
+func (el *EventLogger) Close() {
+	el.closeOnce.Do(func() {
+		close(el.done)
+		el.wg.Wait()
+	})
+}
+
+// MetricsLogger provides structured metrics logging.
+type MetricsLogger struct {
+	logger *Logger
+}
+
+// NewMetricsLogger returns a MetricsLogger that uses the provided Logger scoped to the
+// "metrics" component for all metric entries.
+func NewMetricsLogger(logger *Logger) *MetricsLogger {
+	return &MetricsLogger{
+		logger: logger.WithComponent("metrics"),
+	}
+}
+
+// LogCounter logs a counter metric.
+func (ml *MetricsLogger) LogCounter(name string, value int64, labels map[string]string) {
+	fields := map[string]interface{}{
+		"metric_type": "counter",
+		"metric_name": name,
+		"value":       value,
+	}
+
+	for k, v := range labels {
+		fields["label_"+k] = v
+	}
+
+	ml.logger.Info("counter metric", slog.Any("fields", fields))
+}
+
+// LogGauge logs a gauge metric.
+func (ml *MetricsLogger) LogGauge(name string, value float64, labels map[string]string) {
+	fields := map[string]interface{}{
+		"metric_type": "gauge",
+		"metric_name": name,
+		"value":       value,
+	}
+
+	for k, v := range labels {
+		fields["label_"+k] = v
+	}
+
+	ml.logger.Info("gauge metric", slog.Any("fields", fields))
+}
+
+// LogHistogram logs a histogram metric.
+func (ml *MetricsLogger) LogHistogram(name string, value float64, labels map[string]string) {
+	fields := map[string]interface{}{
+		"metric_type": "histogram",
+		"metric_name": name,
+		"value":       value,
+	}
+
+	for k, v := range labels {
+		fields["label_"+k] = v
+	}
+
+	ml.logger.Info("histogram metric", slog.Any("fields", fields))
+}
+
+// LogTiming logs timing information.
+func (ml *MetricsLogger) LogTiming(name string, duration time.Duration, labels map[string]string) {
+	fields := map[string]interface{}{
+		"metric_type":     "timing",
+		"metric_name":     name,
+		"duration_ms":     duration.Milliseconds(),
+		"duration_string": duration.String(),
+	}
+
+	for k, v := range labels {
+		fields["label_"+k] = v
+	}
+
+	ml.logger.Info("timing metric", slog.Any("fields", fields))
+}
+
+// PerformanceTracker provides timing and performance measurement capabilities.
+type PerformanceTracker struct {
+	startTime time.Time
+	logger    *MetricsLogger
+	labels    map[string]string
+	operation string
+}
+
+// StartTracking begins performance tracking for an operation.
+func (ml *MetricsLogger) StartTracking(operation string, labels map[string]string) *PerformanceTracker {
+	return &PerformanceTracker{
+		logger:    ml,
+		startTime: time.Now(),
+		operation: operation,
+		labels:    labels,
+	}
+}
+
+// Finish completes the performance tracking and logs the duration.
+func (pt *PerformanceTracker) Finish() time.Duration {
+	duration := time.Since(pt.startTime)
+	pt.logger.LogTiming(pt.operation, duration, pt.labels)
+
+	return duration
+}
+
+// FinishWithError completes tracking and logs an error if one occurred.
+func (pt *PerformanceTracker) FinishWithError(err error) time.Duration {
+	duration := time.Since(pt.startTime)
+
+	labels := pt.labels
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	if err != nil {
+		labels["error"] = "true"
+		labels["error_message"] = err.Error()
+	} else {
+		labels["error"] = "false"
+	}
+
+	pt.logger.LogTiming(pt.operation, duration, labels)
+
+	return duration
+}
+
+// Global logger instance.
+var (
+	globalLogger   *Logger
+	globalLoggerMu sync.RWMutex
+)
+
+// SetGlobalLogger sets the package-level global logger used by the convenience logging helpers.
+// Passing nil clears the global logger; GetGlobalLogger will create and return a default logger on next use.
+func SetGlobalLogger(logger *Logger) {
+	globalLoggerMu.Lock()
+	defer globalLoggerMu.Unlock()
+
+	globalLogger = logger
+}
+
+// GetGlobalLogger returns the package-level global *Logger.
+// If no global logger has been set, it lazily creates and caches a default logger using DefaultConfig.
+// If construction fails, this panics to fail fast.
+func GetGlobalLogger() *Logger {
+	globalLoggerMu.RLock()
+
+	if globalLogger != nil {
+		defer globalLoggerMu.RUnlock()
+
+		return globalLogger
+	}
+
+	globalLoggerMu.RUnlock()
+
+	// Need to create a logger - upgrade to write lock
+	globalLoggerMu.Lock()
+	defer globalLoggerMu.Unlock()
+
+	// Double-check after acquiring write lock
+	if globalLogger != nil {
+		return globalLogger
+	}
+
+	// Fallback to default logger
+	config := DefaultConfig()
+
+	logger, err := NewLogger(config)
+	if err != nil {
+		// Fall back to a minimal logger that writes to stderr
+		// This ensures we always have a logger even if the default config fails
+		panic(fmt.Sprintf("failed to create default logger: %v", err))
+	}
+
+	globalLogger = logger
+
+	return globalLogger
+}
+
+// Debug logs a message at the debug level using the package global logger.
+// Any additional arguments are forwarded to the global Logger's Debug method
+// (typically key/value pairs for structured fields).
+func Debug(msg string, args ...interface{}) {
+	GetGlobalLogger().Debug(msg, args...)
+}
+
+// Info logs an informational message using the package-level global logger.
+// It delegates to the global logger's Info method with the provided message and optional key/value pairs.
+func Info(msg string, args ...interface{}) {
+	GetGlobalLogger().Info(msg, args...)
+}
+
+// Warn logs a warning-level message through the package global logger.
+//
+// msg is the log message; args may be provided as optional key/value pairs to include with the entry.
+func Warn(msg string, args ...interface{}) {
+	GetGlobalLogger().Warn(msg, args...)
+}
+
+// Error logs msg at error level using the package global logger.
+// It is a convenience wrapper that delegates to the global logger and accepts
+// optional key/value arguments to attach structured fields to the log entry.
+func Error(msg string, args ...interface{}) {
+	GetGlobalLogger().Error(msg, args...)
+}
+
+// WithComponent returns a new *Logger derived from the package global logger with the given
+// component name attached as the `component` field for all subsequent log entries.
+func WithComponent(component string) *Logger {
+	return GetGlobalLogger().WithComponent(component)
+}
+
+// WithFields returns a copy of the global logger with the provided structured fields attached.
+// The returned *Logger will include these fields on all subsequent log entries emitted from it.
+// The input map is used as-is (keys become field names); callers should not rely on it being copied.
+func WithFields(fields map[string]interface{}) *Logger {
+	return GetGlobalLogger().WithFields(fields)
+}

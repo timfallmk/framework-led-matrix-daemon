@@ -7,15 +7,15 @@ import (
 	"time"
 )
 
-// MockClient implements a mock matrix client for testing
+// MockClient implements a mock matrix client for testing.
 type MockClient struct {
-	mu               sync.Mutex
+	connectionError  error
+	lastPattern      string
 	commands         []Command
+	mu               sync.Mutex
 	brightness       byte
 	lastPercentage   byte
-	lastPattern      string
 	animationEnabled bool
-	connectionError  error
 }
 
 func NewMockClient() *MockClient {
@@ -34,6 +34,7 @@ func (m *MockClient) SetBrightness(level byte) error {
 
 	m.brightness = level
 	m.commands = append(m.commands, BrightnessCommand(level))
+
 	return nil
 }
 
@@ -48,6 +49,7 @@ func (m *MockClient) ShowPercentage(percent byte) error {
 	m.lastPercentage = percent
 	m.lastPattern = "percentage"
 	m.commands = append(m.commands, PercentageCommand(percent))
+
 	return nil
 }
 
@@ -61,6 +63,7 @@ func (m *MockClient) ShowGradient() error {
 
 	m.lastPattern = "gradient"
 	m.commands = append(m.commands, GradientCommand())
+
 	return nil
 }
 
@@ -74,6 +77,7 @@ func (m *MockClient) ShowZigZag() error {
 
 	m.lastPattern = "zigzag"
 	m.commands = append(m.commands, ZigZagCommand())
+
 	return nil
 }
 
@@ -87,6 +91,7 @@ func (m *MockClient) ShowFullBright() error {
 
 	m.lastPattern = "fullbright"
 	m.commands = append(m.commands, FullBrightCommand())
+
 	return nil
 }
 
@@ -100,6 +105,7 @@ func (m *MockClient) SetAnimate(enable bool) error {
 
 	m.animationEnabled = enable
 	m.commands = append(m.commands, AnimateCommand(enable))
+
 	return nil
 }
 
@@ -112,6 +118,7 @@ func (m *MockClient) DrawBitmap(pixels [39]byte) error {
 	}
 
 	m.commands = append(m.commands, DrawBWCommand(pixels))
+
 	return nil
 }
 
@@ -124,6 +131,7 @@ func (m *MockClient) StageColumn(col byte, pixels [34]byte) error {
 	}
 
 	m.commands = append(m.commands, StageColCommand(col, pixels))
+
 	return nil
 }
 
@@ -136,43 +144,50 @@ func (m *MockClient) FlushColumns() error {
 	}
 
 	m.commands = append(m.commands, FlushColsCommand())
+
 	return nil
 }
 
-// Test helper methods
+// Test helper methods.
 func (m *MockClient) GetCommands() []Command {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	return append([]Command(nil), m.commands...) // Return copy
 }
 
 func (m *MockClient) GetLastPattern() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	return m.lastPattern
 }
 
 func (m *MockClient) GetBrightness() byte {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	return m.brightness
 }
 
 func (m *MockClient) GetLastPercentage() byte {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	return m.lastPercentage
 }
 
 func (m *MockClient) SetConnectionError(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.connectionError = err
 }
 
 func (m *MockClient) ClearCommands() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.commands = m.commands[:0]
 	m.lastPercentage = 0
 	m.lastPattern = ""
@@ -244,6 +259,7 @@ func TestDisplayManagerUpdatePercentage(t *testing.T) {
 			err := dm.UpdatePercentage(tt.key, tt.percent)
 			if err != nil {
 				t.Errorf("UpdatePercentage() error = %v", err)
+
 				return
 			}
 
@@ -279,6 +295,7 @@ func TestDisplayManagerUpdatePercentageThrottling(t *testing.T) {
 
 	// Second update immediately should be throttled
 	mockClient.ClearCommands()
+
 	err = dm.UpdatePercentage("cpu", 60.0)
 	if err != nil {
 		t.Errorf("Second UpdatePercentage() error = %v", err)
@@ -307,6 +324,7 @@ func TestDisplayManagerUpdatePercentageMinimalChange(t *testing.T) {
 
 	// Second update with minimal change should be skipped
 	mockClient.ClearCommands()
+
 	err = dm.UpdatePercentage("cpu", 50.5)
 	if err != nil {
 		t.Errorf("Second UpdatePercentage() error = %v", err)
@@ -338,11 +356,11 @@ func TestDisplayManagerShowActivity(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		active          bool
 		expectedPattern string
+		active          bool
 	}{
-		{"show active", true, "zigzag"},
-		{"show inactive", false, "gradient"},
+		{"show active", "zigzag", true},
+		{"show inactive", "gradient", false},
 	}
 
 	for _, tt := range tests {
@@ -355,6 +373,7 @@ func TestDisplayManagerShowActivity(t *testing.T) {
 			err := dm.ShowActivity(tt.active)
 			if err != nil {
 				t.Errorf("ShowActivity() error = %v", err)
+
 				return
 			}
 
@@ -395,6 +414,7 @@ func TestDisplayManagerShowStatus(t *testing.T) {
 
 			if (err != nil) != tt.expectError {
 				t.Errorf("ShowStatus() error = %v, expectError %v", err, tt.expectError)
+
 				return
 			}
 
@@ -432,6 +452,7 @@ func TestDisplayManagerSetBrightness(t *testing.T) {
 			err := dm.SetBrightness(level)
 			if err != nil {
 				t.Errorf("SetBrightness() error = %v", err)
+
 				return
 			}
 
@@ -497,9 +518,11 @@ func TestDisplayManagerConcurrency(t *testing.T) {
 
 	// Test concurrent access
 	var wg sync.WaitGroup
+
 	numGoroutines := 10
 
 	wg.Add(numGoroutines)
+
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
@@ -539,13 +562,13 @@ func TestDisplayManagerErrorHandling(t *testing.T) {
 	time.Sleep(2 * time.Millisecond)
 
 	tests := []struct {
-		name string
 		op   func() error
+		name string
 	}{
-		{"UpdatePercentage", func() error { return dm.UpdatePercentage("cpu", 50.0) }},
-		{"ShowActivity", func() error { return dm.ShowActivity(true) }},
-		{"ShowStatus", func() error { return dm.ShowStatus("normal") }},
-		{"SetBrightness", func() error { return dm.SetBrightness(128) }},
+		{func() error { return dm.UpdatePercentage("cpu", 50.0) }, "UpdatePercentage"},
+		{func() error { return dm.ShowActivity(true) }, "ShowActivity"},
+		{func() error { return dm.ShowStatus("normal") }, "ShowStatus"},
+		{func() error { return dm.SetBrightness(128) }, "SetBrightness"},
 	}
 
 	for _, tt := range tests {
@@ -566,7 +589,6 @@ func TestAbsFunction(t *testing.T) {
 		{5.0, 5.0},
 		{-5.0, 5.0},
 		{0.0, 0.0},
-		{-0.0, 0.0},
 		{123.456, 123.456},
 		{-123.456, 123.456},
 	}
@@ -579,7 +601,7 @@ func TestAbsFunction(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkDisplayManagerUpdatePercentage(b *testing.B) {
 	mockClient := NewMockClient()
 	dm := NewDisplayManager(mockClient)
@@ -628,6 +650,7 @@ func BenchmarkDisplayManagerConcurrentAccess(b *testing.B) {
 			case 3:
 				dm.GetCurrentState()
 			}
+
 			i++
 		}
 	})

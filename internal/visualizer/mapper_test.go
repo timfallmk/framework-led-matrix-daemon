@@ -10,17 +10,24 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
 )
 
-// MockDisplayManager implements a mock display manager for testing
+const (
+	modePercentage = "percentage"
+	modeGradient   = "gradient"
+	modeActivity   = "activity"
+	modeStatus     = "status"
+)
+
+// MockDisplayManager implements a mock display manager for testing.
 type MockDisplayManager struct {
+	updateError         error
 	currentState        map[string]interface{}
-	updateRate          time.Duration
+	callCounts          map[string]int
 	lastPercentageKey   string
+	lastStatus          string
+	updateRate          time.Duration
 	lastPercentageValue float64
 	lastActivity        bool
-	lastStatus          string
 	lastBrightness      byte
-	updateError         error
-	callCounts          map[string]int
 }
 
 func NewMockDisplayManager() *MockDisplayManager {
@@ -36,9 +43,11 @@ func (m *MockDisplayManager) UpdatePercentage(key string, percent float64) error
 	if m.updateError != nil {
 		return m.updateError
 	}
+
 	m.lastPercentageKey = key
 	m.lastPercentageValue = percent
 	m.currentState[key] = percent
+
 	return nil
 }
 
@@ -47,8 +56,10 @@ func (m *MockDisplayManager) ShowActivity(active bool) error {
 	if m.updateError != nil {
 		return m.updateError
 	}
+
 	m.lastActivity = active
 	m.currentState["activity"] = active
+
 	return nil
 }
 
@@ -57,8 +68,10 @@ func (m *MockDisplayManager) ShowStatus(status string) error {
 	if m.updateError != nil {
 		return m.updateError
 	}
+
 	m.lastStatus = status
 	m.currentState["status"] = status
+
 	return nil
 }
 
@@ -67,17 +80,21 @@ func (m *MockDisplayManager) SetBrightness(level byte) error {
 	if m.updateError != nil {
 		return m.updateError
 	}
+
 	m.lastBrightness = level
 	m.currentState["brightness"] = level
+
 	return nil
 }
 
 func (m *MockDisplayManager) GetCurrentState() map[string]interface{} {
 	m.callCounts["GetCurrentState"]++
+
 	state := make(map[string]interface{})
 	for k, v := range m.currentState {
 		state[k] = v
 	}
+
 	return state
 }
 
@@ -131,7 +148,7 @@ func TestNewVisualizer(t *testing.T) {
 func TestVisualizerUpdateDisplayPercentageMode(t *testing.T) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "percentage"
+	cfg.Display.Mode = modePercentage
 	cfg.Display.UpdateRate = 1 * time.Millisecond // Allow frequent updates
 
 	visualizer := NewVisualizer(mockDisplay, cfg)
@@ -194,6 +211,7 @@ func TestVisualizerUpdateDisplayPercentageMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockDisplay.Reset()
+
 			cfg.Display.PrimaryMetric = tt.primaryMetric
 			visualizer.UpdateConfig(cfg)
 
@@ -202,6 +220,7 @@ func TestVisualizerUpdateDisplayPercentageMode(t *testing.T) {
 			err := visualizer.UpdateDisplay(tt.summary)
 			if err != nil {
 				t.Errorf("UpdateDisplay() error = %v", err)
+
 				return
 			}
 
@@ -219,7 +238,7 @@ func TestVisualizerUpdateDisplayPercentageMode(t *testing.T) {
 func TestVisualizerUpdateDisplayGradientMode(t *testing.T) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "gradient"
+	cfg.Display.Mode = modeGradient
 	cfg.Display.UpdateRate = 1 * time.Millisecond
 
 	visualizer := NewVisualizer(mockDisplay, cfg)
@@ -249,14 +268,14 @@ func TestVisualizerUpdateDisplayGradientMode(t *testing.T) {
 func TestVisualizerUpdateDisplayActivityMode(t *testing.T) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "activity"
+	cfg.Display.Mode = modeActivity
 	cfg.Display.UpdateRate = 1 * time.Millisecond
 
 	visualizer := NewVisualizer(mockDisplay, cfg)
 
 	tests := []struct {
-		name     string
 		summary  *stats.StatsSummary
+		name     string
 		expected bool
 	}{
 		{
@@ -305,6 +324,7 @@ func TestVisualizerUpdateDisplayActivityMode(t *testing.T) {
 			err := visualizer.UpdateDisplay(tt.summary)
 			if err != nil {
 				t.Errorf("UpdateDisplay() error = %v", err)
+
 				return
 			}
 
@@ -318,19 +338,19 @@ func TestVisualizerUpdateDisplayActivityMode(t *testing.T) {
 func TestVisualizerUpdateDisplayStatusMode(t *testing.T) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "status"
+	cfg.Display.Mode = modeStatus
 	cfg.Display.UpdateRate = 1 * time.Millisecond
 
 	visualizer := NewVisualizer(mockDisplay, cfg)
 
 	tests := []struct {
 		name     string
-		status   stats.SystemStatus
 		expected string
+		status   stats.SystemStatus
 	}{
-		{"normal status", stats.StatusNormal, "normal"},
-		{"warning status", stats.StatusWarning, "warning"},
-		{"critical status", stats.StatusCritical, "critical"},
+		{"normal status", "normal", stats.StatusNormal},
+		{"warning status", "warning", stats.StatusWarning},
+		{"critical status", "critical", stats.StatusCritical},
 	}
 
 	for _, tt := range tests {
@@ -343,6 +363,7 @@ func TestVisualizerUpdateDisplayStatusMode(t *testing.T) {
 			err := visualizer.UpdateDisplay(summary)
 			if err != nil {
 				t.Errorf("UpdateDisplay() error = %v", err)
+
 				return
 			}
 
@@ -402,7 +423,7 @@ func TestVisualizerUpdateDisplayInvalidMode(t *testing.T) {
 func TestVisualizerUpdateThrottling(t *testing.T) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "percentage"
+	cfg.Display.Mode = modePercentage
 	cfg.Display.UpdateRate = 100 * time.Millisecond // Long update rate
 
 	visualizer := NewVisualizer(mockDisplay, cfg)
@@ -421,6 +442,7 @@ func TestVisualizerUpdateThrottling(t *testing.T) {
 
 	// Second update immediately should be throttled
 	mockDisplay.Reset()
+
 	err = visualizer.UpdateDisplay(summary)
 	if err != nil {
 		t.Errorf("Second UpdateDisplay() error = %v", err)
@@ -464,8 +486,8 @@ func TestVisualizerIsSystemActive(t *testing.T) {
 	visualizer := NewVisualizer(mockDisplay, cfg)
 
 	tests := []struct {
-		name     string
 		summary  *stats.StatsSummary
+		name     string
 		expected bool
 	}{
 		{
@@ -526,8 +548,8 @@ func TestVisualizerShouldAnimate(t *testing.T) {
 	visualizer := NewVisualizer(mockDisplay, cfg)
 
 	tests := []struct {
-		name     string
 		summary  *stats.StatsSummary
+		name     string
 		expected bool
 	}{
 		{
@@ -607,9 +629,9 @@ func TestVisualizerCreateCustomPattern(t *testing.T) {
 
 	tests := []struct {
 		name      string
+		data      []float64
 		width     int
 		height    int
-		data      []float64
 		expectErr bool
 	}{
 		{
@@ -646,6 +668,7 @@ func TestVisualizerCreateCustomPattern(t *testing.T) {
 
 			if (err != nil) != tt.expectErr {
 				t.Errorf("CreateCustomPattern() error = %v, expectErr %v", err, tt.expectErr)
+
 				return
 			}
 
@@ -665,6 +688,7 @@ func TestVisualizerCreateCustomPattern(t *testing.T) {
 					expected := byte(tt.data[i] * 255)
 					if pixels[i] != expected {
 						t.Errorf("CreateCustomPattern() pixels[%d] = %d, want %d", i, pixels[i], expected)
+
 						break // Only show first mismatch
 					}
 				}
@@ -680,9 +704,9 @@ func TestVisualizerCreateProgressBar(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		expected []byte
 		percent  float64
 		width    int
-		expected []byte
 	}{
 		{
 			name:     "0% progress",
@@ -735,6 +759,7 @@ func TestVisualizerSetBrightness(t *testing.T) {
 			err := visualizer.SetBrightness(level)
 			if err != nil {
 				t.Errorf("SetBrightness() error = %v", err)
+
 				return
 			}
 
@@ -863,11 +888,11 @@ func TestVisualizerDrawCustomBitmap(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkVisualizerUpdateDisplayPercentage(b *testing.B) {
 	mockDisplay := NewMockDisplayManager()
 	cfg := config.DefaultConfig()
-	cfg.Display.Mode = "percentage"
+	cfg.Display.Mode = modePercentage
 	cfg.Display.UpdateRate = 1 * time.Nanosecond // Allow all updates
 
 	visualizer := NewVisualizer(mockDisplay, cfg)
@@ -875,6 +900,7 @@ func BenchmarkVisualizerUpdateDisplayPercentage(b *testing.B) {
 	summary := &stats.StatsSummary{CPUUsage: 75.0}
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		visualizer.UpdateDisplay(summary)
 	}
@@ -888,6 +914,7 @@ func BenchmarkVisualizerNormalizeActivity(b *testing.B) {
 	activity := 5.0 * 1024.0 * 1024.0 // 5MB/s
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		visualizer.normalizeActivity(activity)
 	}
@@ -899,6 +926,7 @@ func BenchmarkVisualizerCreateProgressBar(b *testing.B) {
 	visualizer := NewVisualizer(mockDisplay, cfg)
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		visualizer.CreateProgressBar(75.0, 39)
 	}
@@ -916,6 +944,7 @@ func BenchmarkVisualizerIsSystemActive(b *testing.B) {
 	}
 
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		visualizer.isSystemActive(summary)
 	}

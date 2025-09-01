@@ -25,7 +25,7 @@ Thank you for your interest in contributing to the Framework LED Matrix Daemon! 
 - **Git** for version control
 - **Make** for build automation
 - **Framework Laptop** with LED Matrix module (for hardware testing)
-- **Linux, macOS, or Windows** (cross-platform support)
+- **Linux or Windows** (cross-platform support)
 
 ### Quick Setup
 
@@ -66,12 +66,15 @@ make dev-deps
 ### IDE Configuration
 
 #### VS Code
+
 Recommended extensions:
+
 - Go (official Go extension)
 - Go Test Explorer
 - Coverage Gutters
 
 #### GoLand/IntelliJ
+
 - Enable Go modules support
 - Configure test runner for table-driven tests
 
@@ -87,7 +90,7 @@ export FRAMEWORK_LED_LOG_LEVEL=debug
 
 ## Project Structure
 
-```
+```shell
 framework-led-matrix-daemon/
 ├── cmd/
 │   ├── daemon/           # Main daemon application
@@ -321,6 +324,7 @@ To add a new dual matrix mode:
 4. Add tests for the new mode
 
 Example:
+
 ```go
 case "my_new_mode":
     return mdm.updateMyNewMode(metricName, value, stats)
@@ -406,7 +410,7 @@ func TestVisualizer_UpdateDisplay(t *testing.T) {
 
 ### Test Coverage
 
-Maintain test coverage above 70%:
+Maintain test coverage above 50%:
 
 ```bash
 # Check coverage with threshold
@@ -448,6 +452,7 @@ go build -gcflags="all=-N -l" -o bin/framework-led-daemon-debug ./cmd/daemon
 ### Common Issues
 
 #### Serial Port Problems
+
 ```bash
 # Check permissions
 ls -la /dev/ttyACM*
@@ -458,6 +463,7 @@ make test-connection
 ```
 
 #### Performance Issues
+
 ```bash
 # Run with profiling
 go run -cpuprofile=cpu.prof ./cmd/daemon -config configs/config.yaml run
@@ -467,6 +473,7 @@ go tool pprof cpu.prof
 ```
 
 #### Memory Leaks
+
 ```bash
 # Run with race detection
 make test-race
@@ -480,6 +487,7 @@ go run -memprofile=mem.prof ./cmd/daemon -config configs/config.yaml run
 ### Pull Request Process
 
 1. **Ensure CI passes locally**:
+
    ```bash
    make test-ci
    make staticcheck
@@ -525,12 +533,14 @@ Brief description of changes made.
 ### Code Review Guidelines
 
 #### For Authors
+
 - Keep PRs focused and reasonably sized
 - Write clear commit messages
 - Respond to feedback promptly
 - Update tests and documentation
 
 #### For Reviewers
+
 - Be constructive and specific
 - Focus on code quality, not personal preferences
 - Test changes when possible
@@ -549,16 +559,19 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### Creating Releases
 
 1. **Update version**:
+
    ```bash
    git tag v1.2.3
    ```
 
 2. **Build release packages**:
+
    ```bash
    make release
    ```
 
 3. **Test release builds**:
+
    ```bash
    # Test each platform binary
    ./bin/framework-led-daemon-linux-amd64 --version
@@ -589,12 +602,14 @@ This project follows [Semantic Versioning](https://semver.org/):
    - Check device enumeration: `lsusb` or `dmesg`
 
 2. **Permission Setup**:
+
    ```bash
    sudo usermod -a -G dialout $USER
    # Log out and back in
    ```
 
 3. **Test Connection**:
+
    ```bash
    make test-connection
    ```

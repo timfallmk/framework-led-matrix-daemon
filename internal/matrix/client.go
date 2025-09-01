@@ -1,3 +1,5 @@
+// Package matrix provides communication interfaces for Framework LED matrix modules.
+// It handles serial communication, device discovery, and display command execution.
 package matrix
 
 import (
@@ -9,16 +11,19 @@ import (
 	"go.bug.st/serial/enumerator"
 )
 
+// Client manages serial communication with a single LED matrix module.
 type Client struct {
 	port   serial.Port
 	config *serial.Mode
 }
 
+// Communication constants for LED matrix modules.
 const (
 	DefaultBaudRate = 115200
 	DefaultTimeout  = 1 * time.Second
 )
 
+// NewClient creates a new LED matrix client with default configuration.
 func NewClient() *Client {
 	return &Client{
 		config: &serial.Mode{
@@ -27,6 +32,7 @@ func NewClient() *Client {
 	}
 }
 
+// DiscoverPort automatically discovers the first available Framework LED matrix port.
 func (c *Client) DiscoverPort() (string, error) {
 	ports, err := c.DiscoverPorts()
 	if err != nil {
@@ -40,6 +46,7 @@ func (c *Client) DiscoverPort() (string, error) {
 	return ports[0], nil
 }
 
+// DiscoverPorts returns all available Framework LED matrix ports.
 func (c *Client) DiscoverPorts() ([]string, error) {
 	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
@@ -74,15 +81,19 @@ func (c *Client) DiscoverPorts() ([]string, error) {
 	}
 
 	log.Printf("Discovered %d potential LED matrix port(s): %v", len(frameworkPorts), frameworkPorts)
+
 	return frameworkPorts, nil
 }
 
+// Connect establishes a connection to the LED matrix on the specified port.
+// If portName is empty, it automatically discovers the first available port.
 func (c *Client) Connect(portName string) error {
 	if portName == "" {
 		discoveredPort, err := c.DiscoverPort()
 		if err != nil {
 			return fmt.Errorf("failed to discover port: %w", err)
 		}
+
 		portName = discoveredPort
 	}
 
@@ -92,10 +103,13 @@ func (c *Client) Connect(portName string) error {
 	}
 
 	c.port = port
+
 	log.Printf("Connected to LED Matrix on port: %s", portName)
+
 	return nil
 }
 
+// Disconnect closes the connection to the LED matrix.
 func (c *Client) Disconnect() error {
 	if c.port == nil {
 		return nil
@@ -103,31 +117,39 @@ func (c *Client) Disconnect() error {
 
 	err := c.port.Close()
 	c.port = nil
+
 	return err
 }
 
+// SendCommand transmits a command to the LED matrix.
 func (c *Client) SendCommand(cmd Command) error {
 	if c.port == nil {
 		return fmt.Errorf("not connected to any port")
 	}
 
 	data := cmd.ToBytes()
+
 	_, err := c.port.Write(data)
 	if err != nil {
 		return fmt.Errorf("failed to write command: %w", err)
 	}
 
 	log.Printf("Sent command: ID=0x%02X, Data=%v", cmd.ID, data)
+
 	return nil
 }
 
+// ReadResponse reads a response from the LED matrix with the specified number of expected bytes.
 func (c *Client) ReadResponse(expectedBytes int) ([]byte, error) {
 	if c.port == nil {
 		return nil, fmt.Errorf("not connected to any port")
 	}
 
 	buffer := make([]byte, expectedBytes)
-	c.port.SetReadTimeout(DefaultTimeout)
+
+	if err := c.port.SetReadTimeout(DefaultTimeout); err != nil {
+		log.Printf("Warning: failed to set read timeout: %v", err)
+	}
 
 	n, err := c.port.Read(buffer)
 	if err != nil {
@@ -137,6 +159,7 @@ func (c *Client) ReadResponse(expectedBytes int) ([]byte, error) {
 	return buffer[:n], nil
 }
 
+// GetVersion retrieves the firmware version from the LED matrix.
 func (c *Client) GetVersion() ([]byte, error) {
 	if err := c.SendCommand(VersionCommand()); err != nil {
 		return nil, err
@@ -145,57 +168,67 @@ func (c *Client) GetVersion() ([]byte, error) {
 	return c.ReadResponse(3)
 }
 
+// SetBrightness sets the brightness level of the LED matrix (0-255).
 func (c *Client) SetBrightness(level byte) error {
 	return c.SendCommand(BrightnessCommand(level))
 }
 
+// ShowPercentage displays a percentage value (0-100) on the LED matrix.
 func (c *Client) ShowPercentage(percent byte) error {
 	return c.SendCommand(PercentageCommand(percent))
 }
 
+// ShowGradient displays a gradient pattern on the LED matrix.
 func (c *Client) ShowGradient() error {
 	return c.SendCommand(GradientCommand())
 }
 
+// ShowZigZag displays a zigzag pattern on the LED matrix.
 func (c *Client) ShowZigZag() error {
 	return c.SendCommand(ZigZagCommand())
 }
 
+// ShowFullBright illuminates all LEDs at maximum brightness.
 func (c *Client) ShowFullBright() error {
 	return c.SendCommand(FullBrightCommand())
 }
 
+// SetAnimate enables or disables animation effects on the LED matrix.
 func (c *Client) SetAnimate(enable bool) error {
 	return c.SendCommand(AnimateCommand(enable))
 }
 
+// DrawBitmap draws a black and white bitmap on the LED matrix using a 39-byte pixel array.
 func (c *Client) DrawBitmap(pixels [39]byte) error {
 	return c.SendCommand(DrawBWCommand(pixels))
 }
 
+// StageColumn stages a column of pixels for display on the LED matrix.
 func (c *Client) StageColumn(col byte, pixels [34]byte) error {
 	return c.SendCommand(StageColCommand(col, pixels))
 }
 
+// FlushColumns applies all staged columns to the LED matrix display.
 func (c *Client) FlushColumns() error {
 	return c.SendCommand(FlushColsCommand())
 }
 
-// SingleMatrixConfig represents configuration for a single matrix
+// SingleMatrixConfig represents configuration for a single matrix.
 type SingleMatrixConfig struct {
-	Name       string   `yaml:"name"`       // "primary", "secondary", or custom name
-	Port       string   `yaml:"port"`       // Specific port or auto-discover if empty
-	Role       string   `yaml:"role"`       // "primary", "secondary"
-	Brightness byte     `yaml:"brightness"` // Individual brightness control
-	Metrics    []string `yaml:"metrics"`    // Which metrics this matrix displays
+	Name       string   `yaml:"name"`
+	Port       string   `yaml:"port"`
+	Role       string   `yaml:"role"`
+	Metrics    []string `yaml:"metrics"`
+	Brightness byte     `yaml:"brightness"`
 }
 
-// MultiClient manages multiple LED matrix clients
+// MultiClient manages multiple LED matrix clients.
 type MultiClient struct {
 	clients map[string]*Client
 	config  map[string]*SingleMatrixConfig
 }
 
+// NewMultiClient creates a new MultiClient for managing multiple LED matrix connections.
 func NewMultiClient() *MultiClient {
 	return &MultiClient{
 		clients: make(map[string]*Client),
@@ -203,8 +236,10 @@ func NewMultiClient() *MultiClient {
 	}
 }
 
+// DiscoverAndConnect discovers available LED matrices and connects to them based on the provided configuration.
 func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRate int) error {
 	client := NewClient()
+
 	discoveredPorts, err := client.DiscoverPorts()
 	if err != nil {
 		return fmt.Errorf("failed to discover ports: %w", err)
@@ -216,12 +251,14 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 	for i, matrixConfig := range matrices {
 		var portToUse string
 
-		if matrixConfig.Port != "" {
+		switch {
+		case matrixConfig.Port != "":
 			portToUse = matrixConfig.Port
-		} else if i < len(discoveredPorts) {
+		case i < len(discoveredPorts):
 			portToUse = discoveredPorts[i]
-		} else {
+		default:
 			log.Printf("Warning: No port available for matrix %s, skipping", matrixConfig.Name)
+
 			continue
 		}
 
@@ -229,6 +266,7 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 		if err := client.Connect(portToUse); err != nil {
 			log.Printf("Warning: Failed to connect to matrix %s on port %s: %v",
 				matrixConfig.Name, portToUse, err)
+
 			continue
 		}
 
@@ -250,18 +288,22 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 	return nil
 }
 
+// GetClient returns the Client instance for the specified matrix name.
 func (mc *MultiClient) GetClient(name string) *Client {
 	return mc.clients[name]
 }
 
+// GetClients returns all connected Client instances mapped by matrix name.
 func (mc *MultiClient) GetClients() map[string]*Client {
 	return mc.clients
 }
 
+// GetConfig returns the configuration for the specified matrix name.
 func (mc *MultiClient) GetConfig(name string) *SingleMatrixConfig {
 	return mc.config[name]
 }
 
+// Disconnect closes all matrix connections and returns any errors encountered.
 func (mc *MultiClient) Disconnect() error {
 	var errors []error
 
@@ -278,6 +320,7 @@ func (mc *MultiClient) Disconnect() error {
 	return nil
 }
 
+// HasMultipleMatrices returns true if more than one matrix is connected.
 func (mc *MultiClient) HasMultipleMatrices() bool {
 	return len(mc.clients) > 1
 }

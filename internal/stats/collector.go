@@ -1,3 +1,6 @@
+// Package stats provides system metrics collection functionality using gopsutil.
+// It collects CPU, memory, disk, and network statistics with configurable thresholds
+// for determining system health status.
 package stats
 
 import (
@@ -14,15 +17,17 @@ import (
 	"github.com/shirou/gopsutil/v3/net"
 )
 
+// Collector gathers system statistics using gopsutil with rate limiting and threshold management.
 type Collector struct {
-	mu              sync.RWMutex
 	lastStats       *SystemStats
-	lastNetStats    []net.IOCountersStat
 	lastDiskStats   map[string]disk.IOCountersStat
-	collectInterval time.Duration
+	lastNetStats    []net.IOCountersStat
 	thresholds      Thresholds
+	collectInterval time.Duration
+	mu              sync.RWMutex
 }
 
+// NewCollector creates a new Collector with the specified collection interval and default thresholds.
 func NewCollector(interval time.Duration) *Collector {
 	return &Collector{
 		collectInterval: interval,
@@ -31,18 +36,23 @@ func NewCollector(interval time.Duration) *Collector {
 	}
 }
 
+// SetThresholds updates the system resource usage thresholds for status determination.
 func (c *Collector) SetThresholds(t Thresholds) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	c.thresholds = t
 }
 
+// GetThresholds returns the current system resource usage thresholds.
 func (c *Collector) GetThresholds() Thresholds {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.thresholds
 }
 
+// CollectCPUStats gathers detailed CPU statistics including usage percentages, core counts, and processor information.
 func (c *Collector) CollectCPUStats() (CPUStats, error) {
 	var stats CPUStats
 
@@ -50,18 +60,21 @@ func (c *Collector) CollectCPUStats() (CPUStats, error) {
 	if err != nil {
 		return stats, fmt.Errorf("failed to get physical CPU count: %w", err)
 	}
+
 	stats.PhysicalCores = physicalCount
 
 	logicalCount, err := cpu.Counts(true)
 	if err != nil {
 		return stats, fmt.Errorf("failed to get logical CPU count: %w", err)
 	}
+
 	stats.LogicalCores = logicalCount
 
 	totalPercent, err := cpu.Percent(0, false)
 	if err != nil {
 		return stats, fmt.Errorf("failed to get total CPU usage: %w", err)
 	}
+
 	if len(totalPercent) > 0 {
 		stats.UsagePercent = totalPercent[0]
 	}
@@ -84,6 +97,7 @@ func (c *Collector) CollectCPUStats() (CPUStats, error) {
 	return stats, nil
 }
 
+// CollectMemoryStats gathers memory and swap usage statistics.
 func (c *Collector) CollectMemoryStats() (MemoryStats, error) {
 	var stats MemoryStats
 
@@ -110,6 +124,7 @@ func (c *Collector) CollectMemoryStats() (MemoryStats, error) {
 	return stats, nil
 }
 
+// CollectDiskStats gathers disk I/O statistics including partition information and activity rates.
 func (c *Collector) CollectDiskStats() (DiskStats, error) {
 	var stats DiskStats
 
@@ -119,9 +134,10 @@ func (c *Collector) CollectDiskStats() (DiskStats, error) {
 	}
 
 	for _, partition := range partitions {
-		usage, err := disk.Usage(partition.Mountpoint)
-		if err != nil {
-			log.Printf("Warning: failed to get usage for partition %s: %v", partition.Device, err)
+		usage, usageErr := disk.Usage(partition.Mountpoint)
+		if usageErr != nil {
+			log.Printf("Warning: failed to get usage for partition %s: %v", partition.Device, usageErr)
+
 			continue
 		}
 
@@ -158,8 +174,10 @@ func (c *Collector) CollectDiskStats() (DiskStats, error) {
 		}
 
 		c.mu.Lock()
+
 		if c.lastDiskStats != nil {
 			var totalActivity uint64
+
 			for device, current := range ioCounters {
 				if last, exists := c.lastDiskStats[device]; exists {
 					readDiff := current.ReadBytes - last.ReadBytes
@@ -167,8 +185,10 @@ func (c *Collector) CollectDiskStats() (DiskStats, error) {
 					totalActivity += readDiff + writeDiff
 				}
 			}
+
 			stats.ActivityRate = float64(totalActivity) / c.collectInterval.Seconds()
 		}
+
 		c.lastDiskStats = ioCounters
 		c.mu.Unlock()
 	}
@@ -176,6 +196,7 @@ func (c *Collector) CollectDiskStats() (DiskStats, error) {
 	return stats, nil
 }
 
+// CollectNetworkStats gathers network interface statistics including bytes transferred and activity rates.
 func (c *Collector) CollectNetworkStats() (NetworkStats, error) {
 	var stats NetworkStats
 
@@ -193,11 +214,13 @@ func (c *Collector) CollectNetworkStats() (NetworkStats, error) {
 		stats.TotalBytesRecv = netIO[0].BytesRecv
 
 		c.mu.Lock()
-		if c.lastNetStats != nil && len(c.lastNetStats) > 0 {
+
+		if len(c.lastNetStats) > 0 {
 			sentDiff := netIO[0].BytesSent - c.lastNetStats[0].BytesSent
 			recvDiff := netIO[0].BytesRecv - c.lastNetStats[0].BytesRecv
 			stats.ActivityRate = float64(sentDiff+recvDiff) / c.collectInterval.Seconds()
 		}
+
 		c.lastNetStats = netIO
 		c.mu.Unlock()
 	}
@@ -205,6 +228,8 @@ func (c *Collector) CollectNetworkStats() (NetworkStats, error) {
 	return stats, nil
 }
 
+// CollectSystemStats gathers comprehensive system statistics including CPU, memory, disk,
+// network, and uptime information.
 func (c *Collector) CollectSystemStats() (*SystemStats, error) {
 	stats := &SystemStats{
 		Timestamp: time.Now(),
@@ -214,30 +239,35 @@ func (c *Collector) CollectSystemStats() (*SystemStats, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect CPU stats: %w", err)
 	}
+
 	stats.CPU = cpuStats
 
 	memStats, err := c.CollectMemoryStats()
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect memory stats: %w", err)
 	}
+
 	stats.Memory = memStats
 
 	diskStats, err := c.CollectDiskStats()
 	if err != nil {
 		log.Printf("Warning: failed to collect disk stats: %v", err)
 	}
+
 	stats.Disk = diskStats
 
 	netStats, err := c.CollectNetworkStats()
 	if err != nil {
 		log.Printf("Warning: failed to collect network stats: %v", err)
 	}
+
 	stats.Network = netStats
 
 	uptime, err := host.Uptime()
 	if err != nil {
 		log.Printf("Warning: failed to get uptime: %v", err)
 	} else {
+		// #nosec G115 - uptime conversion is safe within reasonable system limits
 		stats.Uptime = time.Duration(uptime) * time.Second
 	}
 
@@ -255,12 +285,15 @@ func (c *Collector) CollectSystemStats() (*SystemStats, error) {
 	return stats, nil
 }
 
+// GetLastStats returns the most recently collected system statistics.
 func (c *Collector) GetLastStats() *SystemStats {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+
 	return c.lastStats
 }
 
+// GetSummary collects current system statistics and returns a summarized view with overall system status.
 func (c *Collector) GetSummary() (*StatsSummary, error) {
 	stats, err := c.CollectSystemStats()
 	if err != nil {

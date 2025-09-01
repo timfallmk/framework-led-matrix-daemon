@@ -5,7 +5,7 @@ matrix:
   baud_rate: 115200
   auto_discover: true
   brightness: 100
-  
+
   # Dual matrix configuration
   dual_mode: "split"
   matrices:
@@ -15,7 +15,7 @@ matrix:
       brightness: 150
       metrics: ["cpu", "memory"]
     - name: "secondary"
-      port: ""               # Auto-discover second matrix  
+      port: ""               # Auto-discover second matrix
       role: "secondary"
       brightness: 150
       metrics: ["disk", "network"]
