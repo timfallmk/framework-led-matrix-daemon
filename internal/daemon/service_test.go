@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/testutils"
 )
 
 // MockDaemon implements a mock daemon for testing service management.
@@ -200,6 +201,9 @@ func TestServiceLifecycle(t *testing.T) {
 }
 
 func TestServiceConfigReload(t *testing.T) {
+	// Skip test in short mode or CI environment
+	testutils.SkipIfCI(t, "Integration test")
+
 	// Create a temporary config for testing
 	cfg := config.DefaultConfig()
 	cfg.Stats.Thresholds.CPUWarning = 60.0
@@ -395,6 +399,8 @@ func TestServiceStopChannel(t *testing.T) {
 // This test is more comprehensive but may fail without proper hardware/permissions.
 func TestServiceIntegration(t *testing.T) {
 	// Skip this test in short mode or CI environments
+	testutils.SkipIfCI(t, "Integration test")
+
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}

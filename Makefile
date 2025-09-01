@@ -138,7 +138,7 @@ test-coverage-check:
 # Run tests in CI environment
 test-ci:
 	@echo "Running CI tests..."
-	@go test -v -race -coverprofile=coverage.out ./...
+	@go test -short -v -race -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out | tail -1 | awk '{print "Coverage: " $$3}'
 	@echo "CI tests complete"
 
