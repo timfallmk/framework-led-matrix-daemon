@@ -35,42 +35,10 @@ jobs:
 
     - name: Install development tools
       run: |
-        go install honnef.co/go/tools/cmd/staticcheck@latest
-        go install mvdan.cc/gofumpt@latest
         go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-        go install golang.org/x/tools/cmd/goimports@latest
-
-    - name: Run gofumpt
-      run: |
-        gofumpt -l .
-        if [ "$(gofumpt -l . | wc -l)" -gt 0 ]; then
-          echo "::error::The following files need gofumpt formatting:"
-          gofumpt -l . | while read -r file; do
-            echo "::error file=$file::File needs gofumpt formatting"
-          done
-          echo "To fix locally, run: gofumpt -w ."
-          exit 1
-        fi
-      shell: bash
-
-    - name: Run goimports
-      run: |
-        goimports -l .
-        if [ "$(goimports -l . | wc -l)" -gt 0 ]; then
-          echo "::error::The following files need goimports formatting:"
-          goimports -l . | while read -r file; do
-            echo "::error file=$file::File needs goimports formatting"
-          done
-          echo "To fix locally, run: goimports -w ."
-          exit 1
-        fi
-      shell: bash
 
     - name: Run go vet
       run: go vet ./...
-
-    - name: Run staticcheck
-      run: staticcheck ./...
 
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v8
