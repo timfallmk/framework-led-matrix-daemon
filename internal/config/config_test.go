@@ -176,7 +176,7 @@ stats:
   collect_interval: 5s
   enable_network: true
 display:
-  mode: stringGradient
+  mode: "gradient"
   primary_metric: "memory"
 `,
 			wantErr: false,
