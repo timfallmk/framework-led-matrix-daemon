@@ -21,6 +21,7 @@ type MockDaemon struct {
 	stopErr    error
 	statusErr  error
 	status     string
+	template   string
 	installed  bool
 	running    bool
 }
@@ -31,7 +32,7 @@ func NewMockDaemon() *MockDaemon {
 	}
 }
 
-func (m *MockDaemon) Install() (string, error) {
+func (m *MockDaemon) Install(args ...string) (string, error) {
 	if m.installErr != nil {
 		return "", m.installErr
 	}
@@ -89,6 +90,16 @@ func (m *MockDaemon) Status() (string, error) {
 func (m *MockDaemon) Run(executable daemon.Executable) (string, error) {
 	// Mock implementation - just return success
 	return "Service running", nil
+}
+
+func (m *MockDaemon) GetTemplate() string {
+	return m.template
+}
+
+func (m *MockDaemon) SetTemplate(template string) error {
+	m.template = template
+
+	return nil
 }
 
 func (m *MockDaemon) SetErrors(install, remove, start, stop, status error) {
@@ -263,42 +274,84 @@ func TestServiceDaemonOperations(t *testing.T) {
 
 	t.Cleanup(service.cancel)
 
-	// Test daemon operations (these will use the actual takama/daemon library)
-	// The operations might fail depending on the test environment, but we can test the API
+	// Replace the real daemon with MockDaemon to make tests hermetic
+	mockDaemon := NewMockDaemon()
+	mockDaemon.installed = true
+	mockDaemon.running = false
+	service.Daemon = mockDaemon
 
-	// Test Status
+	// Test Status - should return mock status
 	status, err := service.Status()
 	if err != nil {
-		t.Logf("Status() error (expected in test environment): %v", err)
-	} else {
-		if status == "" {
-			t.Error("Status() should return non-empty status")
-		}
-
-		t.Logf("Service status: %s", status)
+		t.Errorf("Status() should not error with mock daemon: %v", err)
 	}
 
-	// Test Install (will likely fail without root privileges)
-	_, err = service.Install()
-	if err != nil {
-		t.Logf("Install() error (expected without root): %v", err)
+	if status != mockDaemon.status {
+		t.Errorf("Status() = %q, expected %q", status, mockDaemon.status)
 	}
 
-	// Test Remove (will likely fail without root privileges)
-	_, err = service.Remove()
+	// Test Install - should succeed with mock
+	installMsg, err := service.Install()
 	if err != nil {
-		t.Logf("Remove() error (expected without root): %v", err)
+		t.Errorf("Install() should not error with mock daemon: %v", err)
 	}
 
-	// Test StartService and StopService (will likely fail without installation)
-	_, err = service.StartService()
-	if err != nil {
-		t.Logf("StartService() error (expected without installation): %v", err)
+	if !mockDaemon.installed {
+		t.Error("Install() should set mockDaemon.installed to true")
 	}
 
-	_, err = service.StopService()
+	if installMsg != "Service installed successfully" {
+		t.Errorf("Install() message = %q, expected 'Service installed successfully'", installMsg)
+	}
+
+	// Test StartService - should succeed since daemon is installed
+	startMsg, err := service.StartService()
 	if err != nil {
-		t.Logf("StopService() error (expected without installation): %v", err)
+		t.Errorf("StartService() should not error with installed mock daemon: %v", err)
+	}
+
+	if !mockDaemon.running {
+		t.Error("StartService() should set mockDaemon.running to true")
+	}
+
+	if mockDaemon.status != "running" {
+		t.Errorf("StartService() should set status to 'running', got %q", mockDaemon.status)
+	}
+
+	if startMsg != "Service started successfully" {
+		t.Errorf("StartService() message = %q, expected 'Service started successfully'", startMsg)
+	}
+
+	// Test StopService - should succeed
+	stopMsg, err := service.StopService()
+	if err != nil {
+		t.Errorf("StopService() should not error with mock daemon: %v", err)
+	}
+
+	if mockDaemon.running {
+		t.Error("StopService() should set mockDaemon.running to false")
+	}
+
+	if mockDaemon.status != "stopped" {
+		t.Errorf("StopService() should set status to 'stopped', got %q", mockDaemon.status)
+	}
+
+	if stopMsg != "Service stopped successfully" {
+		t.Errorf("StopService() message = %q, expected 'Service stopped successfully'", stopMsg)
+	}
+
+	// Test Remove - should succeed
+	removeMsg, err := service.Remove()
+	if err != nil {
+		t.Errorf("Remove() should not error with mock daemon: %v", err)
+	}
+
+	if mockDaemon.installed {
+		t.Error("Remove() should set mockDaemon.installed to false")
+	}
+
+	if removeMsg != "Service removed successfully" {
+		t.Errorf("Remove() message = %q, expected 'Service removed successfully'", removeMsg)
 	}
 }
 
@@ -309,6 +362,12 @@ func TestServiceConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
 	}
+
+	// Replace the real daemon with MockDaemon to make tests hermetic
+	mockDaemon := NewMockDaemon()
+	mockDaemon.installed = true
+	mockDaemon.running = false
+	service.Daemon = mockDaemon
 
 	// Test concurrent access to service operations
 	var wg sync.WaitGroup
@@ -323,9 +382,13 @@ func TestServiceConcurrency(t *testing.T) {
 
 			// Test multiple status calls concurrently
 			for j := 0; j < 3; j++ {
-				_, err := service.Status()
+				status, err := service.Status()
 				if err != nil {
-					t.Logf("Goroutine %d Status() error: %v", id, err)
+					t.Errorf("Goroutine %d Status() should not error with mock daemon: %v", id, err)
+				}
+
+				if status != mockDaemon.status {
+					t.Errorf("Goroutine %d Status() = %q, expected %q", id, status, mockDaemon.status)
 				}
 
 				time.Sleep(1 * time.Millisecond)
@@ -336,9 +399,112 @@ func TestServiceConcurrency(t *testing.T) {
 	wg.Wait()
 
 	// Verify service is still functional
-	_, err = service.Status()
+	status, err := service.Status()
 	if err != nil {
-		t.Logf("Status() after concurrent access error: %v", err)
+		t.Errorf("Status() after concurrent access should not error: %v", err)
+	}
+
+	if status != mockDaemon.status {
+		t.Errorf("Status() after concurrent access = %q, expected %q", status, mockDaemon.status)
+	}
+}
+
+func TestServiceDaemonOperationsWithErrors(t *testing.T) {
+	cfg := config.DefaultConfig()
+
+	service, err := NewService(cfg)
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+
+	t.Cleanup(service.cancel)
+
+	// Replace the real daemon with MockDaemon and configure error scenarios
+	mockDaemon := NewMockDaemon()
+	mockDaemon.SetErrors(
+		errors.New("install failed"),
+		errors.New("remove failed"),
+		errors.New("start failed"),
+		errors.New("stop failed"),
+		errors.New("status failed"),
+	)
+	service.Daemon = mockDaemon
+
+	// Test Status error
+	_, err = service.Status()
+	if err == nil {
+		t.Error("Status() should return error when mockDaemon.statusErr is set")
+	}
+
+	if err.Error() != "status failed" {
+		t.Errorf("Status() error = %v, expected 'status failed'", err)
+	}
+
+	// Test Install error
+	_, err = service.Install()
+	if err == nil {
+		t.Error("Install() should return error when mockDaemon.installErr is set")
+	}
+
+	if err.Error() != "install failed" {
+		t.Errorf("Install() error = %v, expected 'install failed'", err)
+	}
+
+	// Test StartService error
+	_, err = service.StartService()
+	if err == nil {
+		t.Error("StartService() should return error when mockDaemon.startErr is set")
+	}
+
+	if err.Error() != "start failed" {
+		t.Errorf("StartService() error = %v, expected 'start failed'", err)
+	}
+
+	// Test StopService error
+	_, err = service.StopService()
+	if err == nil {
+		t.Error("StopService() should return error when mockDaemon.stopErr is set")
+	}
+
+	if err.Error() != "stop failed" {
+		t.Errorf("StopService() error = %v, expected 'stop failed'", err)
+	}
+
+	// Test Remove error
+	_, err = service.Remove()
+	if err == nil {
+		t.Error("Remove() should return error when mockDaemon.removeErr is set")
+	}
+
+	if err.Error() != "remove failed" {
+		t.Errorf("Remove() error = %v, expected 'remove failed'", err)
+	}
+}
+
+func TestServiceStartServiceRequiresInstalled(t *testing.T) {
+	cfg := config.DefaultConfig()
+
+	service, err := NewService(cfg)
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+
+	t.Cleanup(service.cancel)
+
+	// Replace with MockDaemon that is not installed
+	mockDaemon := NewMockDaemon()
+	mockDaemon.installed = false
+	mockDaemon.running = false
+	service.Daemon = mockDaemon
+
+	// Test StartService should fail when service is not installed
+	_, err = service.StartService()
+	if err == nil {
+		t.Error("StartService() should fail when service is not installed")
+	}
+
+	if err.Error() != "service not installed" {
+		t.Errorf("StartService() error = %v, expected 'service not installed'", err)
 	}
 }
 

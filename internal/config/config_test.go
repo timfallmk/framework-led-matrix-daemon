@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const invalidValue = "invalid"
+
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
@@ -96,7 +98,7 @@ func TestConfigValidation(t *testing.T) {
 			name: "invalid display mode",
 			config: func() *Config {
 				cfg := DefaultConfig()
-				cfg.Display.Mode = "invalid"
+				cfg.Display.Mode = invalidValue
 
 				return cfg
 			}(),
@@ -107,7 +109,7 @@ func TestConfigValidation(t *testing.T) {
 			name: "invalid primary metric",
 			config: func() *Config {
 				cfg := DefaultConfig()
-				cfg.Display.PrimaryMetric = "invalid"
+				cfg.Display.PrimaryMetric = invalidValue
 
 				return cfg
 			}(),
@@ -529,10 +531,11 @@ func TestValidationErrorError(t *testing.T) {
 			name: "string value error",
 			err: ValidationError{
 				Field:   "display.mode",
-				Value:   "invalid",
+				Value:   invalidValue,
 				Message: "must be one of: percentage, gradient, activity, status",
 			},
-			expected: "validation error for field 'display.mode' (value: invalid): must be one of: percentage, gradient, activity, status",
+			expected: "validation error for field 'display.mode' (value: invalid): " +
+				"must be one of: percentage, gradient, activity, status",
 		},
 		{
 			name: "nil value error",
@@ -605,7 +608,7 @@ func TestConfigValidateDetailed(t *testing.T) {
 			modifyConfig: func(c *Config) {
 				c.Matrix.BaudRate = -1
 				c.Stats.CollectInterval = 0
-				c.Display.Mode = "invalid"
+				c.Display.Mode = invalidValue
 			},
 			expectedCount:  4, // baud_rate + 2 collect_interval + display_mode
 			expectedFields: []string{"matrix.baud_rate", "stats.collect_interval", "display.mode"},

@@ -12,6 +12,7 @@ func TestConstants(t *testing.T) {
 	if LEDWidth != 34 {
 		t.Errorf("Expected LEDWidth to be 34, got %d", LEDWidth)
 	}
+
 	if LEDHeight != 9 {
 		t.Errorf("Expected LEDHeight to be 9, got %d", LEDHeight)
 	}
@@ -20,6 +21,7 @@ func TestConstants(t *testing.T) {
 	if version == "" {
 		t.Error("Version should not be empty")
 	}
+
 	if buildTime == "" {
 		t.Error("BuildTime should not be empty")
 	}
@@ -33,9 +35,11 @@ func TestMockDisplayManager(t *testing.T) {
 		if err != nil {
 			t.Errorf("UpdatePercentage failed: %v", err)
 		}
+
 		if len(manager.currentPattern) == 0 {
 			t.Error("Expected currentPattern to be set")
 		}
+
 		if manager.lastUpdate.IsZero() {
 			t.Error("Expected lastUpdate to be set")
 		}
@@ -46,6 +50,7 @@ func TestMockDisplayManager(t *testing.T) {
 		if err != nil {
 			t.Errorf("ShowActivity failed: %v", err)
 		}
+
 		if len(manager.currentPattern) == 0 {
 			t.Error("Expected currentPattern to be set")
 		}
@@ -58,12 +63,13 @@ func TestMockDisplayManager(t *testing.T) {
 
 	t.Run("ShowStatus", func(t *testing.T) {
 		testCases := []string{"normal", "warning", "critical", "unknown"}
-		
+
 		for _, status := range testCases {
 			err := manager.ShowStatus(status)
 			if err != nil {
 				t.Errorf("ShowStatus(%s) failed: %v", status, err)
 			}
+
 			if len(manager.currentPattern) == 0 {
 				t.Error("Expected currentPattern to be set")
 			}
@@ -75,6 +81,7 @@ func TestMockDisplayManager(t *testing.T) {
 		if err != nil {
 			t.Errorf("SetBrightness failed: %v", err)
 		}
+
 		if manager.brightness != 128 {
 			t.Errorf("Expected brightness to be 128, got %d", manager.brightness)
 		}
@@ -89,6 +96,7 @@ func TestMockDisplayManager(t *testing.T) {
 		if state["brightness"] != byte(200) {
 			t.Errorf("Expected brightness 200, got %v", state["brightness"])
 		}
+
 		if state["pattern_size"] != 3 {
 			t.Errorf("Expected pattern_size 3, got %v", state["pattern_size"])
 		}
@@ -103,6 +111,7 @@ func TestMockDisplayManager(t *testing.T) {
 func TestPatternCreation(t *testing.T) {
 	t.Run("createProgressBar", func(t *testing.T) {
 		pattern := createProgressBar(50.0)
+
 		expectedSize := LEDWidth * LEDHeight
 		if len(pattern) != expectedSize {
 			t.Errorf("Expected pattern size %d, got %d", expectedSize, len(pattern))
@@ -110,11 +119,13 @@ func TestPatternCreation(t *testing.T) {
 
 		// Check that some pixels are filled (50% should fill roughly half)
 		filledCount := 0
+
 		for _, pixel := range pattern {
 			if pixel == 1 {
 				filledCount++
 			}
 		}
+
 		expectedFilled := expectedSize / 2
 		if filledCount < expectedFilled-10 || filledCount > expectedFilled+10 {
 			t.Errorf("Expected around %d filled pixels, got %d", expectedFilled, filledCount)
@@ -123,6 +134,7 @@ func TestPatternCreation(t *testing.T) {
 
 	t.Run("createZigZagPattern", func(t *testing.T) {
 		pattern := createZigZagPattern()
+
 		expectedSize := LEDWidth * LEDHeight
 		if len(pattern) != expectedSize {
 			t.Errorf("Expected pattern size %d, got %d", expectedSize, len(pattern))
@@ -130,11 +142,13 @@ func TestPatternCreation(t *testing.T) {
 
 		// Should have some filled and some empty pixels
 		filledCount := 0
+
 		for _, pixel := range pattern {
 			if pixel == 1 {
 				filledCount++
 			}
 		}
+
 		if filledCount == 0 || filledCount == expectedSize {
 			t.Error("ZigZag pattern should have mixed filled/empty pixels")
 		}
@@ -142,6 +156,7 @@ func TestPatternCreation(t *testing.T) {
 
 	t.Run("createGradientPattern", func(t *testing.T) {
 		pattern := createGradientPattern()
+
 		expectedSize := LEDWidth * LEDHeight
 		if len(pattern) != expectedSize {
 			t.Errorf("Expected pattern size %d, got %d", expectedSize, len(pattern))
@@ -150,6 +165,7 @@ func TestPatternCreation(t *testing.T) {
 
 	t.Run("createSolidPattern", func(t *testing.T) {
 		pattern := createSolidPattern()
+
 		expectedSize := LEDWidth * LEDHeight
 		if len(pattern) != expectedSize {
 			t.Errorf("Expected pattern size %d, got %d", expectedSize, len(pattern))
@@ -186,7 +202,7 @@ func TestHelperFunctions(t *testing.T) {
 	})
 }
 
-func TestPrintSimulatedDisplay(t *testing.T) {
+func TestPrintSimulatedDisplay(_ *testing.T) {
 	cfg := config.DefaultConfig()
 	summary := &stats.StatsSummary{
 		CPUUsage:        50.0,
@@ -204,7 +220,7 @@ func TestPrintSimulatedDisplay(t *testing.T) {
 		for _, metric := range metrics {
 			cfg.Display.Mode = mode
 			cfg.Display.PrimaryMetric = metric
-			
+
 			// Should not panic
 			printSimulatedDisplay(summary, cfg)
 		}
@@ -228,6 +244,7 @@ func TestMainLogic(t *testing.T) {
 		if cfg.Display.Mode == "" {
 			cfg.Display.Mode = "percentage"
 		}
+
 		if cfg.Display.PrimaryMetric == "" {
 			cfg.Display.PrimaryMetric = "cpu"
 		}
