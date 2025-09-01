@@ -53,8 +53,11 @@ jobs:
       run: |
         gofumpt -l .
         if [ "$(gofumpt -l . | wc -l)" -gt 0 ]; then
-          echo "The following files need gofumpt formatting:"
-          gofumpt -l .
+          echo "::error::The following files need gofumpt formatting:"
+          gofumpt -l . | while read -r file; do
+            echo "::error file=$file::File needs gofumpt formatting"
+          done
+          echo "To fix locally, run: gofumpt -w ."
           exit 1
         fi
       shell: bash
@@ -63,8 +66,11 @@ jobs:
       run: |
         goimports -l .
         if [ "$(goimports -l . | wc -l)" -gt 0 ]; then
-          echo "The following files need goimports formatting:"
-          goimports -l .
+          echo "::error::The following files need goimports formatting:"
+          goimports -l . | while read -r file; do
+            echo "::error file=$file::File needs goimports formatting"
+          done
+          echo "To fix locally, run: goimports -w ."
           exit 1
         fi
       shell: bash
@@ -82,7 +88,16 @@ jobs:
         args: --timeout=5m
       continue-on-error: true
     - name: Run tests
-      run: go test -v -race -coverprofile=coverage.out ./...
+      run: |
+        # Run tests and capture output for better error reporting
+        if ! go test -v -race -coverprofile=coverage.out ./... 2>&1 | tee test_output.log; then
+          echo "::error::Tests failed. See details below:"
+          # Extract and annotate specific test failures
+          grep -E "(FAIL:|--- FAIL:|panic:)" test_output.log | while read -r line; do
+            echo "::error::$line"
+          done
+          exit 1
+        fi
 
     - name: Check test coverage
       run: |

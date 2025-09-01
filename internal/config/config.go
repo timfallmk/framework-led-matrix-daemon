@@ -180,6 +180,8 @@ func DefaultConfig() *Config {
 func LoadConfig(path string) (*Config, error) {
 	if path == "" {
 		path = getDefaultConfigPath()
+	} else {
+		path = filepath.Clean(path)
 	}
 
 	// #nosec G304 - path validation handled via application logic
@@ -269,6 +271,10 @@ func (c *Config) Validate() error {
 
 	if c.Stats.Thresholds.MemoryWarning >= c.Stats.Thresholds.MemoryCritical {
 		return fmt.Errorf("memory_warning threshold must be less than memory_critical")
+	}
+
+	if c.Stats.Thresholds.DiskWarning >= c.Stats.Thresholds.DiskCritical {
+		return fmt.Errorf("disk_warning threshold must be less than disk_critical")
 	}
 
 	// Validate dual matrix configuration
@@ -579,6 +585,30 @@ func (c *Config) ValidateDetailed() []ValidationError {
 		})
 	}
 
+	if c.Stats.Thresholds.DiskWarning < 0 || c.Stats.Thresholds.DiskWarning > 100 {
+		errors = append(errors, ValidationError{
+			Field:   "stats.thresholds.disk_warning",
+			Value:   c.Stats.Thresholds.DiskWarning,
+			Message: "must be between 0 and 100 (percentage)",
+		})
+	}
+
+	if c.Stats.Thresholds.DiskCritical < 0 || c.Stats.Thresholds.DiskCritical > 100 {
+		errors = append(errors, ValidationError{
+			Field:   "stats.thresholds.disk_critical",
+			Value:   c.Stats.Thresholds.DiskCritical,
+			Message: "must be between 0 and 100 (percentage)",
+		})
+	}
+
+	if c.Stats.Thresholds.DiskWarning >= c.Stats.Thresholds.DiskCritical {
+		errors = append(errors, ValidationError{
+			Field:   "stats.thresholds.disk_warning",
+			Value:   c.Stats.Thresholds.DiskWarning,
+			Message: fmt.Sprintf("must be less than disk_critical (%.1f)", c.Stats.Thresholds.DiskCritical),
+		})
+	}
+
 	// Dual matrix validation
 	validDualModes := map[string]bool{
 		"mirror":      true,
@@ -852,23 +882,18 @@ func (w *ConfigWatcher) watchLoop(ctx context.Context) {
 }
 
 func (w *ConfigWatcher) reloadConfig() error {
-	// Load new configuration
-	newConfig, err := LoadConfig(w.configPath)
-	if err != nil {
-		return fmt.Errorf("failed to reload config: %w", err)
-	}
-
-	// Apply environment overrides
-	newConfig.ApplyEnvironmentOverrides()
-
-	// Validate new configuration
-	if validationErrors := newConfig.ValidateDetailed(); len(validationErrors) > 0 {
-		var errorMsgs []string
-		for _, ve := range validationErrors {
-			errorMsgs = append(errorMsgs, ve.Error())
+	// Skip transient missing-file windows during atomic replace.
+	if _, err := os.Stat(w.configPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
 		}
 
-		return fmt.Errorf("configuration validation failed: %s", strings.Join(errorMsgs, "; "))
+		return fmt.Errorf("failed to stat config: %w", err)
+	}
+
+	newConfig, err := LoadConfigWithEnv(w.configPath)
+	if err != nil {
+		return fmt.Errorf("failed to reload config: %w", err)
 	}
 
 	// Update stored configuration

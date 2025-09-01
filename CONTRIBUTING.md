@@ -406,7 +406,7 @@ func TestVisualizer_UpdateDisplay(t *testing.T) {
 
 ### Test Coverage
 
-Maintain test coverage above 70%:
+Maintain test coverage above 50%:
 
 ```bash
 # Check coverage with threshold

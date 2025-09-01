@@ -138,6 +138,18 @@ func TestConfigValidation(t *testing.T) {
 			wantErr: true,
 			errMsg:  "memory_warning threshold must be less than memory_critical",
 		},
+		{
+			name: "disk warning >= critical",
+			config: func() *Config {
+				cfg := DefaultConfig()
+				cfg.Stats.Thresholds.DiskWarning = 95.0
+				cfg.Stats.Thresholds.DiskCritical = 90.0
+
+				return cfg
+			}(),
+			wantErr: true,
+			errMsg:  "disk_warning threshold must be less than disk_critical",
+		},
 	}
 
 	for _, tt := range tests {
