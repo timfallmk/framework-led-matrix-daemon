@@ -21,14 +21,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
-
       - name: Download dependencies
         run: go mod download
 
@@ -67,14 +59,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
 
       - name: Download dependencies
         run: go mod download
@@ -240,12 +224,18 @@ jobs:
 
       - name: Prepare release assets
         run: |
-          # Collect all release files
-          find . -name "framework-led-daemon-*" -type f | grep -E '\.(tar\.gz|zip|sha256)$' > release_files.txt
-          find . -name "framework-led-daemon-*sbom.*" -type f >> release_files.txt
+          # Show artifact directory structure for debugging
+          echo "Downloaded artifact structure:"
+          find . -type f -name "*framework-led-daemon*" | sort
           
-          echo "Release files:"
-          cat release_files.txt
+          # Move all release files to current directory for easier access
+          find . -name "framework-led-daemon-*.tar.gz" -exec mv {} . \;
+          find . -name "framework-led-daemon-*.zip" -exec mv {} . \;
+          find . -name "framework-led-daemon-*.sha256" -exec mv {} . \;
+          find . -name "framework-led-daemon-*sbom.*" -exec mv {} . \;
+          
+          echo "Release files in current directory:"
+          ls -la framework-led-daemon-* || echo "No files found with framework-led-daemon prefix"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -253,8 +243,10 @@ jobs:
           name: Release ${{ github.ref_name }}
           body: ${{ needs.changelog.outputs.changelog }}
           files: |
-            framework-led-daemon-*/framework-led-daemon-*
-            framework-led-daemon-sbom/framework-led-daemon-*sbom.*
+            framework-led-daemon-*.tar.gz
+            framework-led-daemon-*.zip
+            framework-led-daemon-*.sha256
+            framework-led-daemon-*sbom.*
             changelog/CHANGELOG.md
           draft: false
           prerelease: ${{ contains(github.ref, 'rc') || contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
