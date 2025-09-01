@@ -21,7 +21,7 @@ Thank you for your interest in contributing to the Framework LED Matrix Daemon! 
 
 ### Prerequisites
 
-- **Go 1.24.5** or later
+- **Go 1.25** or later
 - **Git** for version control
 - **Make** for build automation
 - **Framework Laptop** with LED Matrix module (for hardware testing)
