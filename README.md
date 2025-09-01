@@ -454,7 +454,7 @@ display:
 - Framework Laptop with LED Matrix input module(s)
   - Single matrix: Works with one LED matrix module
   - Dual matrix: Supports up to two LED matrix modules simultaneously
-- Go 1.24.5 or later (for building)
+- Go 1.25 or later (for building)
 - Serial port access permissions
 - Linux: `udev` rules or user in `dialout` group
 - Windows: Administrator privileges for service installation
@@ -464,7 +464,7 @@ display:
 ### Prerequisites
 
 ```bash
-# Install Go 1.24.5+
+# Install Go 1.25+
 # Install make (usually pre-installed on Linux)
 
 # Clone and build
