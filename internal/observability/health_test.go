@@ -3,6 +3,7 @@ package observability
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -228,7 +229,7 @@ func TestMemoryHealthChecker(t *testing.T) {
 }
 
 func TestDiskSpaceHealthChecker(t *testing.T) {
-	checker := NewDiskSpaceHealthChecker("test_disk", "/tmp", 80*1024*1024*1024) // 80GB threshold
+	checker := NewDiskSpaceHealthChecker("test_disk", os.TempDir(), 80*1024*1024*1024) // 80GB threshold
 
 	if checker.Name() != "test_disk" {
 		t.Errorf("Name() = %v, want test_disk", checker.Name())

@@ -128,9 +128,6 @@ linters:
     errcheck:
       check-type-assertions: true
       check-blank: true
-      exclude-functions:
-        - os.ReadFile
-        - io.Copy
 
     # Unused parameters
     unparam:

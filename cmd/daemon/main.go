@@ -52,6 +52,10 @@ func main() {
 
 	applyCommandLineOverrides(cfg)
 
+	if err = cfg.Validate(); err != nil {
+		log.Fatalf("Invalid configuration after command-line overrides: %v", err)
+	}
+
 	if flag.NArg() < 1 {
 		showUsage()
 		os.Exit(1)

@@ -2,6 +2,7 @@ package observability
 
 import (
 	"context"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -282,7 +283,7 @@ func (mc *MetricsCollector) flushMetrics() {
 	for _, metric := range metricsToFlush {
 		switch metric.Type {
 		case MetricTypeCounter:
-			mc.logger.LogCounter(metric.Name, int64(metric.Value), metric.Labels)
+			mc.logger.LogCounter(metric.Name, int64(math.Round(metric.Value)), metric.Labels)
 		case MetricTypeGauge:
 			mc.logger.LogGauge(metric.Name, metric.Value, metric.Labels)
 		case MetricTypeHistogram:

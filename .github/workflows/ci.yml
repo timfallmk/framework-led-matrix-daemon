@@ -84,7 +84,6 @@ jobs:
         args: --timeout=5m
       continue-on-error: true
     - name: Run tests
-    - name: Run tests
       shell: bash
       run: |
         # Run tests and capture output for better error reporting
@@ -175,15 +174,18 @@ jobs:
       run: |
         VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
         BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-        BINARY_NAME=framework-led-daemon
+        BINARY_BASE=framework-led-daemon
+        EXT=""
         if [ "${{ matrix.goos }}" = "windows" ]; then
-          BINARY_NAME="${BINARY_NAME}.exe"
+          EXT=".exe"
         fi
-        
+
+        OUT="bin/${BINARY_BASE}-${{ matrix.goos }}-${{ matrix.goarch }}${EXT}"
+
         go build \
           -ldflags="-w -s -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}" \
           -trimpath \
-          -o "bin/${BINARY_NAME}-${{ matrix.goos }}-${{ matrix.goarch }}" \
+          -o "${OUT}" \
           ./cmd/daemon
 
     - name: Upload build artifacts

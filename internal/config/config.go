@@ -819,11 +819,20 @@ func (w *ConfigWatcher) Start(ctx context.Context) error {
 
 // Stop stops the configuration watcher.
 func (w *ConfigWatcher) Stop() {
-	close(w.stopCh)
+	select {
+	case <-w.stopCh:
+		return
+	default:
+		close(w.stopCh)
+	}
 
 	if w.watcher != nil {
 		if err := w.watcher.Close(); err != nil {
-			log.Printf("Warning: failed to close watcher: %v", err)
+			select {
+			case w.errorCh <- fmt.Errorf("failed to close file watcher: %w", err):
+			default:
+				// Error channel is full, skip
+			}
 		}
 	}
 }
