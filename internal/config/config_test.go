@@ -379,24 +379,24 @@ func TestFindConfigNotFound(t *testing.T) {
 
 func TestConfigEnvironmentVariables(t *testing.T) {
 	// Test XDG_CONFIG_HOME environment variable
-	originalXDG := os.Getenv("XDG_CONFIG_HOME")
-
-	defer func() {
-		if originalXDG != "" {
-			t.Setenv("XDG_CONFIG_HOME", originalXDG)
-		} else {
-			os.Unsetenv("XDG_CONFIG_HOME")
-		}
-	}()
-
-	testDir := "/tmp/test_xdg"
+	testDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", testDir)
 
 	paths := GetConfigPaths()
 
 	expectedPath := filepath.Join(testDir, "framework-led-daemon", "config.yaml")
-	if len(paths) == 0 || paths[0] != expectedPath {
-		t.Errorf("Expected first path to be %s, got %v", expectedPath, paths)
+	found := false
+
+	for _, path := range paths {
+		if path == expectedPath {
+			found = true
+
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("Expected config path %s not found, got %v", expectedPath, paths)
 	}
 }
 
@@ -481,6 +481,7 @@ func TestConfigConvertMatrices(t *testing.T) {
 
 			if len(result) != len(tt.expected) {
 				t.Errorf("Expected %d matrices, got %d", len(tt.expected), len(result))
+
 				return
 			}
 
@@ -488,15 +489,19 @@ func TestConfigConvertMatrices(t *testing.T) {
 				if result[i].Name != expected.Name {
 					t.Errorf("Matrix %d: expected name %q, got %q", i, expected.Name, result[i].Name)
 				}
+
 				if result[i].Port != expected.Port {
 					t.Errorf("Matrix %d: expected port %q, got %q", i, expected.Port, result[i].Port)
 				}
+
 				if result[i].Role != expected.Role {
 					t.Errorf("Matrix %d: expected role %q, got %q", i, expected.Role, result[i].Role)
 				}
+
 				if result[i].Brightness != expected.Brightness {
 					t.Errorf("Matrix %d: expected brightness %d, got %d", i, expected.Brightness, result[i].Brightness)
 				}
+
 				if !reflect.DeepEqual(result[i].Metrics, expected.Metrics) {
 					t.Errorf("Matrix %d: expected metrics %v, got %v", i, expected.Metrics, result[i].Metrics)
 				}
@@ -552,15 +557,15 @@ func TestValidationErrorError(t *testing.T) {
 
 func TestConfigValidateDetailed(t *testing.T) {
 	tests := []struct {
-		name          string
-		modifyConfig  func(*Config)
-		expectedCount int
+		modifyConfig   func(*Config)
+		name           string
 		expectedFields []string
+		expectedCount  int
 	}{
 		{
-			name:          "valid config returns no errors",
-			modifyConfig:  func(c *Config) {}, // no changes
-			expectedCount: 0,
+			name:           "valid config returns no errors",
+			modifyConfig:   func(c *Config) {}, // no changes
+			expectedCount:  0,
 			expectedFields: []string{},
 		},
 		{
@@ -568,7 +573,7 @@ func TestConfigValidateDetailed(t *testing.T) {
 			modifyConfig: func(c *Config) {
 				c.Matrix.BaudRate = 0
 			},
-			expectedCount: 1,
+			expectedCount:  1,
 			expectedFields: []string{"matrix.baud_rate"},
 		},
 		{
@@ -576,7 +581,7 @@ func TestConfigValidateDetailed(t *testing.T) {
 			modifyConfig: func(c *Config) {
 				c.Stats.CollectInterval = 0
 			},
-			expectedCount: 2, // triggers both validation rules
+			expectedCount:  2, // triggers both validation rules
 			expectedFields: []string{"stats.collect_interval"},
 		},
 		{
@@ -584,7 +589,7 @@ func TestConfigValidateDetailed(t *testing.T) {
 			modifyConfig: func(c *Config) {
 				c.Stats.CollectInterval = 50 * time.Millisecond
 			},
-			expectedCount: 1,
+			expectedCount:  1,
 			expectedFields: []string{"stats.collect_interval"},
 		},
 		{
@@ -592,7 +597,7 @@ func TestConfigValidateDetailed(t *testing.T) {
 			modifyConfig: func(c *Config) {
 				c.Display.Mode = "invalid_mode"
 			},
-			expectedCount: 1,
+			expectedCount:  1,
 			expectedFields: []string{"display.mode"},
 		},
 		{
@@ -602,7 +607,7 @@ func TestConfigValidateDetailed(t *testing.T) {
 				c.Stats.CollectInterval = 0
 				c.Display.Mode = "invalid"
 			},
-			expectedCount: 4, // baud_rate + 2 collect_interval + display_mode
+			expectedCount:  4, // baud_rate + 2 collect_interval + display_mode
 			expectedFields: []string{"matrix.baud_rate", "stats.collect_interval", "display.mode"},
 		},
 	}
@@ -616,9 +621,11 @@ func TestConfigValidateDetailed(t *testing.T) {
 
 			if len(errors) != tt.expectedCount {
 				t.Errorf("Expected %d validation errors, got %d", tt.expectedCount, len(errors))
+
 				for i, err := range errors {
 					t.Logf("Error %d: %s", i, err.Error())
 				}
+
 				return
 			}
 

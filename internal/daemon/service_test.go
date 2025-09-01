@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/takama/daemon"
+
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/testutils"
 )
@@ -84,7 +86,7 @@ func (m *MockDaemon) Status() (string, error) {
 	return m.status, nil
 }
 
-func (m *MockDaemon) Run(executable interface{}) (string, error) {
+func (m *MockDaemon) Run(executable daemon.Executable) (string, error) {
 	// Mock implementation - just return success
 	return "Service running", nil
 }
@@ -259,6 +261,8 @@ func TestServiceDaemonOperations(t *testing.T) {
 		t.Fatalf("NewService() error = %v", err)
 	}
 
+	t.Cleanup(service.cancel)
+
 	// Test daemon operations (these will use the actual takama/daemon library)
 	// The operations might fail depending on the test environment, but we can test the API
 
@@ -346,6 +350,8 @@ func TestServiceContextCancellation(t *testing.T) {
 		t.Fatalf("NewService() error = %v", err)
 	}
 
+	t.Cleanup(service.cancel)
+
 	// Verify initial context state
 	if service.ctx.Err() != nil {
 		t.Error("Service context should not be cancelled initially")
@@ -377,6 +383,8 @@ func TestServiceStopChannel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
 	}
+
+	t.Cleanup(service.cancel)
 
 	// Verify stop channel is initially open
 	select {
@@ -416,6 +424,8 @@ func TestServiceIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
 	}
+
+	t.Cleanup(service.cancel)
 
 	// Try to initialize (will likely fail without hardware)
 	err = service.Initialize()
