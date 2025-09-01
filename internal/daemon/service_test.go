@@ -122,6 +122,8 @@ func TestServiceCreation(t *testing.T) {
 		t.Fatal("NewService() returned nil service")
 	}
 
+	t.Cleanup(service.cancel)
+
 	if service.config != cfg {
 		t.Error("NewService() config not set correctly")
 	}
@@ -147,6 +149,8 @@ func TestServiceInitialization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
 	}
+
+	t.Cleanup(service.cancel)
 
 	// This test will likely fail without actual hardware, but we can test the error handling
 	err = service.Initialize()
@@ -187,6 +191,8 @@ func TestServiceLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
 	}
+
+	t.Cleanup(service.cancel)
 
 	// Test service lifecycle without actual initialization
 	// (since we don't have real LED matrix hardware)
@@ -229,6 +235,8 @@ func TestServiceConfigReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService() error = %v", err)
 	}
+
+	t.Cleanup(service.cancel)
 
 	// Simulate config reload (this is typically called by SIGHUP handler)
 	// Since we can't easily test the actual signal handling in unit tests,
