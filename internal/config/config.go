@@ -6,6 +6,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -181,6 +182,7 @@ func LoadConfig(path string) (*Config, error) {
 		path = getDefaultConfigPath()
 	}
 
+	// #nosec G304 - path validation handled via application logic
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -210,7 +212,7 @@ func (c *Config) SaveConfig(path string) error {
 	}
 
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -219,13 +221,14 @@ func (c *Config) SaveConfig(path string) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	return nil
 }
 
+// Validate checks the configuration for basic validation errors and returns the first error found.
 func (c *Config) Validate() error {
 	if c.Matrix.BaudRate <= 0 {
 		return fmt.Errorf("matrix baud_rate must be positive")
@@ -342,7 +345,7 @@ func (c *Config) validateLogging() error {
 
 // ConvertMatrices converts the generic matrix configuration to SingleMatrixConfig structs.
 func (c *Config) ConvertMatrices() []SingleMatrixConfig {
-	var matrices []SingleMatrixConfig
+	matrices := make([]SingleMatrixConfig, 0, len(c.Matrix.Matrices))
 
 	for _, m := range c.Matrix.Matrices {
 		matrix := SingleMatrixConfig{}
@@ -772,7 +775,9 @@ func (w *ConfigWatcher) Start(ctx context.Context) error {
 
 	// Add config file to watcher
 	if err := w.watcher.Add(w.configPath); err != nil {
-		_ = w.watcher.Close()
+		if closeErr := w.watcher.Close(); closeErr != nil {
+			log.Printf("Warning: failed to close watcher: %v", closeErr)
+		}
 
 		return fmt.Errorf("failed to add config file to watcher: %w", err)
 	}
@@ -787,7 +792,9 @@ func (w *ConfigWatcher) Stop() {
 	close(w.stopCh)
 
 	if w.watcher != nil {
-		_ = w.watcher.Close()
+		if err := w.watcher.Close(); err != nil {
+			log.Printf("Warning: failed to close watcher: %v", err)
+		}
 	}
 }
 

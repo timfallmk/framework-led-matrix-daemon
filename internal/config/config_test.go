@@ -326,21 +326,14 @@ func TestFindConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Change to temp directory
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	defer func() { _ = os.Chdir(originalDir) }()
-
-	_ = os.Chdir(tmpDir)
+	t.Chdir(tmpDir)
 
 	// Create configs directory and file
 	os.MkdirAll("configs", 0o755)
 
 	configFile := "configs/config.yaml"
 
-	err = os.WriteFile(configFile, []byte("matrix:\n  baud_rate: 115200"), 0o644)
+	err := os.WriteFile(configFile, []byte("matrix:\n  baud_rate: 115200"), 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,16 +357,9 @@ func TestFindConfigNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Change to temp directory
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Chdir(tmpDir)
 
-	defer func() { _ = os.Chdir(originalDir) }()
-
-	_ = os.Chdir(tmpDir)
-
-	_, err = FindConfig()
+	_, err := FindConfig()
 	if err == nil {
 		t.Error("FindConfig() should return error when no config file is found")
 	}

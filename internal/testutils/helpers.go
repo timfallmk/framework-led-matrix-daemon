@@ -1,3 +1,4 @@
+// Package testutils provides utility functions for testing the LED matrix daemon components.
 package testutils
 
 import (
@@ -19,14 +20,16 @@ func CreateTempConfig(t *testing.T, configData string) string {
 
 	configFile := filepath.Join(tmpDir, "test_config.yaml")
 
-	err := os.WriteFile(configFile, []byte(configData), 0o644)
+	err := os.WriteFile(configFile, []byte(configData), 0o600)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
 	// Clean up function
 	t.Cleanup(func() {
-		_ = os.RemoveAll(tmpDir)
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Logf("Warning: failed to remove test directory %s: %v", tmpDir, err)
+		}
 	})
 
 	return configFile

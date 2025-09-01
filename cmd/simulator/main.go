@@ -88,7 +88,7 @@ func main() {
 		select {
 		case <-ticker.C:
 			// Collect real system stats
-			systemStats, err := collector.CollectSystemStats()
+			_, err := collector.CollectSystemStats()
 			if err != nil {
 				log.Printf("Error collecting stats: %v", err)
 
@@ -112,7 +112,7 @@ func main() {
 			}
 
 			// Print current state
-			printSimulatedDisplay(summary, systemStats, cfg)
+			printSimulatedDisplay(summary, cfg)
 
 		default:
 			if time.Since(start) > *duration {
@@ -245,7 +245,7 @@ func abs(x int) int {
 }
 
 // Print ASCII representation of the LED matrix.
-func printSimulatedDisplay(summary *stats.StatsSummary, systemStats *stats.SystemStats, cfg *config.Config) {
+func printSimulatedDisplay(summary *stats.StatsSummary, cfg *config.Config) {
 	fmt.Printf("\r\033[2J\033[H") // Clear screen
 
 	fmt.Printf("⏰ %s | Mode: %s | Metric: %s\n",

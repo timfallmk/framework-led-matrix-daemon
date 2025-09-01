@@ -430,14 +430,17 @@ func NewMemoryHealthChecker(name string, maxMemoryBytes uint64) *MemoryHealthChe
 	}
 }
 
+// Name returns the name of the memory health checker.
 func (m *MemoryHealthChecker) Name() string {
 	return m.name
 }
 
+// Timeout returns the timeout duration for memory health checks.
 func (m *MemoryHealthChecker) Timeout() time.Duration {
 	return m.timeout
 }
 
+// Check verifies that current memory usage is below the configured limit.
 func (m *MemoryHealthChecker) Check(ctx context.Context) error {
 	// Check current memory usage against the configured limit
 	var memStats runtime.MemStats
@@ -473,14 +476,17 @@ func NewDiskSpaceHealthChecker(name, path string, minFreeBytes uint64) *DiskSpac
 	}
 }
 
+// Name returns the name of the disk space health checker.
 func (d *DiskSpaceHealthChecker) Name() string {
 	return d.name
 }
 
+// Timeout returns the timeout duration for disk space health checks.
 func (d *DiskSpaceHealthChecker) Timeout() time.Duration {
 	return d.timeout
 }
 
+// Check verifies that available disk space is above the configured minimum threshold.
 func (d *DiskSpaceHealthChecker) Check(ctx context.Context) error {
 	total, free, err := diskFreeBytes(d.path)
 	if err != nil {

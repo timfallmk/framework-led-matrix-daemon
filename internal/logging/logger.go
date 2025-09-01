@@ -79,11 +79,11 @@ func NewLogger(config Config) (*Logger, error) {
 		writer = os.Stderr
 	default:
 		// File output
-		if err := os.MkdirAll(filepath.Dir(config.Output), 0o755); err != nil {
-			return nil, fmt.Errorf("failed to create log directory: %w", err)
+		if mkdirErr := os.MkdirAll(filepath.Dir(config.Output), 0o750); mkdirErr != nil {
+			return nil, fmt.Errorf("failed to create log directory: %w", mkdirErr)
 		}
 
-		writer, err = os.OpenFile(config.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		writer, err = os.OpenFile(config.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open log file: %w", err)
 		}
@@ -143,7 +143,8 @@ func (l *Logger) WithContext(ctx context.Context) *Logger {
 	// Extract relevant context values and add as fields
 	// Example: if there's a request ID in context
 	args := []interface{}{}
-	// Add context extraction logic here (e.g., if reqID := ctx.Value(requestIDKey); reqID != nil { args = append(args, "request_id", reqID) })
+	// Add context extraction logic here (e.g., if reqID := ctx.Value(requestIDKey); reqID != nil
+	// { args = append(args, "request_id", reqID) })
 
 	return &Logger{
 		Logger: l.With(args...),
@@ -255,7 +256,9 @@ func (el *EventLogger) LogMatrix(level LogLevel, message string, matrixID string
 }
 
 // LogStats logs statistics collection events.
-func (el *EventLogger) LogStats(level LogLevel, message string, statsType string, value float64, fields map[string]interface{}) {
+func (el *EventLogger) LogStats(level LogLevel, message string, statsType string, value float64,
+	fields map[string]interface{},
+) {
 	if fields == nil {
 		fields = make(map[string]interface{})
 	}

@@ -16,6 +16,7 @@ type ClientInterface interface {
 	SetBrightness(level byte) error
 }
 
+// DisplayManager manages display operations for a single LED matrix with rate limiting and state tracking.
 type DisplayManager struct {
 	lastUpdate   time.Time
 	client       ClientInterface
@@ -24,6 +25,7 @@ type DisplayManager struct {
 	mu           sync.RWMutex
 }
 
+// NewDisplayManager creates a new DisplayManager with the specified client and default update rate.
 func NewDisplayManager(client ClientInterface) *DisplayManager {
 	return &DisplayManager{
 		client:       client,
@@ -32,6 +34,7 @@ func NewDisplayManager(client ClientInterface) *DisplayManager {
 	}
 }
 
+// SetUpdateRate sets the minimum time interval between display updates to prevent flickering.
 func (dm *DisplayManager) SetUpdateRate(rate time.Duration) {
 	dm.mu.Lock()
 	defer dm.mu.Unlock()
@@ -50,6 +53,8 @@ func (dm *DisplayManager) markUpdatedUnsafe() {
 	dm.lastUpdate = time.Now()
 }
 
+// UpdatePercentage updates the matrix display with a percentage value if sufficient time has passed
+// and the value changed significantly.
 func (dm *DisplayManager) UpdatePercentage(key string, percent float64) error {
 	if !dm.shouldUpdate() {
 		return nil
@@ -82,6 +87,7 @@ func (dm *DisplayManager) UpdatePercentage(key string, percent float64) error {
 	return nil
 }
 
+// ShowActivity displays activity indication using zigzag pattern for active state or gradient for inactive state.
 func (dm *DisplayManager) ShowActivity(active bool) error {
 	if !dm.shouldUpdate() {
 		return nil
@@ -109,6 +115,8 @@ func (dm *DisplayManager) ShowActivity(active bool) error {
 	return nil
 }
 
+// ShowStatus displays system status using different LED patterns (normal=gradient, warning=zigzag,
+// critical=full bright, off=no brightness).
 func (dm *DisplayManager) ShowStatus(status string) error {
 	dm.mu.Lock()
 	defer dm.mu.Unlock()
@@ -139,6 +147,7 @@ func (dm *DisplayManager) ShowStatus(status string) error {
 	return nil
 }
 
+// SetBrightness sets the LED matrix brightness level from 0-255.
 func (dm *DisplayManager) SetBrightness(level byte) error {
 	dm.mu.Lock()
 	defer dm.mu.Unlock()
@@ -154,6 +163,7 @@ func (dm *DisplayManager) SetBrightness(level byte) error {
 	return nil
 }
 
+// GetCurrentState returns a copy of the current display state including all tracked values.
 func (dm *DisplayManager) GetCurrentState() map[string]interface{} {
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
@@ -182,6 +192,7 @@ type MultiDisplayManager struct {
 	mu          sync.RWMutex
 }
 
+// NewMultiDisplayManager creates a new MultiDisplayManager with the specified multi-client and dual mode configuration.
 func NewMultiDisplayManager(multiClient *MultiClient, dualMode string) *MultiDisplayManager {
 	mdm := &MultiDisplayManager{
 		displays:    make(map[string]*DisplayManager),
@@ -196,6 +207,8 @@ func NewMultiDisplayManager(multiClient *MultiClient, dualMode string) *MultiDis
 	return mdm
 }
 
+// UpdateMetric updates displays with metric data according to the configured dual mode
+// (mirror, split, extended, or independent).
 func (mdm *MultiDisplayManager) UpdateMetric(metricName string, value float64, stats map[string]float64) error {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
@@ -204,13 +217,13 @@ func (mdm *MultiDisplayManager) UpdateMetric(metricName string, value float64, s
 	case "mirror":
 		return mdm.updateMirrorMode(metricName, value)
 	case "split":
-		return mdm.updateSplitMode(metricName, value, stats)
+		return mdm.updateSplitMode(metricName, value)
 	case "extended":
-		return mdm.updateExtendedMode(metricName, value, stats)
+		return mdm.updateExtendedMode(metricName, value)
 	case "independent":
-		return mdm.updateIndependentMode(metricName, value, stats)
+		return mdm.updateIndependentMode(metricName, value)
 	default:
-		return mdm.updateSplitMode(metricName, value, stats) // Default to split mode
+		return mdm.updateSplitMode(metricName, value) // Default to split mode
 	}
 }
 
@@ -228,7 +241,7 @@ func (mdm *MultiDisplayManager) updateMirrorMode(metricName string, value float6
 	return lastErr
 }
 
-func (mdm *MultiDisplayManager) updateSplitMode(metricName string, value float64, stats map[string]float64) error {
+func (mdm *MultiDisplayManager) updateSplitMode(metricName string, value float64) error {
 	// Each matrix shows different metrics based on configuration
 	var lastErr error
 
@@ -270,18 +283,19 @@ func (mdm *MultiDisplayManager) updateSplitMode(metricName string, value float64
 	return lastErr
 }
 
-func (mdm *MultiDisplayManager) updateExtendedMode(metricName string, value float64, stats map[string]float64) error {
+func (mdm *MultiDisplayManager) updateExtendedMode(metricName string, value float64) error {
 	// Show a wider visualization across both matrices
 	// For now, treat it like split mode but could be enhanced later
-	return mdm.updateSplitMode(metricName, value, stats)
+	return mdm.updateSplitMode(metricName, value)
 }
 
-func (mdm *MultiDisplayManager) updateIndependentMode(metricName string, value float64, stats map[string]float64) error {
+func (mdm *MultiDisplayManager) updateIndependentMode(metricName string, value float64) error {
 	// Each matrix operates completely independently
 	// This would require more sophisticated configuration
-	return mdm.updateSplitMode(metricName, value, stats)
+	return mdm.updateSplitMode(metricName, value)
 }
 
+// UpdateActivity updates activity indication on all managed displays.
 func (mdm *MultiDisplayManager) UpdateActivity(active bool) error {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
@@ -298,6 +312,7 @@ func (mdm *MultiDisplayManager) UpdateActivity(active bool) error {
 	return lastErr
 }
 
+// UpdateStatus updates status display on all managed displays.
 func (mdm *MultiDisplayManager) UpdateStatus(status string) error {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
@@ -314,6 +329,7 @@ func (mdm *MultiDisplayManager) UpdateStatus(status string) error {
 	return lastErr
 }
 
+// SetBrightness sets brightness level on all managed displays.
 func (mdm *MultiDisplayManager) SetBrightness(level byte) error {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
@@ -330,6 +346,7 @@ func (mdm *MultiDisplayManager) SetBrightness(level byte) error {
 	return lastErr
 }
 
+// SetUpdateRate sets the update rate on all managed displays.
 func (mdm *MultiDisplayManager) SetUpdateRate(rate time.Duration) {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
@@ -339,6 +356,7 @@ func (mdm *MultiDisplayManager) SetUpdateRate(rate time.Duration) {
 	}
 }
 
+// GetDisplayManager returns the DisplayManager for the specified matrix name.
 func (mdm *MultiDisplayManager) GetDisplayManager(name string) *DisplayManager {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()
@@ -346,6 +364,7 @@ func (mdm *MultiDisplayManager) GetDisplayManager(name string) *DisplayManager {
 	return mdm.displays[name]
 }
 
+// HasMultipleDisplays returns true if managing more than one display.
 func (mdm *MultiDisplayManager) HasMultipleDisplays() bool {
 	mdm.mu.RLock()
 	defer mdm.mu.RUnlock()

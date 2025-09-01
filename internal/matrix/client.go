@@ -147,7 +147,9 @@ func (c *Client) ReadResponse(expectedBytes int) ([]byte, error) {
 
 	buffer := make([]byte, expectedBytes)
 
-	_ = c.port.SetReadTimeout(DefaultTimeout)
+	if err := c.port.SetReadTimeout(DefaultTimeout); err != nil {
+		log.Printf("Warning: failed to set read timeout: %v", err)
+	}
 
 	n, err := c.port.Read(buffer)
 	if err != nil {
@@ -226,6 +228,7 @@ type MultiClient struct {
 	config  map[string]*SingleMatrixConfig
 }
 
+// NewMultiClient creates a new MultiClient for managing multiple LED matrix connections.
 func NewMultiClient() *MultiClient {
 	return &MultiClient{
 		clients: make(map[string]*Client),
@@ -233,6 +236,7 @@ func NewMultiClient() *MultiClient {
 	}
 }
 
+// DiscoverAndConnect discovers available LED matrices and connects to them based on the provided configuration.
 func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRate int) error {
 	client := NewClient()
 
@@ -247,11 +251,12 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 	for i, matrixConfig := range matrices {
 		var portToUse string
 
-		if matrixConfig.Port != "" {
+		switch {
+		case matrixConfig.Port != "":
 			portToUse = matrixConfig.Port
-		} else if i < len(discoveredPorts) {
+		case i < len(discoveredPorts):
 			portToUse = discoveredPorts[i]
-		} else {
+		default:
 			log.Printf("Warning: No port available for matrix %s, skipping", matrixConfig.Name)
 
 			continue
@@ -283,18 +288,22 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 	return nil
 }
 
+// GetClient returns the Client instance for the specified matrix name.
 func (mc *MultiClient) GetClient(name string) *Client {
 	return mc.clients[name]
 }
 
+// GetClients returns all connected Client instances mapped by matrix name.
 func (mc *MultiClient) GetClients() map[string]*Client {
 	return mc.clients
 }
 
+// GetConfig returns the configuration for the specified matrix name.
 func (mc *MultiClient) GetConfig(name string) *SingleMatrixConfig {
 	return mc.config[name]
 }
 
+// Disconnect closes all matrix connections and returns any errors encountered.
 func (mc *MultiClient) Disconnect() error {
 	var errors []error
 
@@ -311,6 +320,7 @@ func (mc *MultiClient) Disconnect() error {
 	return nil
 }
 
+// HasMultipleMatrices returns true if more than one matrix is connected.
 func (mc *MultiClient) HasMultipleMatrices() bool {
 	return len(mc.clients) > 1
 }

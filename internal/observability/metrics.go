@@ -17,6 +17,7 @@ const (
 // MetricType represents the type of metric.
 type MetricType string
 
+// Metric type constants for different measurement types.
 const (
 	MetricTypeCounter   MetricType = "counter"
 	MetricTypeGauge     MetricType = "gauge"
@@ -304,7 +305,9 @@ func NewApplicationMetrics(collector *MetricsCollector) *ApplicationMetrics {
 }
 
 // RecordMatrixOperation records matrix operation metrics.
-func (am *ApplicationMetrics) RecordMatrixOperation(operation string, matrixID string, duration time.Duration, success bool) {
+func (am *ApplicationMetrics) RecordMatrixOperation(operation string, matrixID string,
+	duration time.Duration, success bool,
+) {
 	labels := map[string]string{
 		"operation": operation,
 		"matrix_id": matrixID,
@@ -384,7 +387,7 @@ func (am *ApplicationMetrics) RecordDisplayUpdate(mode string, success bool, dur
 	am.collector.RecordDuration("display_update_duration_seconds", duration, labels)
 }
 
-// Health check metrics.
+// RecordHealthCheck records metrics for health check operations including component status and check duration.
 func (am *ApplicationMetrics) RecordHealthCheck(component string, healthy bool, duration time.Duration) {
 	labels := map[string]string{
 		"component": component,

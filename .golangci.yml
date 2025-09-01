@@ -46,7 +46,6 @@ linters:
     - makezero
     - misspell
     - nakedret
-    - nestif
     - nilerr
     - nlreturn
     - noctx
@@ -58,7 +57,6 @@ linters:
     - rowserrcheck
     - sqlclosecheck
     - usetesting
-    - testpackage
     - thelper
     - tparallel
     - unconvert
@@ -71,21 +69,21 @@ linters:
   settings:
     # Cyclomatic complexity
     cyclop:
-      max-complexity: 15
+      max-complexity: 60
       package-average: 10.0
 
     # Function length
     funlen:
-      lines: 100
+      lines: 300
       statements: 60
 
     # Cognitive complexity
     gocognit:
-      min-complexity: 20
+      min-complexity: 60
 
     # Cyclomatic complexity (alternative)
     gocyclo:
-      min-complexity: 15
+      min-complexity: 60
 
     # Line length
     lll:

@@ -128,6 +128,26 @@ func TestMemoryStatsStructure(t *testing.T) {
 	if stats.SwapPercent != 25.0 {
 		t.Errorf("MemoryStats.SwapPercent = %.1f, want 25.0", stats.SwapPercent)
 	}
+
+	if stats.Available != 8*1024*1024*1024 {
+		t.Errorf("MemoryStats.Available = %d, want %d", stats.Available, 8*1024*1024*1024)
+	}
+
+	if stats.Used != 8*1024*1024*1024 {
+		t.Errorf("MemoryStats.Used = %d, want %d", stats.Used, 8*1024*1024*1024)
+	}
+
+	if stats.Free != 8*1024*1024*1024 {
+		t.Errorf("MemoryStats.Free = %d, want %d", stats.Free, 8*1024*1024*1024)
+	}
+
+	if stats.SwapTotal != 4*1024*1024*1024 {
+		t.Errorf("MemoryStats.SwapTotal = %d, want %d", stats.SwapTotal, 4*1024*1024*1024)
+	}
+
+	if stats.SwapUsed != 1024*1024*1024 {
+		t.Errorf("MemoryStats.SwapUsed = %d, want %d", stats.SwapUsed, 1024*1024*1024)
+	}
 }
 
 func TestDiskStatsStructure(t *testing.T) {
@@ -191,6 +211,22 @@ func TestDiskStatsStructure(t *testing.T) {
 	if stats.ActivityRate != 1024.0*1024.0 {
 		t.Errorf("DiskStats.ActivityRate = %.1f, want %.1f", stats.ActivityRate, 1024.0*1024.0)
 	}
+
+	if stats.TotalReads != 1000 {
+		t.Errorf("DiskStats.TotalReads = %d, want 1000", stats.TotalReads)
+	}
+
+	if stats.TotalWrites != 500 {
+		t.Errorf("DiskStats.TotalWrites = %d, want 500", stats.TotalWrites)
+	}
+
+	if stats.ReadBytes != 1024*1024*100 {
+		t.Errorf("DiskStats.ReadBytes = %d, want %d", stats.ReadBytes, 1024*1024*100)
+	}
+
+	if stats.WriteBytes != 1024*1024*50 {
+		t.Errorf("DiskStats.WriteBytes = %d, want %d", stats.WriteBytes, 1024*1024*50)
+	}
 }
 
 func TestNetworkStatsStructure(t *testing.T) {
@@ -214,6 +250,22 @@ func TestNetworkStatsStructure(t *testing.T) {
 
 	if stats.ActivityRate != 1024.0*1024.0 {
 		t.Errorf("NetworkStats.ActivityRate = %.1f, want %.1f", stats.ActivityRate, 1024.0*1024.0)
+	}
+
+	if stats.BytesRecv != 1024*1024*200 {
+		t.Errorf("NetworkStats.BytesRecv = %d, want %d", stats.BytesRecv, 1024*1024*200)
+	}
+
+	if stats.PacketsRecv != 20000 {
+		t.Errorf("NetworkStats.PacketsRecv = %d, want 20000", stats.PacketsRecv)
+	}
+
+	if stats.TotalBytesSent != 1024*1024*500 {
+		t.Errorf("NetworkStats.TotalBytesSent = %d, want %d", stats.TotalBytesSent, 1024*1024*500)
+	}
+
+	if stats.TotalBytesRecv != 1024*1024*1000 {
+		t.Errorf("NetworkStats.TotalBytesRecv = %d, want %d", stats.TotalBytesRecv, 1024*1024*1000)
 	}
 }
 

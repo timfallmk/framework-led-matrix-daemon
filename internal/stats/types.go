@@ -2,6 +2,7 @@ package stats
 
 import "time"
 
+// CPUStats contains detailed CPU statistics including model information, usage percentages, and core counts.
 type CPUStats struct {
 	ModelName      string
 	VendorID       string
@@ -11,6 +12,7 @@ type CPUStats struct {
 	LogicalCores   int
 }
 
+// MemoryStats contains memory and swap usage statistics including totals, usage percentages, and available memory.
 type MemoryStats struct {
 	Total       uint64
 	Available   uint64
@@ -22,6 +24,7 @@ type MemoryStats struct {
 	SwapPercent float64
 }
 
+// DiskStats contains disk I/O statistics including partition information, read/write counters, and activity rates.
 type DiskStats struct {
 	IOCounters   map[string]IOCounterStat
 	Partitions   []PartitionStat
@@ -32,6 +35,7 @@ type DiskStats struct {
 	ActivityRate float64
 }
 
+// PartitionStat contains disk partition statistics including device information, filesystem type, and space usage.
 type PartitionStat struct {
 	Device      string
 	Mountpoint  string
@@ -42,6 +46,7 @@ type PartitionStat struct {
 	UsedPercent float64
 }
 
+// IOCounterStat contains I/O operation counters including read/write counts, bytes transferred, and timing information.
 type IOCounterStat struct {
 	ReadCount  uint64
 	WriteCount uint64
@@ -51,6 +56,7 @@ type IOCounterStat struct {
 	WriteTime  uint64
 }
 
+// NetworkStats contains network interface statistics including bytes and packets sent/received, and activity rates.
 type NetworkStats struct {
 	BytesSent      uint64
 	BytesRecv      uint64
@@ -61,6 +67,7 @@ type NetworkStats struct {
 	ActivityRate   float64
 }
 
+// SystemStats contains comprehensive system statistics including CPU, memory, disk, network, and uptime information.
 type SystemStats struct {
 	Timestamp time.Time
 	CPU       CPUStats
@@ -71,6 +78,7 @@ type SystemStats struct {
 	Uptime    time.Duration
 }
 
+// StatsSummary contains summarized system metrics with usage percentages and overall system status.
 type StatsSummary struct {
 	Timestamp       time.Time
 	CPUUsage        float64
@@ -80,8 +88,10 @@ type StatsSummary struct {
 	Status          SystemStatus
 }
 
+// SystemStatus represents the overall system health status based on resource usage thresholds.
 type SystemStatus int
 
+// System status constants representing different health levels.
 const (
 	StatusNormal SystemStatus = iota
 	StatusWarning
@@ -101,6 +111,7 @@ func (s SystemStatus) String() string {
 	}
 }
 
+// Thresholds defines resource usage thresholds for determining system status warnings and critical alerts.
 type Thresholds struct {
 	CPUWarning     float64
 	CPUCritical    float64
@@ -110,6 +121,7 @@ type Thresholds struct {
 	DiskCritical   float64
 }
 
+// DefaultThresholds returns default system resource usage thresholds for warning and critical status levels.
 func DefaultThresholds() Thresholds {
 	return Thresholds{
 		CPUWarning:     70.0,
