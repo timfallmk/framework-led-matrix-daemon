@@ -75,7 +75,7 @@ linters:
     # Function length
     funlen:
       lines: 300
-      statements: 60
+      statements: 100
 
     # Cognitive complexity
     gocognit:

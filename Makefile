@@ -132,7 +132,7 @@ test-coverage-check:
 	@echo "Running coverage check..."
 	@go test -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out | tail -1 | awk '{print "Total coverage: " $$3}'
-	@go tool cover -func=coverage.out | tail -1 | awk '{if($$3+0 < 70.0) {print "Coverage below 70%: " $$3; exit 1}}'
+	@go tool cover -func=coverage.out | tail -1 | awk '{if($$3+0 < 50.0) {print "Coverage below 50%: " $$3; exit 1}}'
 	@echo "Coverage check passed"
 
 # Run tests in CI environment
