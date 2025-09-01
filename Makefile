@@ -133,7 +133,7 @@ test-coverage-check:
 	@echo "Running coverage check..."
 	@go test -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out | tail -1 | awk '{print "Total coverage: " $$3}'
-	@go tool cover -func=coverage.out | tail -1 | awk '{if($$3+0 < 50.0) {print "Coverage below 50%: " $$3; exit 1}}'
+	@go tool cover -func=coverage.out | tail -1 | awk '{gsub(/%/, "", $$3); if($$3+0 < 50.0) {print "Coverage below 50%: " $$3 "%"; exit 1}}'
 	@echo "Coverage check passed"
 
 # Run tests in CI environment
@@ -141,7 +141,7 @@ test-ci:
 	@echo "Running CI tests..."
 	@go test -short -v -race -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out | tail -1 | awk '{print "Total coverage: " $$3}'
-	@go tool cover -func=coverage.out | tail -1 | awk '{if($$3+0 < 50.0) {print "Coverage below 50%: " $$3; exit 1}}'
+	@go tool cover -func=coverage.out | tail -1 | awk '{gsub(/%/, "", $$3); if($$3+0 < 50.0) {print "Coverage below 50%: " $$3 "%"; exit 1}}'
 	@echo "CI tests with coverage check passed"
 
 # Clean test artifacts
