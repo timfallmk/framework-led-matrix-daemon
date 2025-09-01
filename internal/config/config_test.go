@@ -402,6 +402,112 @@ func TestConfigEnvironmentVariables(t *testing.T) {
 	}
 }
 
+func TestConfigApplyEnvironmentOverrides(t *testing.T) {
+	t.Setenv("FRAMEWORK_LED_PORT", "/dev/ttyACM1")
+	t.Setenv("FRAMEWORK_LED_BAUD_RATE", "9600")
+	t.Setenv("FRAMEWORK_LED_AUTO_DISCOVER", "false")
+	t.Setenv("FRAMEWORK_LED_BRIGHTNESS", "255")
+	t.Setenv("FRAMEWORK_LED_DUAL_MODE", "split")
+	t.Setenv("FRAMEWORK_LED_COLLECT_INTERVAL", "10s")
+	t.Setenv("FRAMEWORK_LED_ENABLE_CPU", "false")
+	t.Setenv("FRAMEWORK_LED_ENABLE_MEMORY", "false")
+	t.Setenv("FRAMEWORK_LED_ENABLE_DISK", "false")
+	t.Setenv("FRAMEWORK_LED_ENABLE_NETWORK", "true")
+	t.Setenv("FRAMEWORK_LED_UPDATE_RATE", "2s")
+	t.Setenv("FRAMEWORK_LED_DISPLAY_MODE", "activity")
+	t.Setenv("FRAMEWORK_LED_PRIMARY_METRIC", "disk")
+	t.Setenv("FRAMEWORK_LED_SHOW_ACTIVITY", "false")
+	t.Setenv("FRAMEWORK_LED_LOG_LEVEL", "debug")
+	t.Setenv("FRAMEWORK_LED_LOG_FILE", "/tmp/log.txt")
+	t.Setenv("FRAMEWORK_LED_LOG_FORMAT", "json")
+	t.Setenv("FRAMEWORK_LED_LOG_OUTPUT", "/tmp/output.txt")
+	t.Setenv("FRAMEWORK_LED_LOG_ADD_SOURCE", "false")
+	t.Setenv("FRAMEWORK_LED_LOG_EVENT_BUFFER_SIZE", "2000")
+
+	cfg := DefaultConfig()
+	cfg.ApplyEnvironmentOverrides()
+
+	if cfg.Matrix.Port != "/dev/ttyACM1" {
+		t.Errorf("Expected port /dev/ttyACM1, got %s", cfg.Matrix.Port)
+	}
+
+	if cfg.Matrix.BaudRate != 9600 {
+		t.Errorf("Expected baud rate 9600, got %d", cfg.Matrix.BaudRate)
+	}
+
+	if cfg.Matrix.AutoDiscover != false {
+		t.Errorf("Expected auto discover to be false, got %t", cfg.Matrix.AutoDiscover)
+	}
+
+	if cfg.Matrix.Brightness != 255 {
+		t.Errorf("Expected brightness 255, got %d", cfg.Matrix.Brightness)
+	}
+
+	if cfg.Matrix.DualMode != "split" {
+		t.Errorf("Expected dual mode split, got %s", cfg.Matrix.DualMode)
+	}
+
+	if cfg.Stats.CollectInterval != 10*time.Second {
+		t.Errorf("Expected collect interval 10s, got %v", cfg.Stats.CollectInterval)
+	}
+
+	if cfg.Stats.EnableCPU != false {
+		t.Errorf("Expected enable cpu to be false, got %t", cfg.Stats.EnableCPU)
+	}
+
+	if cfg.Stats.EnableMemory != false {
+		t.Errorf("Expected enable memory to be false, got %t", cfg.Stats.EnableMemory)
+	}
+
+	if cfg.Stats.EnableDisk != false {
+		t.Errorf("Expected enable disk to be false, got %t", cfg.Stats.EnableDisk)
+	}
+
+	if cfg.Stats.EnableNetwork != true {
+		t.Errorf("Expected enable network to be true, got %t", cfg.Stats.EnableNetwork)
+	}
+
+	if cfg.Display.UpdateRate != 2*time.Second {
+		t.Errorf("Expected update rate 2s, got %v", cfg.Display.UpdateRate)
+	}
+
+	if cfg.Display.Mode != "activity" {
+		t.Errorf("Expected display mode activity, got %s", cfg.Display.Mode)
+	}
+
+	if cfg.Display.PrimaryMetric != "disk" {
+		t.Errorf("Expected primary metric disk, got %s", cfg.Display.PrimaryMetric)
+	}
+
+	if cfg.Display.ShowActivity != false {
+		t.Errorf("Expected show activity to be false, got %t", cfg.Display.ShowActivity)
+	}
+
+	if cfg.Logging.Level != "debug" {
+		t.Errorf("Expected log level debug, got %s", cfg.Logging.Level)
+	}
+
+	if cfg.Logging.File != "/tmp/log.txt" {
+		t.Errorf("Expected log file /tmp/log.txt, got %s", cfg.Logging.File)
+	}
+
+	if cfg.Logging.Format != "json" {
+		t.Errorf("Expected log format json, got %s", cfg.Logging.Format)
+	}
+
+	if cfg.Logging.Output != "/tmp/output.txt" {
+		t.Errorf("Expected log output /tmp/output.txt, got %s", cfg.Logging.Output)
+	}
+
+	if cfg.Logging.AddSource != false {
+		t.Errorf("Expected add source to be false, got %t", cfg.Logging.AddSource)
+	}
+
+	if cfg.Logging.EventBufferSize != 2000 {
+		t.Errorf("Expected event buffer size 2000, got %d", cfg.Logging.EventBufferSize)
+	}
+}
+
 func TestConfigConvertMatrices(t *testing.T) {
 	tests := []struct {
 		name     string
