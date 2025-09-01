@@ -32,23 +32,15 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Install development tools
+      - name: Install development tools and run quality checks
+        shell: bash
         run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          go install mvdan.cc/gofumpt@latest
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-
-      - name: Run quality checks
-        run: |
-          gofumpt -l .
-          go vet ./...
-          staticcheck ./...
-          golangci-lint run --timeout=5m
-          govulncheck ./...
+          make dev-deps
+          make quality-check
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        shell: bash
+        run: make test-ci
 
   build:
     name: Build Release Binaries
@@ -87,26 +79,9 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Build binary
-        env:
-          CGO_ENABLED: 0
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          BINARY_NAME=framework-led-daemon
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            BINARY_NAME="${BINARY_NAME}.exe"
-          fi
-          
-          mkdir -p release
-          
-          go build \
-            -ldflags="-w -s -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}" \
-            -trimpath \
-            -o "release/${BINARY_NAME}" \
-            ./cmd/daemon
+      - name: Build release package using makefile
+        shell: bash
+        run: make release-${{ matrix.goos }}-${{ matrix.goarch }}
 
       - name: Create release package
         run: |
@@ -183,19 +158,15 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install Syft
-        env:
-          SYFT_VERSION: v1.18.0
+      - name: Install development tools and generate SBOM
+        shell: bash
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
-          | sh -s -- -b /usr/local/bin ${SYFT_VERSION}
-          syft version
-
-      - name: Generate SBOM
-        run: |
+          make dev-deps
           VERSION=${GITHUB_REF#refs/tags/}
-          syft packages . -o spdx-json=framework-led-daemon-${VERSION}-sbom.spdx.json
-          syft packages . -o syft-json=framework-led-daemon-${VERSION}-sbom.syft.json
+          # Generate SBOM with version in filename
+          make sbom
+          mv sbom.spdx.json framework-led-daemon-${VERSION}-sbom.spdx.json
+          mv sbom.syft.json framework-led-daemon-${VERSION}-sbom.syft.json
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@v4
         with:

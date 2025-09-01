@@ -22,6 +22,7 @@ LDFLAGS=-ldflags="-w -s -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIM
 # Build targets  
 .PHONY: all build clean install uninstall test test-coverage test-race test-short test-bench test-ci test-clean fmt vet deps cross-compile simulator help
 .PHONY: lint lint-fix gofumpt golangci-lint security-scan vuln-check sbom quality-check dev-tools-check
+.PHONY: build-linux-amd64 build-linux-arm64 build-windows-amd64 release-linux-amd64 release-linux-arm64 release-windows-amd64
 
 # Default target
 all: clean deps quality-check test-coverage build
@@ -132,7 +133,7 @@ test-coverage-check:
 	@echo "Running coverage check..."
 	@go test -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out | tail -1 | awk '{print "Total coverage: " $$3}'
-	@go tool cover -func=coverage.out | tail -1 | awk '{if($$3+0 < 50.0) {print "Coverage below 50%: " $$3; exit 1}}'
+	@go tool cover -func=coverage.out | tail -1 | awk '{gsub(/%/, "", $$3); if($$3+0 < 50.0) {print "Coverage below 50%: " $$3 "%"; exit 1}}'
 	@echo "Coverage check passed"
 
 # Run tests in CI environment
@@ -140,7 +141,7 @@ test-ci:
 	@echo "Running CI tests..."
 	@go test -short -v -race -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out | tail -1 | awk '{print "Total coverage: " $$3}'
-	@go tool cover -func=coverage.out | tail -1 | awk '{if($$3+0 < 50.0) {print "Coverage below 50%: " $$3; exit 1}}'
+	@go tool cover -func=coverage.out | tail -1 | awk '{gsub(/%/, "", $$3); if($$3+0 < 50.0) {print "Coverage below 50%: " $$3 "%"; exit 1}}'
 	@echo "CI tests with coverage check passed"
 
 # Clean test artifacts
@@ -182,6 +183,25 @@ cross-compile:
 	
 	@echo "Cross-compilation complete"
 
+# Build for specific platforms (for CI use)
+build-linux-amd64:
+	@echo "Building for Linux amd64..."
+	@mkdir -p $(BINARY_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) $(LDFLAGS) \
+		-o $(BINARY_DIR)/$(BINARY_NAME)-linux-amd64 ./$(CMD_DIR)
+
+build-linux-arm64:
+	@echo "Building for Linux arm64..."
+	@mkdir -p $(BINARY_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) $(LDFLAGS) \
+		-o $(BINARY_DIR)/$(BINARY_NAME)-linux-arm64 ./$(CMD_DIR)
+
+build-windows-amd64:
+	@echo "Building for Windows amd64..."
+	@mkdir -p $(BINARY_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=windows GOARCH=amd64 go build $(GO_BUILD_FLAGS) $(LDFLAGS) \
+		-o $(BINARY_DIR)/$(BINARY_NAME)-windows-amd64.exe ./$(CMD_DIR)
+
 # Create release packages
 release: cross-compile
 	@echo "Creating release packages..."
@@ -199,6 +219,30 @@ release: cross-compile
 		$(BINARY_DIR)/$(BINARY_NAME)-windows-amd64.exe configs/config.yaml LICENSE
 	
 	@echo "Release packages created in $(BINARY_DIR)/release/"
+
+# Create platform-specific release packages (for CI use)
+release-linux-amd64: build-linux-amd64
+	@echo "Creating Linux amd64 release package..."
+	@mkdir -p release
+	@cp $(BINARY_DIR)/$(BINARY_NAME)-linux-amd64 release/$(BINARY_NAME)
+	@cp configs/config.yaml release/
+	@cp LICENSE release/
+	@cp systemd/$(BINARY_NAME).service release/
+
+release-linux-arm64: build-linux-arm64
+	@echo "Creating Linux arm64 release package..."
+	@mkdir -p release
+	@cp $(BINARY_DIR)/$(BINARY_NAME)-linux-arm64 release/$(BINARY_NAME)
+	@cp configs/config.yaml release/
+	@cp LICENSE release/
+	@cp systemd/$(BINARY_NAME).service release/
+
+release-windows-amd64: build-windows-amd64
+	@echo "Creating Windows amd64 release package..."
+	@mkdir -p release
+	@cp $(BINARY_DIR)/$(BINARY_NAME)-windows-amd64.exe release/$(BINARY_NAME).exe
+	@cp configs/config.yaml release/
+	@cp LICENSE release/
 
 # Run the daemon in development mode
 run: build
