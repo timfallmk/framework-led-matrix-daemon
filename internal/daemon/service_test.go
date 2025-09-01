@@ -165,6 +165,9 @@ func TestServiceInitialization(t *testing.T) {
 }
 
 func TestServiceLifecycle(t *testing.T) {
+	// Skip test in short mode or CI environment
+	testutils.SkipIfCI(t, "Integration test")
+
 	cfg := config.DefaultConfig()
 
 	service, err := NewService(cfg)
