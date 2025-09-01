@@ -14,11 +14,10 @@ This is a Go daemon that monitors system metrics (CPU, memory, disk, network) an
 
 **Matrix Communication**: The `internal/matrix/` package manages serial communication with LED matrices using the `go.bug.st/serial` library. Key components:
 
-- `Client`: Individual matrix communication with Framework protocol (magic bytes 0x32 0xAC)
-- `MultiClient`: Manages multiple matrix connections
-- `DisplayManager`/`MultiDisplayManager`: Higher-level display control
-- Commands are defined in `commands.go` with proper byte encoding
-
+- `Client`: Individual matrix communication with the Framework protocol (magic bytes 0x32, 0xAC).
+- `MultiClient`: Manages multiple matrix connections.
+- `DisplayManager` / `MultiDisplayManager`: Higher-level display control.
+- Commands are defined in `commands.go` with proper byte encoding.
 **System Monitoring**: `internal/stats/collector.go` uses `gopsutil` to collect system metrics. The collector runs in its own goroutine with configurable intervals and supports enabling/disabling specific metrics (CPU, memory, disk I/O, network).
 
 **Visualization Pipeline**: `internal/visualizer/` converts metrics to LED patterns:
