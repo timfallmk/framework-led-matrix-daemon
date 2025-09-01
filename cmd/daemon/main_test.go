@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/testutils"
 )
 
 func TestShowUsage(_ *testing.T) {
@@ -171,6 +172,9 @@ func TestApplyCommandLineOverrides(t *testing.T) {
 }
 
 func TestTestConnection(t *testing.T) {
+	// Skip test in short mode or CI environment
+	testutils.SkipIfCI(t, "Integration test")
+
 	cfg := config.DefaultConfig()
 
 	// testConnection will fail in test environment since there's no actual hardware
