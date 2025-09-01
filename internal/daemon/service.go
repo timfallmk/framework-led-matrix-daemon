@@ -46,6 +46,7 @@ type Service struct {
 	stopCh           chan struct{}
 	wg               sync.WaitGroup
 	stopOnce         sync.Once
+	mu               sync.RWMutex // Protects matrix, multiClient, display, multiDisplay
 	usingMultiple    bool
 }
 
@@ -129,8 +130,8 @@ func (s *Service) initializeSingleMatrix() error {
 
 	s.eventLogger.LogDaemon(logging.LevelInfo, "initializing single matrix mode", "initialize_single", nil)
 
-	s.matrix = matrix.NewClient()
-	if err := s.matrix.Connect(s.config.Matrix.Port); err != nil {
+	client := matrix.NewClient()
+	if err := client.Connect(s.config.Matrix.Port); err != nil {
 		s.eventLogger.LogMatrix(logging.LevelError, "failed to connect to LED matrix", "single", map[string]interface{}{
 			"port": s.config.Matrix.Port,
 		})
@@ -142,17 +143,22 @@ func (s *Service) initializeSingleMatrix() error {
 		"port": s.config.Matrix.Port,
 	})
 
-	s.display = matrix.NewDisplayManager(s.matrix)
-	s.display.SetUpdateRate(s.config.Display.UpdateRate)
+	display := matrix.NewDisplayManager(client)
+	display.SetUpdateRate(s.config.Display.UpdateRate)
 
-	if err := s.display.SetBrightness(s.config.Matrix.Brightness); err != nil {
+	if err := display.SetBrightness(s.config.Matrix.Brightness); err != nil {
 		s.eventLogger.LogMatrix(logging.LevelWarn, "failed to set brightness", "single", map[string]interface{}{
 			"brightness": s.config.Matrix.Brightness,
 			"error":      err.Error(),
 		})
 	}
 
+	// Safely assign to shared fields protected by mutex
+	s.mu.Lock()
+	s.matrix = client
+	s.display = display
 	s.usingMultiple = false
+	s.mu.Unlock()
 
 	s.collector = stats.NewCollector(s.config.Stats.CollectInterval)
 	s.collector.SetThresholds(stats.Thresholds{
@@ -164,7 +170,7 @@ func (s *Service) initializeSingleMatrix() error {
 		DiskCritical:   s.config.Stats.Thresholds.DiskCritical,
 	})
 
-	s.visualizer = visualizer.NewVisualizer(s.display, s.config)
+	s.visualizer = visualizer.NewVisualizer(display, s.config)
 
 	s.eventLogger.LogDaemon(logging.LevelInfo, "single matrix daemon initialized successfully",
 		"initialize_single_complete", nil)
@@ -175,6 +181,9 @@ func (s *Service) initializeSingleMatrix() error {
 func (s *Service) registerHealthChecks() {
 	// Matrix health check
 	matrixChecker := observability.NewMatrixHealthChecker("matrix", func(ctx context.Context) error {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		
 		if s.usingMultiple && s.multiClient != nil {
 			return nil // Multi-client health check would be implemented
 		} else if s.matrix != nil {
@@ -224,8 +233,8 @@ func (s *Service) initializeMultiMatrix() error {
 	// Convert config matrices to proper type
 	matrices := s.convertConfigMatrices(s.config.ConvertMatrices())
 
-	s.multiClient = matrix.NewMultiClient()
-	if err := s.multiClient.DiscoverAndConnect(matrices, s.config.Matrix.BaudRate); err != nil {
+	multiClient := matrix.NewMultiClient()
+	if err := multiClient.DiscoverAndConnect(matrices, s.config.Matrix.BaudRate); err != nil {
 		// Fallback to single matrix mode if multi-matrix setup fails
 		s.eventLogger.LogMatrix(logging.LevelWarn,
 			"multi-matrix initialization failed, falling back to single matrix", "multi", map[string]interface{}{
@@ -235,11 +244,11 @@ func (s *Service) initializeMultiMatrix() error {
 		return s.initializeSingleMatrix()
 	}
 
-	s.multiDisplay = matrix.NewMultiDisplayManager(s.multiClient, s.config.Matrix.DualMode)
-	s.multiDisplay.SetUpdateRate(s.config.Display.UpdateRate)
+	multiDisplay := matrix.NewMultiDisplayManager(multiClient, s.config.Matrix.DualMode)
+	multiDisplay.SetUpdateRate(s.config.Display.UpdateRate)
 
 	// Set brightness for all matrices (will use individual brightness settings from config)
-	if err := s.multiDisplay.SetBrightness(s.config.Matrix.Brightness); err != nil {
+	if err := multiDisplay.SetBrightness(s.config.Matrix.Brightness); err != nil {
 		s.eventLogger.LogMatrix(logging.LevelWarn, "failed to set brightness on some matrices",
 			"multi", map[string]interface{}{
 				"brightness": s.config.Matrix.Brightness,
@@ -247,7 +256,12 @@ func (s *Service) initializeMultiMatrix() error {
 			})
 	}
 
+	// Safely assign to shared fields protected by mutex
+	s.mu.Lock()
+	s.multiClient = multiClient
+	s.multiDisplay = multiDisplay
 	s.usingMultiple = true
+	s.mu.Unlock()
 
 	s.collector = stats.NewCollector(s.config.Stats.CollectInterval)
 	s.collector.SetThresholds(stats.Thresholds{
@@ -260,11 +274,11 @@ func (s *Service) initializeMultiMatrix() error {
 	})
 
 	// Create multi-visualizer for dual matrix mode
-	s.multiVisualizer = visualizer.NewMultiVisualizer(s.multiDisplay, s.config)
+	s.multiVisualizer = visualizer.NewMultiVisualizer(multiDisplay, s.config)
 
 	s.eventLogger.LogDaemon(logging.LevelInfo, "multi-matrix daemon initialized successfully",
 		"initialize_multi_complete", map[string]interface{}{
-			"matrix_count": len(s.multiClient.GetClients()),
+			"matrix_count": len(multiClient.GetClients()),
 		})
 
 	return nil
