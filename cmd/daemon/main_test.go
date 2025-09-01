@@ -8,14 +8,26 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/testutils"
 )
 
-func TestShowUsage(_ *testing.T) {
-	// Capture output would be complex, so just test it doesn't panic
+func TestShowUsage(t *testing.T) {
+	// Test that showUsage doesn't panic and can be called safely
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("showUsage() panicked: %v", r)
+		}
+	}()
+
 	showUsage()
 }
 
-func TestShowConfiguration(_ *testing.T) {
+func TestShowConfiguration(t *testing.T) {
 	cfg := config.DefaultConfig()
-	// Test that showConfiguration doesn't panic
+	// Test that showConfiguration doesn't panic and handles valid config
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("showConfiguration() panicked: %v", r)
+		}
+	}()
+
 	showConfiguration(cfg)
 }
 
@@ -151,7 +163,9 @@ func TestApplyCommandLineOverrides(t *testing.T) {
 			},
 			expectedCfg: func(cfg *config.Config) bool {
 				// Should keep default brightness since 300 is out of range for byte
-				return cfg.Matrix.Brightness != byte(255) // Won't be set to max byte value
+				defaultBrightness := config.DefaultConfig().Matrix.Brightness
+
+				return cfg.Matrix.Brightness == defaultBrightness
 			},
 		},
 	}
@@ -176,14 +190,18 @@ func TestTestConnection(t *testing.T) {
 	testutils.SkipIfCI(t, "Integration test")
 
 	cfg := config.DefaultConfig()
+	cfg.Matrix.Port = "/dev/null" // Use a safe port that won't cause issues
 
 	// testConnection will fail in test environment since there's no actual hardware
-	// But we can test that it properly creates a service and calls Initialize
+	// But we can test that it handles connection failures gracefully
 	err := testConnection(cfg)
 
-	// We expect this to fail in test environment, which is fine
+	// We expect this to fail in test environment due to no hardware
 	if err == nil {
 		t.Log("testConnection unexpectedly succeeded - might be running with actual hardware")
+		// Verify the error is related to connection, not a panic or unexpected failure
+	} else if err.Error() == "" {
+		t.Error("Expected meaningful error message from testConnection")
 	}
 }
 
@@ -248,24 +266,36 @@ func TestMainLogic(t *testing.T) {
 
 	// Test version flag handling
 	t.Run("version_flag_logic", func(t *testing.T) {
-		// We can't easily test the os.Exit path, but we can test the logic
-		oldShowVersion := *showVersion
-		*showVersion = true
+		// Test that version and build constants are properly set
+		if version == "" {
+			t.Error("Version constant should not be empty")
+		}
 
-		defer func() { *showVersion = oldShowVersion }()
+		if buildTime == "" {
+			t.Error("BuildTime constant should not be empty")
+		}
 
-		// The version logic would print version info and exit
-		// We can't test the exit part easily, but we know it would exit
+		if name != "framework-led-daemon" {
+			t.Errorf("Expected name to be 'framework-led-daemon', got %s", name)
+		}
 	})
 
-	// Test help flag handling
-	t.Run("help_flag_logic", func(t *testing.T) {
-		oldShowHelp := *showHelp
-		*showHelp = true
+	// Test configuration loading logic
+	t.Run("configuration_loading_logic", func(t *testing.T) {
+		cfg, err := loadConfiguration()
+		if err != nil {
+			t.Errorf("loadConfiguration() should not fail: %v", err)
+		}
 
-		defer func() { *showHelp = oldShowHelp }()
+		if cfg == nil {
+			t.Error("loadConfiguration() should return a valid config")
+		}
 
-		// The help logic would print usage and exit
-		// We can't test the exit part easily, but we know it would exit
+		// Test command line overrides work
+		applyCommandLineOverrides(cfg)
+
+		if cfg == nil {
+			t.Error("Config should remain valid after applying overrides")
+		}
 	})
 }

@@ -183,7 +183,7 @@ func (s *Service) registerHealthChecks() {
 	matrixChecker := observability.NewMatrixHealthChecker("matrix", func(ctx context.Context) error {
 		s.mu.RLock()
 		defer s.mu.RUnlock()
-		
+
 		if s.usingMultiple && s.multiClient != nil {
 			return nil // Multi-client health check would be implemented
 		} else if s.matrix != nil {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -202,7 +203,7 @@ func TestHelperFunctions(t *testing.T) {
 	})
 }
 
-func TestPrintSimulatedDisplay(_ *testing.T) {
+func TestPrintSimulatedDisplay(t *testing.T) {
 	cfg := config.DefaultConfig()
 	summary := &stats.StatsSummary{
 		CPUUsage:        50.0,
@@ -218,11 +219,19 @@ func TestPrintSimulatedDisplay(_ *testing.T) {
 
 	for _, mode := range modes {
 		for _, metric := range metrics {
-			cfg.Display.Mode = mode
-			cfg.Display.PrimaryMetric = metric
+			t.Run(fmt.Sprintf("mode_%s_metric_%s", mode, metric), func(t *testing.T) {
+				cfg.Display.Mode = mode
+				cfg.Display.PrimaryMetric = metric
 
-			// Should not panic
-			printSimulatedDisplay(summary, cfg)
+				// Test that printSimulatedDisplay doesn't panic
+				defer func() {
+					if r := recover(); r != nil {
+						t.Errorf("printSimulatedDisplay() panicked with mode=%s, metric=%s: %v", mode, metric, r)
+					}
+				}()
+
+				printSimulatedDisplay(summary, cfg)
+			})
 		}
 	}
 }
@@ -231,8 +240,14 @@ func TestMainLogic(t *testing.T) {
 	// Test individual components that main() uses
 	t.Run("config_loading", func(t *testing.T) {
 		cfg := config.DefaultConfig()
-		if cfg == nil {
-			t.Error("DefaultConfig should not return nil")
+
+		// Verify default values are reasonable
+		if cfg.Display.Mode == "" {
+			t.Error("Default config should have a display mode")
+		}
+
+		if cfg.Display.PrimaryMetric == "" {
+			t.Error("Default config should have a primary metric")
 		}
 	})
 
@@ -249,10 +264,39 @@ func TestMainLogic(t *testing.T) {
 			cfg.Display.PrimaryMetric = "cpu"
 		}
 
-		// Test mock display manager methods
+		// Test mock display manager methods work properly
 		err := mockDM.UpdatePercentage("test", 50.0)
 		if err != nil {
-			t.Errorf("Mock display manager failed: %v", err)
+			t.Errorf("Mock display manager UpdatePercentage failed: %v", err)
+		}
+
+		// Verify mock display manager state was updated
+		if len(mockDM.currentPattern) == 0 {
+			t.Error("Mock display manager should have a pattern after UpdatePercentage")
+		}
+
+		if mockDM.lastUpdate.IsZero() {
+			t.Error("Mock display manager should have updated lastUpdate timestamp")
+		}
+	})
+
+	t.Run("constants_validation", func(t *testing.T) {
+		// Test that LED dimensions are positive and reasonable
+		if LEDWidth <= 0 {
+			t.Errorf("LEDWidth should be positive, got %d", LEDWidth)
+		}
+
+		if LEDHeight <= 0 {
+			t.Errorf("LEDHeight should be positive, got %d", LEDHeight)
+		}
+
+		// Test that version info is set
+		if version == "" {
+			t.Error("Version should not be empty")
+		}
+
+		if buildTime == "" {
+			t.Error("BuildTime should not be empty")
 		}
 	})
 }
