@@ -7,7 +7,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/takama/daemon v1.0.0
 	go.bug.st/serial v1.6.4
-	golang.org/x/sys v0.20.0
+	golang.org/x/sys v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
