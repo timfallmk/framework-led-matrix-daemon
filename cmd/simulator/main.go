@@ -32,6 +32,7 @@ func main() {
 		interval    = flag.Duration("interval", 2*time.Second, "Update interval")
 		showVersion = flag.Bool("version", false, "Show version information")
 	)
+
 	flag.Parse()
 
 	if *showVersion {

@@ -91,6 +91,7 @@ func NewLogger(config Config) (*Logger, error) {
 
 	// Convert level
 	var level slog.Level
+
 	switch config.Level {
 	case LevelDebug:
 		level = slog.LevelDebug
