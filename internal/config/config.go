@@ -638,6 +638,7 @@ func (c *Config) ValidateDetailed() []ValidationError {
 
 		if brightness, ok := matrix["brightness"]; ok {
 			var brightnessVal float64
+
 			switch v := brightness.(type) {
 			case int:
 				brightnessVal = float64(v)

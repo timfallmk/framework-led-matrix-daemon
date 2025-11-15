@@ -198,18 +198,23 @@ display:
 				if cfg.Matrix.BaudRate != 9600 {
 					t.Errorf("Expected baud rate 9600, got %d", cfg.Matrix.BaudRate)
 				}
+
 				if cfg.Matrix.Brightness != 50 {
 					t.Errorf("Expected brightness 50, got %d", cfg.Matrix.Brightness)
 				}
+
 				if cfg.Stats.CollectInterval != 5*time.Second {
 					t.Errorf("Expected collect interval 5s, got %v", cfg.Stats.CollectInterval)
 				}
+
 				if !cfg.Stats.EnableNetwork {
 					t.Error("Expected network monitoring to be enabled")
 				}
+
 				if cfg.Display.Mode != stringGradient {
 					t.Errorf("Expected display mode 'gradient', got %s", cfg.Display.Mode)
 				}
+
 				if cfg.Display.PrimaryMetric != "memory" {
 					t.Errorf("Expected primary metric 'memory', got %s", cfg.Display.PrimaryMetric)
 				}
