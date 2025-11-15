@@ -1,8 +1,11 @@
 # CodeRabbit Configuration for Framework LED Matrix Daemon
-# https://docs.coderabbit.ai/guides/review-settings
+# https://docs.coderabbit.ai/reference/configuration
 
 # Language-specific settings
 language: "en-US"
+
+# Tone and communication style - global setting per schema
+tone_instructions: "Use a constructive tone with comprehensive analysis focused on Go best practices, hardware safety, and system programming patterns."
 
 # Review settings
 reviews:
@@ -47,119 +50,58 @@ reviews:
         - Table-driven tests where appropriate
         - Proper setup and teardown
         - Mock usage and test isolation
-    
+        - Go idioms and best practices
+        - Proper error handling patterns
+
     - path: "internal/matrix/**"
       instructions: |
         For matrix package, focus on:
-        - Hardware communication safety
+        - Hardware communication safety (Framework LED protocol compliance)
         - Proper error handling for serial operations
-        - Resource cleanup (connection management)
+        - Resource cleanup with defer statements
         - Thread safety for concurrent access
-    
+        - Efficient goroutine and channel usage
+        - Proper synchronization to avoid race conditions
+
     - path: "internal/config/**"
       instructions: |
         For config package, focus on:
         - Validation logic completeness
         - Error message clarity
         - Default value appropriateness
-        - Security of configuration handling
-    
+        - Security of configuration handling (no secrets exposure)
+        - Input validation and sanitization
+        - Proper struct design and interface usage
+
     - path: "internal/stats/**"
       instructions: |
         For stats package, focus on:
         - Accuracy of system statistics collection
-        - Performance impact of collection methods
+        - Performance impact and memory efficiency
         - Cross-platform compatibility
-        - Memory usage efficiency
-    
+        - Proper error handling for system calls
+        - Avoiding memory leaks in collection routines
+
     - path: "cmd/**"
       instructions: |
         For command-line interfaces, focus on:
-        - User experience and error messages
+        - User experience and clear error messages
         - Flag and argument validation
         - Help text clarity
         - Exit code conventions
+        - Proper CLI patterns and best practices
 
-# Specific focus areas for Go code
-review_instructions: |
-  Please focus on the following areas when reviewing Go code:
-  
-  ## Code Quality & Style
-  - Follow Go idioms and best practices
-  - Check for proper error handling patterns
-  - Ensure consistent naming conventions
-  - Verify proper use of Go's built-in types and functions
-  
-  ## Performance & Efficiency
-  - Look for potential memory leaks
-  - Check for efficient use of goroutines and channels
-  - Identify unnecessary allocations
-  - Review concurrency patterns for race conditions
-  
-  ## Security & Safety
-  - Check for potential security vulnerabilities
-  - Verify input validation and sanitization
-  - Review file and network operations for safety
-  - Ensure proper resource cleanup (defer statements)
-  
-  ## Architecture & Design
-  - Check for proper separation of concerns
-  - Verify interface design and implementations
-  - Review dependency injection patterns
-  - Ensure testability of code
-  
-  ## Framework LED Matrix Specific
-  - Verify hardware communication patterns are safe
-  - Check for proper serial port handling
-  - Review system statistics collection for accuracy
-  - Ensure configuration management is robust
-  
-  ## Testing & Documentation
-  - Check for adequate test coverage
-  - Verify tests are meaningful and not just coverage padding
-  - Review documentation for clarity and completeness
-  - Ensure examples in documentation are correct
+  # Enable Go-specific linting and analysis tools
+  tools:
+    golangci-lint:
+      enabled: true
 
-# Custom rules for this project
-rules:
-  # Go-specific rules
-  - name: "error-handling"
-    description: "Ensure all errors are properly handled"
-    pattern: "if.*err.*!=.*nil"
-    message: "Verify error is properly handled and not just ignored"
-  
-  - name: "defer-cleanup"
-    description: "Check for resource cleanup"
-    pattern: "(Open|Connect|NewClient)"
-    message: "Ensure proper cleanup with defer statements"
-  
-  - name: "goroutine-safety"
-    description: "Review goroutine usage"
-    pattern: "go func"
-    message: "Review for potential race conditions and proper synchronization"
-  
-  - name: "serial-port-safety"
-    description: "Review serial port operations"
-    pattern: "(serial\\.|tty|/dev/)"
-    message: "Ensure safe serial port operations with proper error handling"
+    shellcheck:
+      enabled: true
 
-# Tone and communication style
-tone: "constructive"
-review_style: "comprehensive"
+    markdownlint:
+      enabled: true
 
-# Integration settings
-integrations:
-  github:
-    enabled: true
-    
-    # Automatically resolve conversations when suggestions are applied
-    auto_resolve: true
-    
-    # Add labels to PRs based on review findings
-    labels:
-      - name: "needs-review"
-        condition: "has_suggestions"
-      - name: "security-review"
-        condition: "has_security_issues"
-      - name: "performance-review" 
-        condition: "has_performance_issues"
+    github-checks:
+      enabled: true
+      timeout_ms: 90000
