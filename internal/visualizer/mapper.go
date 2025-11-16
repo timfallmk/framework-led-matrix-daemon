@@ -201,12 +201,14 @@ func (v *Visualizer) CreateCustomPattern(width, height int, data []float64) ([39
 		return pixels, fmt.Errorf("data length mismatch: expected %d, got %d", width*height, len(data))
 	}
 
-	for i, value := range data {
-		if i >= len(pixels) {
-			break
-		}
+	// Use explicit bounds to satisfy gosec linter
+	maxLen := len(pixels)
+	if len(data) < maxLen {
+		maxLen = len(data)
+	}
 
-		normalized := math.Max(0, math.Min(1, value))
+	for i := 0; i < maxLen; i++ {
+		normalized := math.Max(0, math.Min(1, data[i]))
 		pixels[i] = byte(normalized * 255)
 	}
 
