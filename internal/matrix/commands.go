@@ -41,7 +41,8 @@ func NewCommand(id byte, params ...byte) Command {
 
 // ToBytes converts the command to its byte representation for transmission.
 func (c Command) ToBytes() []byte {
-	result := []byte{MagicByte1, MagicByte2, c.ID}
+	result := make([]byte, 0, 3+len(c.Params))
+	result = append(result, MagicByte1, MagicByte2, c.ID)
 	result = append(result, c.Params...)
 
 	return result
@@ -54,7 +55,8 @@ func BrightnessCommand(level byte) Command {
 
 // PatternCommand creates a command to display a specific pattern with parameters.
 func PatternCommand(pattern byte, params ...byte) Command {
-	args := []byte{pattern}
+	args := make([]byte, 0, 1+len(params))
+	args = append(args, pattern)
 	args = append(args, params...)
 
 	return NewCommand(CmdPattern, args...)
@@ -97,7 +99,8 @@ func DrawBWCommand(pixels [39]byte) Command {
 
 // StageColCommand creates a command to stage a column of pixels for display.
 func StageColCommand(col byte, pixels [34]byte) Command {
-	params := []byte{col}
+	params := make([]byte, 0, 1+len(pixels))
+	params = append(params, col)
 	params = append(params, pixels[:]...)
 
 	return NewCommand(CmdStageCol, params...)
