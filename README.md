@@ -1,7 +1,7 @@
 # Framework LED Matrix Daemon
 
 [![CI](https://github.com/timfallmk/framework-led-matrix-daemon/actions/workflows/ci.yml/badge.svg)](https://github.com/timfallmk/framework-led-matrix-daemon/actions/workflows/ci.yml)
-![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/timfallmk/framework-led-matrix-daemon?utm_source=oss&utm_medium=github&utm_campaign=timfallmk%2Fframework-led-matrix-daemon&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+[![CodeRabbit Reviews](https://coderabbit.ai/images/badge.svg)](https://coderabbit.ai)
 
 A cross-platform Go daemon that displays real-time system statistics on Framework Laptop LED matrices. Monitor CPU usage, memory consumption, disk activity, and system status directly on your laptop's LED matrix input modules. Supports both single and dual matrix configurations for enhanced monitoring capabilities.
 
