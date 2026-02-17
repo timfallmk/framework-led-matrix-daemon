@@ -29,12 +29,12 @@ Search the repository for all Go version references. The known locations are:
 
 | File | Pattern | Example |
 |------|---------|---------|
-| `go.mod` | `go X.Y.Z` | `go 1.25.4` |
-| `Dockerfile` | `golang:X.Y.Z-alpine` | `golang:1.25.4-alpine` |
-| `.github/workflows/ci.yml` | `GO_VERSION: "X.Y.Z"` and `go-version: ['X.Y.Z']` | `GO_VERSION: "1.25.4"` |
-| `.github/workflows/release.yml` | `GO_VERSION: 'X.Y.Z'` | `GO_VERSION: '1.25.4'` |
-| `README.md` | `Go X.Y or later` and `Go X.Y+` | `Go 1.25 or later`, `Go 1.25+` |
-| `CONTRIBUTING.md` | `Go X.Y` | `Go 1.25` |
+| `go.mod` | `go X.Y.Z` | `go <version>` |
+| `Dockerfile` | `golang:X.Y.Z-alpine` | `golang:<version>-alpine` |
+| `.github/workflows/ci.yml` | `GO_VERSION: "X.Y.Z"` and `go-version: ['X.Y.Z']` | `GO_VERSION: "<version>"` |
+| `.github/workflows/release.yml` | `GO_VERSION: 'X.Y.Z'` | `GO_VERSION: '<version>'` |
+| `README.md` | `Go X.Y or later` and `Go X.Y+` | `Go <major>.<minor> or later` |
+| `CONTRIBUTING.md` | `Go X.Y` | `Go <major>.<minor>` |
 
 Additionally, run a grep across the entire repo to catch any other references to the old version.
 
@@ -50,7 +50,7 @@ For each file found in Step 3:
 ### Step 5: Validate
 
 1. Run `go mod tidy` to ensure `go.mod` and `go.sum` are consistent
-2. Run a final grep for the OLD version string to confirm no references remain
+2. Run a final grep for the OLD version string to confirm no references remain (exclude `go.sum`, `.git/`, `.claude/`, and binary files from this check)
 3. Report all changes made
 
 ## Output Format

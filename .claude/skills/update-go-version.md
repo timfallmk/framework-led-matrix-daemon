@@ -27,7 +27,7 @@ If the repo is already on the latest version, inform the user and stop. Otherwis
 
 Update Go version references in ALL of these locations:
 
-**Build files (use full patch version, e.g., `1.26.0`):**
+**Build files (use full patch version, e.g., `X.Y.Z`):**
 - `go.mod` - the `go` directive
 - `Dockerfile` - the `golang:X.Y.Z-alpine` builder image
 
@@ -35,17 +35,17 @@ Update Go version references in ALL of these locations:
 - `.github/workflows/ci.yml` - `GO_VERSION` env var and `go-version` matrix
 - `.github/workflows/release.yml` - `GO_VERSION` env var
 
-**Documentation (use minor version, e.g., `1.26`):**
+**Documentation (use minor version, e.g., `X.Y`):**
 - `README.md` - minimum version requirements and install instructions
 - `CONTRIBUTING.md` - prerequisites section
 
 ### 5. Run Grep Safety Check
 
 After making changes, grep the entire repository for the OLD version string to ensure nothing was missed. The old version could appear as:
-- The full patch version (e.g., `1.25.4`)
-- The minor version in docs (e.g., `1.25`)
+- The full patch version (e.g., `<old_major>.<old_minor>.<old_patch>`)
+- The minor version in docs (e.g., `<old_major>.<old_minor>`)
 
-Exclude `go.sum`, `.git/`, and binary files from this check.
+Exclude `go.sum`, `.git/`, `.claude/`, and binary files from this check.
 
 ### 6. Tidy Modules
 
