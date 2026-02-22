@@ -2,6 +2,7 @@ package matrix
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -847,7 +848,7 @@ func TestMultiClientConcurrentGetClients(t *testing.T) {
 	mc.clients["matrix2"] = NewClient()
 	mc.mu.Unlock()
 
-	done := make(chan bool)
+	done := make(chan error)
 
 	// Multiple goroutines calling GetClients concurrently
 	for i := 0; i < 10; i++ {
@@ -856,15 +857,18 @@ func TestMultiClientConcurrentGetClients(t *testing.T) {
 				clients := mc.GetClients()
 				// Verify we get a snapshot
 				if len(clients) != 2 {
-					t.Errorf("Expected 2 clients, got %d", len(clients))
+					done <- fmt.Errorf("expected 2 clients, got %d", len(clients))
+					return
 				}
 			}
-			done <- true
+			done <- nil
 		}()
 	}
 
 	for i := 0; i < 10; i++ {
-		<-done
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
 	}
 }
 
