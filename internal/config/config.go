@@ -184,7 +184,7 @@ func LoadConfig(path string) (*Config, error) {
 		path = filepath.Clean(path)
 	}
 
-	// #nosec G304 - path validation handled via application logic
+	// #nosec G304 G703 - path validation handled via application logic
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -370,8 +370,10 @@ func (c *Config) ConvertMatrices() []SingleMatrixConfig {
 
 		if brightness, ok := m["brightness"].(int); ok && brightness >= 0 && brightness <= 255 {
 			matrix.Brightness = byte(brightness) // #nosec G115 - bounds checked in condition
-		} else if brightness, ok := m["brightness"].(float64); ok && brightness >= 0 && brightness <= 255 {
+		} else if brightness, ok := m["brightness"].(float64); ok && brightness >= 0 && brightness <= 255 { //nolint:nestif
 			matrix.Brightness = byte(brightness) // #nosec G115 - bounds checked in condition
+		} else if _, present := m["brightness"]; present {
+			log.Printf("warning: matrix %q brightness value %v is out of range [0, 255] or invalid type; ignoring", matrix.Name, m["brightness"])
 		}
 
 		if metrics, ok := m["metrics"].([]interface{}); ok {
