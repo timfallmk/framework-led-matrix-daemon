@@ -796,6 +796,7 @@ func TestMultiClientConcurrentReads(t *testing.T) {
 				_ = mc.GetConfig("matrix1")
 				_ = mc.HasMultipleMatrices()
 			}
+
 			done <- true
 		}()
 	}
@@ -818,6 +819,7 @@ func TestMultiClientConcurrentReadWrite(t *testing.T) {
 			mc.config["test-matrix"] = &SingleMatrixConfig{Name: "test-matrix"}
 			mc.mu.Unlock()
 		}
+
 		done <- true
 	}()
 
@@ -830,6 +832,7 @@ func TestMultiClientConcurrentReadWrite(t *testing.T) {
 				_ = mc.GetConfig("test-matrix")
 				_ = mc.HasMultipleMatrices()
 			}
+
 			done <- true
 		}()
 	}
@@ -858,9 +861,11 @@ func TestMultiClientConcurrentGetClients(t *testing.T) {
 				// Verify we get a snapshot
 				if len(clients) != 2 {
 					done <- fmt.Errorf("expected 2 clients, got %d", len(clients))
+
 					return
 				}
 			}
+
 			done <- nil
 		}()
 	}
