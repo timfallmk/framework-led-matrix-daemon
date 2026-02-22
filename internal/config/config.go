@@ -373,7 +373,8 @@ func (c *Config) ConvertMatrices() []SingleMatrixConfig {
 		} else if brightness, ok := m["brightness"].(float64); ok && brightness >= 0 && brightness <= 255 { //nolint:nestif
 			matrix.Brightness = byte(brightness) // #nosec G115 - bounds checked in condition
 		} else if _, present := m["brightness"]; present {
-			log.Printf("warning: matrix %q brightness value %v is out of range [0, 255] or invalid type; ignoring", matrix.Name, m["brightness"])
+			log.Printf("warning: matrix %q brightness value %v is out of range [0, 255] or invalid type; ignoring",
+				matrix.Name, m["brightness"])
 		}
 
 		if metrics, ok := m["metrics"].([]interface{}); ok {
