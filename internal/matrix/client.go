@@ -4,11 +4,12 @@ package matrix
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
+
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 )
 
 // Client manages serial communication with a single LED matrix module.
@@ -57,8 +58,7 @@ func (c *Client) DiscoverPorts() ([]string, error) {
 
 	for _, port := range ports {
 		if port.IsUSB {
-			log.Printf("Found USB port: %s (VID: %s, PID: %s)",
-				port.Name, port.VID, port.PID)
+			logging.Debug("found USB port", "name", port.Name, "vid", port.VID, "pid", port.PID)
 
 			// Framework LED Matrix has VID 32AC
 			if port.VID == "32AC" {
@@ -80,7 +80,7 @@ func (c *Client) DiscoverPorts() ([]string, error) {
 		return nil, fmt.Errorf("no USB ports found")
 	}
 
-	log.Printf("Discovered %d potential LED matrix port(s): %v", len(frameworkPorts), frameworkPorts)
+	logging.Info("discovered potential LED matrix ports", "count", len(frameworkPorts), "ports", frameworkPorts)
 
 	return frameworkPorts, nil
 }
@@ -104,7 +104,7 @@ func (c *Client) Connect(portName string) error {
 
 	c.port = port
 
-	log.Printf("Connected to LED Matrix on port: %s", portName)
+	logging.Info("connected to LED matrix", "port", portName)
 
 	return nil
 }
@@ -134,7 +134,7 @@ func (c *Client) SendCommand(cmd Command) error {
 		return fmt.Errorf("failed to write command: %w", err)
 	}
 
-	log.Printf("Sent command: ID=0x%02X, Data=%v", cmd.ID, data)
+	logging.Debug("sent command", "id", fmt.Sprintf("0x%02X", cmd.ID), "data", data)
 
 	return nil
 }
@@ -148,7 +148,7 @@ func (c *Client) ReadResponse(expectedBytes int) ([]byte, error) {
 	buffer := make([]byte, expectedBytes)
 
 	if err := c.port.SetReadTimeout(DefaultTimeout); err != nil {
-		log.Printf("Warning: failed to set read timeout: %v", err)
+		logging.Warn("failed to set read timeout", "error", err)
 	}
 
 	n, err := c.port.Read(buffer)
@@ -245,8 +245,7 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 		return fmt.Errorf("failed to discover ports: %w", err)
 	}
 
-	log.Printf("Found %d potential matrix ports, configuring %d matrices",
-		len(discoveredPorts), len(matrices))
+	logging.Info("found potential matrix ports", "found", len(discoveredPorts), "configuring", len(matrices))
 
 	for i, matrixConfig := range matrices {
 		var portToUse string
@@ -257,28 +256,27 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 		case i < len(discoveredPorts):
 			portToUse = discoveredPorts[i]
 		default:
-			log.Printf("Warning: No port available for matrix %s, skipping", matrixConfig.Name)
+			logging.Warn("no port available for matrix, skipping", "matrix", matrixConfig.Name)
 
 			continue
 		}
 
 		client := NewClient()
 		if err := client.Connect(portToUse); err != nil {
-			log.Printf("Warning: Failed to connect to matrix %s on port %s: %v",
-				matrixConfig.Name, portToUse, err)
+			logging.Warn("failed to connect to matrix", "matrix", matrixConfig.Name, "port", portToUse, "error", err)
 
 			continue
 		}
 
 		if err := client.SetBrightness(matrixConfig.Brightness); err != nil {
-			log.Printf("Warning: Failed to set brightness for matrix %s: %v", matrixConfig.Name, err)
+			logging.Warn("failed to set brightness for matrix", "matrix", matrixConfig.Name, "error", err)
 		}
 
 		mc.clients[matrixConfig.Name] = client
 		configCopy := matrixConfig
 		mc.config[matrixConfig.Name] = &configCopy
 
-		log.Printf("Successfully connected matrix %s on port %s", matrixConfig.Name, portToUse)
+		logging.Info("successfully connected matrix", "matrix", matrixConfig.Name, "port", portToUse)
 	}
 
 	if len(mc.clients) == 0 {

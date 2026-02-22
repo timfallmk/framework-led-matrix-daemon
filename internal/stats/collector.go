@@ -5,7 +5,6 @@ package stats
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -15,6 +14,8 @@ import (
 	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
+
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 )
 
 // Collector gathers system statistics using gopsutil with rate limiting and threshold management.
@@ -81,14 +82,14 @@ func (c *Collector) CollectCPUStats() (CPUStats, error) {
 
 	perCorePercent, err := cpu.Percent(0, true)
 	if err != nil {
-		log.Printf("Warning: failed to get per-core CPU usage: %v", err)
+		logging.Warn("failed to get per-core CPU usage", "error", err)
 	} else {
 		stats.PerCorePercent = perCorePercent
 	}
 
 	cpuInfo, err := cpu.Info()
 	if err != nil {
-		log.Printf("Warning: failed to get CPU info: %v", err)
+		logging.Warn("failed to get CPU info", "error", err)
 	} else if len(cpuInfo) > 0 {
 		stats.ModelName = cpuInfo[0].ModelName
 		stats.VendorID = cpuInfo[0].VendorID
@@ -114,7 +115,7 @@ func (c *Collector) CollectMemoryStats() (MemoryStats, error) {
 
 	swap, err := mem.SwapMemory()
 	if err != nil {
-		log.Printf("Warning: failed to get swap memory stats: %v", err)
+		logging.Warn("failed to get swap memory stats", "error", err)
 	} else {
 		stats.SwapTotal = swap.Total
 		stats.SwapUsed = swap.Used
@@ -136,7 +137,7 @@ func (c *Collector) CollectDiskStats() (DiskStats, error) {
 	for _, partition := range partitions {
 		usage, usageErr := disk.Usage(partition.Mountpoint)
 		if usageErr != nil {
-			log.Printf("Warning: failed to get usage for partition %s: %v", partition.Device, usageErr)
+			logging.Warn("failed to get usage for partition", "device", partition.Device, "error", usageErr)
 
 			continue
 		}
@@ -155,7 +156,7 @@ func (c *Collector) CollectDiskStats() (DiskStats, error) {
 
 	ioCounters, err := disk.IOCounters()
 	if err != nil {
-		log.Printf("Warning: failed to get disk I/O counters: %v", err)
+		logging.Warn("failed to get disk I/O counters", "error", err)
 	} else {
 		stats.IOCounters = make(map[string]IOCounterStat)
 		for device, counter := range ioCounters {
@@ -251,21 +252,21 @@ func (c *Collector) CollectSystemStats() (*SystemStats, error) {
 
 	diskStats, err := c.CollectDiskStats()
 	if err != nil {
-		log.Printf("Warning: failed to collect disk stats: %v", err)
+		logging.Warn("failed to collect disk stats", "error", err)
 	}
 
 	stats.Disk = diskStats
 
 	netStats, err := c.CollectNetworkStats()
 	if err != nil {
-		log.Printf("Warning: failed to collect network stats: %v", err)
+		logging.Warn("failed to collect network stats", "error", err)
 	}
 
 	stats.Network = netStats
 
 	uptime, err := host.Uptime()
 	if err != nil {
-		log.Printf("Warning: failed to get uptime: %v", err)
+		logging.Warn("failed to get uptime", "error", err)
 	} else {
 		// #nosec G115 - uptime conversion is safe within reasonable system limits
 		stats.Uptime = time.Duration(uptime) * time.Second
@@ -273,7 +274,7 @@ func (c *Collector) CollectSystemStats() (*SystemStats, error) {
 
 	loadAvg, err := load.Avg()
 	if err != nil {
-		log.Printf("Warning: failed to get load average: %v", err)
+		logging.Warn("failed to get load average", "error", err)
 	} else {
 		stats.LoadAvg = []float64{loadAvg.Load1, loadAvg.Load5, loadAvg.Load15}
 	}

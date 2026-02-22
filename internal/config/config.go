@@ -6,7 +6,6 @@ package config
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,6 +15,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v3"
+
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 )
 
 const (
@@ -373,8 +374,8 @@ func (c *Config) ConvertMatrices() []SingleMatrixConfig {
 		} else if brightness, ok := m["brightness"].(float64); ok && brightness >= 0 && brightness <= 255 { //nolint:nestif
 			matrix.Brightness = byte(brightness) // #nosec G115 - bounds checked in condition
 		} else if _, present := m["brightness"]; present {
-			log.Printf("warning: matrix %q brightness value %v is out of range [0, 255] or invalid type; ignoring",
-				matrix.Name, m["brightness"])
+			logging.Warn("brightness value out of range or invalid type, ignoring",
+				"matrix", matrix.Name, "value", m["brightness"])
 		}
 
 		if metrics, ok := m["metrics"].([]interface{}); ok {
@@ -810,7 +811,7 @@ func (w *ConfigWatcher) Start(ctx context.Context) error {
 	// Add config file to watcher
 	if err := w.watcher.Add(w.configPath); err != nil {
 		if closeErr := w.watcher.Close(); closeErr != nil {
-			log.Printf("Warning: failed to close watcher: %v", closeErr)
+			logging.Warn("failed to close watcher", "error", closeErr)
 		}
 
 		return fmt.Errorf("failed to add config file to watcher: %w", err)

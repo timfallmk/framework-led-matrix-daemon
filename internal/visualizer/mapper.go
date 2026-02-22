@@ -5,11 +5,11 @@ package visualizer
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"time"
 
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
 )
 
@@ -281,7 +281,7 @@ func (mv *MultiVisualizer) updatePercentageMode(summary *stats.StatsSummary) err
 	for metric, value := range statsMap {
 		if err := mv.multiDisplay.UpdateMetric(metric, value, statsMap); err != nil {
 			lastErr = err
-			log.Printf("Error updating metric %s: %v", metric, err)
+			logging.Error("failed to update metric", "metric", metric, "error", err)
 		}
 	}
 
@@ -377,7 +377,7 @@ func (v *Visualizer) UpdateConfig(cfg *config.Config) {
 
 	if cfg.Matrix.Brightness != 0 {
 		if err := v.SetBrightness(cfg.Matrix.Brightness); err != nil {
-			log.Printf("Warning: failed to set brightness: %v", err)
+			logging.Warn("failed to set brightness", "error", err)
 		}
 	}
 }
