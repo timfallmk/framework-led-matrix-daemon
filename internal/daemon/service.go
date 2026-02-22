@@ -5,7 +5,6 @@ package daemon
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -391,7 +390,7 @@ func (s *Service) Stop() error {
 	s.eventLogger.Close()
 
 	if err := s.logger.Close(); err != nil {
-		log.Printf("Warning: failed to close logger: %v", err)
+		logging.Warn("failed to close logger", "error", err)
 	}
 
 	return nil

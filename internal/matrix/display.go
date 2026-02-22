@@ -2,9 +2,10 @@ package matrix
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
+
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 )
 
 // ClientInterface defines the interface that DisplayManager needs from a client.
@@ -82,7 +83,7 @@ func (dm *DisplayManager) UpdatePercentage(key string, percent float64) error {
 
 	dm.currentState[key] = percent
 	dm.markUpdatedUnsafe()
-	log.Printf("Updated %s percentage display: %.1f%%", key, percent)
+	logging.Info("updated percentage display", "key", key, "percent", percent)
 
 	return nil
 }
@@ -110,7 +111,7 @@ func (dm *DisplayManager) ShowActivity(active bool) error {
 	}
 
 	dm.markUpdatedUnsafe()
-	log.Printf("Updated activity display: %v", active)
+	logging.Info("updated activity display", "active", active)
 
 	return nil
 }
@@ -142,7 +143,7 @@ func (dm *DisplayManager) ShowStatus(status string) error {
 
 	dm.currentState["status"] = status
 	dm.markUpdatedUnsafe()
-	log.Printf("Updated status display: %s", status)
+	logging.Info("updated status display", "status", status)
 
 	return nil
 }
@@ -158,7 +159,7 @@ func (dm *DisplayManager) SetBrightness(level byte) error {
 
 	dm.currentState["brightness"] = level
 	dm.markUpdatedUnsafe()
-	log.Printf("Set brightness: %d", level)
+	logging.Info("set brightness", "level", level)
 
 	return nil
 }
@@ -234,7 +235,7 @@ func (mdm *MultiDisplayManager) updateMirrorMode(metricName string, value float6
 	for _, display := range mdm.displays {
 		if err := display.UpdatePercentage(metricName, value); err != nil {
 			lastErr = err
-			log.Printf("Error updating mirror display: %v", err)
+			logging.Error("failed to update mirror display", "error", err)
 		}
 	}
 
@@ -265,16 +266,16 @@ func (mdm *MultiDisplayManager) updateSplitMode(metricName string, value float64
 		if shouldDisplay {
 			if err := display.UpdatePercentage(metricName, value); err != nil {
 				lastErr = err
-				log.Printf("Error updating split display %s with %s: %v", name, metricName, err)
+				logging.Error("failed to update split display", "matrix", name, "metric", metricName, "error", err)
 			} else {
-				log.Printf("Updated matrix %s with %s: %.1f%%", name, metricName, value)
+				logging.Info("updated matrix", "matrix", name, "metric", metricName, "percent", value)
 			}
 		} else {
 			// If this matrix has no assigned metrics, show primary metric
 			if len(matrixConfig.Metrics) == 0 && metricName == "cpu" {
 				if err := display.UpdatePercentage(metricName, value); err != nil {
 					lastErr = err
-					log.Printf("Error updating fallback display %s with %s: %v", name, metricName, err)
+					logging.Error("failed to update fallback display", "matrix", name, "metric", metricName, "error", err)
 				}
 			}
 		}
@@ -305,7 +306,7 @@ func (mdm *MultiDisplayManager) UpdateActivity(active bool) error {
 	for name, display := range mdm.displays {
 		if err := display.ShowActivity(active); err != nil {
 			lastErr = err
-			log.Printf("Error updating activity on display %s: %v", name, err)
+			logging.Error("failed to update activity on display", "matrix", name, "error", err)
 		}
 	}
 
@@ -322,7 +323,7 @@ func (mdm *MultiDisplayManager) UpdateStatus(status string) error {
 	for name, display := range mdm.displays {
 		if err := display.ShowStatus(status); err != nil {
 			lastErr = err
-			log.Printf("Error updating status on display %s: %v", name, err)
+			logging.Error("failed to update status on display", "matrix", name, "error", err)
 		}
 	}
 
@@ -339,7 +340,7 @@ func (mdm *MultiDisplayManager) SetBrightness(level byte) error {
 	for name, display := range mdm.displays {
 		if err := display.SetBrightness(level); err != nil {
 			lastErr = err
-			log.Printf("Error setting brightness on display %s: %v", name, err)
+			logging.Error("failed to set brightness on display", "matrix", name, "error", err)
 		}
 	}
 

@@ -3,11 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/daemon"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 )
 
 const (
@@ -47,13 +47,15 @@ func main() {
 
 	cfg, err := loadConfiguration()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		logging.Error("failed to load configuration", "error", err)
+		os.Exit(1)
 	}
 
 	applyCommandLineOverrides(cfg)
 
 	if err = cfg.Validate(); err != nil {
-		log.Fatalf("Invalid configuration after command-line overrides: %v", err)
+		logging.Error("invalid configuration after command-line overrides", "error", err)
+		os.Exit(1)
 	}
 
 	if flag.NArg() < 1 {
@@ -66,46 +68,53 @@ func main() {
 
 	service, err := daemon.NewService(cfg)
 	if err != nil {
-		log.Fatalf("Failed to create service: %v", err)
+		logging.Error("failed to create service", "error", err)
+		os.Exit(1)
 	}
 
 	switch command {
 	case "run":
 		if err := service.Run(); err != nil {
-			log.Fatalf("Failed to run service: %v", err)
+			logging.Error("failed to run service", "error", err)
+			os.Exit(1)
 		}
 	case "install":
 		status, err := service.Install()
 		if err != nil {
-			log.Fatalf("Failed to install service: %v", err)
+			logging.Error("failed to install service", "error", err)
+			os.Exit(1)
 		}
 
 		fmt.Println(status)
 	case "remove", "uninstall":
 		status, err := service.Remove()
 		if err != nil {
-			log.Fatalf("Failed to remove service: %v", err)
+			logging.Error("failed to remove service", "error", err)
+			os.Exit(1)
 		}
 
 		fmt.Println(status)
 	case "start":
 		status, err := service.StartService()
 		if err != nil {
-			log.Fatalf("Failed to start service: %v", err)
+			logging.Error("failed to start service", "error", err)
+			os.Exit(1)
 		}
 
 		fmt.Println(status)
 	case "stop":
 		status, err := service.StopService()
 		if err != nil {
-			log.Fatalf("Failed to stop service: %v", err)
+			logging.Error("failed to stop service", "error", err)
+			os.Exit(1)
 		}
 
 		fmt.Println(status)
 	case "status":
 		status, err := service.Status()
 		if err != nil {
-			log.Fatalf("Failed to get service status: %v", err)
+			logging.Error("failed to get service status", "error", err)
+			os.Exit(1)
 		}
 
 		fmt.Println(status)
@@ -113,7 +122,8 @@ func main() {
 		showConfiguration(cfg)
 	case "test":
 		if err := testConnection(cfg); err != nil {
-			log.Fatalf("Connection test failed: %v", err)
+			logging.Error("connection test failed", "error", err)
+			os.Exit(1)
 		}
 
 		fmt.Println("Connection test successful!")
@@ -131,7 +141,7 @@ func loadConfiguration() (*config.Config, error) {
 
 	configFile, err := config.FindConfig()
 	if err != nil {
-		log.Printf("No configuration file found, using defaults")
+		logging.Info("no configuration file found, using defaults")
 
 		return config.DefaultConfig(), nil //nolint:nilerr
 	}
@@ -232,7 +242,7 @@ func showConfiguration(cfg *config.Config) {
 }
 
 func testConnection(cfg *config.Config) error {
-	log.Printf("Testing connection to LED matrix...")
+	logging.Info("testing connection to LED matrix")
 
 	service, err := daemon.NewService(cfg)
 	if err != nil {
@@ -243,7 +253,7 @@ func testConnection(cfg *config.Config) error {
 		return fmt.Errorf("failed to initialize service: %w", err)
 	}
 
-	log.Printf("Connection test completed successfully")
+	logging.Info("connection test completed successfully")
 
 	return nil
 }
