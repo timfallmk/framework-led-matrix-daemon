@@ -390,7 +390,7 @@ func (s *Service) Stop() error {
 	s.eventLogger.Close()
 
 	if err := s.logger.Close(); err != nil {
-		logging.Warn("failed to close logger", "error", err)
+		fmt.Fprintf(os.Stderr, "warning: failed to close logger: %v\n", err)
 	}
 
 	return nil

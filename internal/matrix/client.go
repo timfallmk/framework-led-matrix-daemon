@@ -58,7 +58,7 @@ func (c *Client) DiscoverPorts() ([]string, error) {
 
 	for _, port := range ports {
 		if port.IsUSB {
-			logging.Info("found USB port", "name", port.Name, "vid", port.VID, "pid", port.PID)
+			logging.Debug("found USB port", "name", port.Name, "vid", port.VID, "pid", port.PID)
 
 			// Framework LED Matrix has VID 32AC
 			if port.VID == "32AC" {
@@ -134,7 +134,7 @@ func (c *Client) SendCommand(cmd Command) error {
 		return fmt.Errorf("failed to write command: %w", err)
 	}
 
-	logging.Info("sent command", "id", fmt.Sprintf("0x%02X", cmd.ID), "data", data)
+	logging.Debug("sent command", "id", fmt.Sprintf("0x%02X", cmd.ID), "data", data)
 
 	return nil
 }
