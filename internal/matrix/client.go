@@ -225,9 +225,9 @@ type SingleMatrixConfig struct {
 
 // MultiClient manages multiple LED matrix clients.
 type MultiClient struct {
-	mu      sync.RWMutex
 	clients map[string]*Client
 	config  map[string]*SingleMatrixConfig
+	mu      sync.RWMutex
 }
 
 // NewMultiClient creates a new MultiClient for managing multiple LED matrix connections.
@@ -298,6 +298,7 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 func (mc *MultiClient) GetClient(name string) *Client {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
+
 	return mc.clients[name]
 }
 
@@ -305,10 +306,12 @@ func (mc *MultiClient) GetClient(name string) *Client {
 func (mc *MultiClient) GetClients() map[string]*Client {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
+
 	snapshot := make(map[string]*Client, len(mc.clients))
 	for k, v := range mc.clients {
 		snapshot[k] = v
 	}
+
 	return snapshot
 }
 
@@ -316,6 +319,7 @@ func (mc *MultiClient) GetClients() map[string]*Client {
 func (mc *MultiClient) GetConfig(name string) *SingleMatrixConfig {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
+
 	return mc.config[name]
 }
 
@@ -343,5 +347,6 @@ func (mc *MultiClient) Disconnect() error {
 func (mc *MultiClient) HasMultipleMatrices() bool {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
+
 	return len(mc.clients) > 1
 }
