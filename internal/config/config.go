@@ -368,10 +368,10 @@ func (c *Config) ConvertMatrices() []SingleMatrixConfig {
 			matrix.Role = role
 		}
 
-		if brightness, ok := m["brightness"].(int); ok {
-			matrix.Brightness = byte(brightness)
-		} else if brightness, ok := m["brightness"].(float64); ok {
-			matrix.Brightness = byte(brightness)
+		if brightness, ok := m["brightness"].(int); ok && brightness >= 0 && brightness <= 255 {
+			matrix.Brightness = byte(brightness) // #nosec G115 - bounds checked in condition
+		} else if brightness, ok := m["brightness"].(float64); ok && brightness >= 0 && brightness <= 255 {
+			matrix.Brightness = byte(brightness) // #nosec G115 - bounds checked in condition
 		}
 
 		if metrics, ok := m["metrics"].([]interface{}); ok {
