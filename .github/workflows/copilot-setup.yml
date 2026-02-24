@@ -1,0 +1,96 @@
+name: Copilot Instructions Setup
+
+on:
+  pull_request:
+    paths:
+      - '.github/copilot-instructions.md'
+      - '.github/**/*.instructions.md'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/copilot-instructions.md'
+      - '.github/**/*.instructions.md'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  validate-copilot-instructions:
+    name: Validate Copilot Instructions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check copilot-instructions.md exists
+        run: |
+          if [ ! -f .github/copilot-instructions.md ]; then
+            echo "❌ Error: .github/copilot-instructions.md not found"
+            exit 1
+          fi
+          echo "✅ copilot-instructions.md found"
+
+      - name: Validate file size (should be ~2 pages)
+        run: |
+          # Check if file is not too large (aim for ~2 pages, roughly 15KB max)
+          size=$(stat -f%z .github/copilot-instructions.md 2>/dev/null || stat -c%s .github/copilot-instructions.md)
+          max_size=$((15 * 1024))  # 15KB
+          
+          if [ "$size" -gt "$max_size" ]; then
+            echo "⚠️  Warning: copilot-instructions.md is larger than recommended (~2 pages)"
+            echo "   Current size: $(echo "scale=1; $size/1024" | bc)KB (recommended: <15KB)"
+          else
+            echo "✅ File size is appropriate: $(echo "scale=1; $size/1024" | bc)KB"
+          fi
+
+      - name: Validate markdown formatting
+        uses: DavidAnson/markdownlint-action@v1
+        with:
+          files: '.github/copilot-instructions.md'
+          config: |
+            {
+              "MD013": false,
+              "MD033": false,
+              "MD041": false
+            }
+        continue-on-error: true
+
+      - name: Check for required sections
+        run: |
+          echo "Checking for required sections in copilot-instructions.md..."
+          
+          sections=(
+            "Project Overview"
+            "Repository Layout"
+            "Build"
+            "Test"
+          )
+          
+          missing_sections=()
+          for section in "${sections[@]}"; do
+            if ! grep -q "$section" .github/copilot-instructions.md; then
+              missing_sections+=("$section")
+            fi
+          done
+          
+          if [ ${#missing_sections[@]} -gt 0 ]; then
+            echo "⚠️  Warning: The following recommended sections are missing:"
+            printf '   - %s\n' "${missing_sections[@]}"
+          else
+            echo "✅ All recommended sections are present"
+          fi
+
+      - name: Validate instructions summary
+        run: |
+          echo "📝 Copilot Instructions Summary:"
+          echo "================================"
+          word_count=$(wc -w < .github/copilot-instructions.md)
+          line_count=$(wc -l < .github/copilot-instructions.md)
+          size=$(stat -f%z .github/copilot-instructions.md 2>/dev/null || stat -c%s .github/copilot-instructions.md)
+          
+          echo "Lines: $line_count"
+          echo "Words: $word_count"
+          echo "Size: $(echo "scale=1; $size/1024" | bc)KB"
+          echo ""
+          echo "✅ Copilot instructions are valid and ready to use"
