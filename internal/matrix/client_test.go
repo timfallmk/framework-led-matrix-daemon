@@ -2,6 +2,7 @@ package matrix
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -612,5 +613,297 @@ func BenchmarkClientDrawBitmap(b *testing.B) {
 		mockPort.writeData = nil // Reset
 
 		client.DrawBitmap(pixels)
+	}
+}
+
+// Tests for MultiClient
+
+func TestNewMultiClient(t *testing.T) {
+	mc := NewMultiClient()
+
+	if mc == nil {
+		t.Fatal("NewMultiClient() returned nil")
+	}
+
+	if mc.clients == nil {
+		t.Error("NewMultiClient() clients map is nil")
+	}
+
+	if mc.config == nil {
+		t.Error("NewMultiClient() config map is nil")
+	}
+}
+
+func TestMultiClientGetClient(t *testing.T) {
+	mc := NewMultiClient()
+	mockClient := NewClient()
+	mockPort := NewMockPort()
+	mockClient.port = mockPort
+
+	mc.mu.Lock()
+	mc.clients["test-matrix"] = mockClient
+	mc.mu.Unlock()
+
+	client := mc.GetClient("test-matrix")
+	if client != mockClient {
+		t.Error("GetClient() returned wrong client")
+	}
+
+	nilClient := mc.GetClient("non-existent")
+	if nilClient != nil {
+		t.Error("GetClient() should return nil for non-existent client")
+	}
+}
+
+func TestMultiClientGetClients(t *testing.T) {
+	mc := NewMultiClient()
+	mockClient1 := NewClient()
+	mockClient2 := NewClient()
+
+	mc.mu.Lock()
+	mc.clients["matrix1"] = mockClient1
+	mc.clients["matrix2"] = mockClient2
+	mc.mu.Unlock()
+
+	clients := mc.GetClients()
+
+	if len(clients) != 2 {
+		t.Errorf("GetClients() returned %d clients, want 2", len(clients))
+	}
+
+	if clients["matrix1"] != mockClient1 {
+		t.Error("GetClients() returned wrong client for matrix1")
+	}
+
+	if clients["matrix2"] != mockClient2 {
+		t.Error("GetClients() returned wrong client for matrix2")
+	}
+
+	// Verify it returns a copy, not the internal map
+	clients["matrix3"] = NewClient()
+
+	mc.mu.RLock()
+	actualCount := len(mc.clients)
+	mc.mu.RUnlock()
+
+	if actualCount != 2 {
+		t.Error("GetClients() should return a copy, not the internal map")
+	}
+}
+
+func TestMultiClientGetConfig(t *testing.T) {
+	mc := NewMultiClient()
+	testConfig := &SingleMatrixConfig{
+		Name:       "test-matrix",
+		Port:       "/dev/ttyUSB0",
+		Role:       "primary",
+		Metrics:    []string{"cpu"},
+		Brightness: 128,
+	}
+
+	mc.mu.Lock()
+	mc.config["test-matrix"] = testConfig
+	mc.mu.Unlock()
+
+	config := mc.GetConfig("test-matrix")
+	if config != testConfig {
+		t.Error("GetConfig() returned wrong config")
+	}
+
+	nilConfig := mc.GetConfig("non-existent")
+	if nilConfig != nil {
+		t.Error("GetConfig() should return nil for non-existent config")
+	}
+}
+
+func TestMultiClientHasMultipleMatrices(t *testing.T) {
+	mc := NewMultiClient()
+
+	// No clients
+	if mc.HasMultipleMatrices() {
+		t.Error("HasMultipleMatrices() should return false with no clients")
+	}
+
+	// One client
+	mc.mu.Lock()
+	mc.clients["matrix1"] = NewClient()
+	mc.mu.Unlock()
+
+	if mc.HasMultipleMatrices() {
+		t.Error("HasMultipleMatrices() should return false with one client")
+	}
+
+	// Two clients
+	mc.mu.Lock()
+	mc.clients["matrix2"] = NewClient()
+	mc.mu.Unlock()
+
+	if !mc.HasMultipleMatrices() {
+		t.Error("HasMultipleMatrices() should return true with two clients")
+	}
+}
+
+func TestMultiClientDisconnect(t *testing.T) {
+	mc := NewMultiClient()
+	mockPort1 := NewMockPort()
+	mockPort2 := NewMockPort()
+
+	client1 := NewClient()
+	client1.port = mockPort1
+	client2 := NewClient()
+	client2.port = mockPort2
+
+	mc.mu.Lock()
+	mc.clients["matrix1"] = client1
+	mc.clients["matrix2"] = client2
+	mc.mu.Unlock()
+
+	err := mc.Disconnect()
+	if err != nil {
+		t.Errorf("Disconnect() error = %v", err)
+	}
+
+	if !mockPort1.IsClosed() {
+		t.Error("Disconnect() should close matrix1 port")
+	}
+
+	if !mockPort2.IsClosed() {
+		t.Error("Disconnect() should close matrix2 port")
+	}
+}
+
+// Race condition tests - these tests will fail with -race flag if mutex is not properly implemented
+
+func TestMultiClientConcurrentReads(t *testing.T) {
+	mc := NewMultiClient()
+
+	// Set up some test data
+	mc.mu.Lock()
+	mc.clients["matrix1"] = NewClient()
+	mc.clients["matrix2"] = NewClient()
+	mc.config["matrix1"] = &SingleMatrixConfig{Name: "matrix1"}
+	mc.config["matrix2"] = &SingleMatrixConfig{Name: "matrix2"}
+	mc.mu.Unlock()
+
+	// Concurrent reads should not cause data races
+	done := make(chan bool)
+
+	for i := 0; i < 10; i++ {
+		go func() {
+			for j := 0; j < 100; j++ {
+				_ = mc.GetClient("matrix1")
+				_ = mc.GetClients()
+				_ = mc.GetConfig("matrix1")
+				_ = mc.HasMultipleMatrices()
+			}
+
+			done <- true
+		}()
+	}
+
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+}
+
+func TestMultiClientConcurrentReadWrite(t *testing.T) {
+	mc := NewMultiClient()
+
+	done := make(chan bool)
+
+	// Writer goroutine
+	go func() {
+		for i := 0; i < 50; i++ {
+			mc.mu.Lock()
+			mc.clients["test-matrix"] = NewClient()
+			mc.config["test-matrix"] = &SingleMatrixConfig{Name: "test-matrix"}
+			mc.mu.Unlock()
+		}
+
+		done <- true
+	}()
+
+	// Reader goroutines
+	for i := 0; i < 5; i++ {
+		go func() {
+			for j := 0; j < 100; j++ {
+				_ = mc.GetClient("test-matrix")
+				_ = mc.GetClients()
+				_ = mc.GetConfig("test-matrix")
+				_ = mc.HasMultipleMatrices()
+			}
+
+			done <- true
+		}()
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 6; i++ {
+		<-done
+	}
+}
+
+func TestMultiClientConcurrentGetClients(t *testing.T) {
+	mc := NewMultiClient()
+
+	mc.mu.Lock()
+	mc.clients["matrix1"] = NewClient()
+	mc.clients["matrix2"] = NewClient()
+	mc.mu.Unlock()
+
+	done := make(chan error)
+
+	// Multiple goroutines calling GetClients concurrently
+	for i := 0; i < 10; i++ {
+		go func() {
+			for j := 0; j < 100; j++ {
+				clients := mc.GetClients()
+				// Verify we get a snapshot
+				if len(clients) != 2 {
+					done <- fmt.Errorf("expected 2 clients, got %d", len(clients))
+
+					return
+				}
+			}
+
+			done <- nil
+		}()
+	}
+
+	for i := 0; i < 10; i++ {
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+func TestMultiClientGetClientsReturnsSnapshot(t *testing.T) {
+	mc := NewMultiClient()
+
+	mc.mu.Lock()
+	mc.clients["matrix1"] = NewClient()
+	mc.mu.Unlock()
+
+	// Get snapshot
+	snapshot1 := mc.GetClients()
+
+	// Modify the snapshot
+	snapshot1["matrix2"] = NewClient()
+	snapshot1["matrix3"] = NewClient()
+
+	// Get another snapshot
+	snapshot2 := mc.GetClients()
+
+	// Original should only have matrix1
+	if len(snapshot2) != 1 {
+		t.Errorf("Expected 1 client in original, got %d", len(snapshot2))
+	}
+
+	if _, exists := snapshot2["matrix1"]; !exists {
+		t.Error("Expected matrix1 to exist in original")
+	}
+
+	if _, exists := snapshot2["matrix2"]; exists {
+		t.Error("matrix2 should not exist in original after modifying snapshot")
 	}
 }

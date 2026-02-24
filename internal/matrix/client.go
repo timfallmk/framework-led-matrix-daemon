@@ -4,6 +4,7 @@ package matrix
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"go.bug.st/serial"
@@ -226,6 +227,7 @@ type SingleMatrixConfig struct {
 type MultiClient struct {
 	clients map[string]*Client
 	config  map[string]*SingleMatrixConfig
+	mu      sync.RWMutex
 }
 
 // NewMultiClient creates a new MultiClient for managing multiple LED matrix connections.
@@ -272,14 +274,20 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 			logging.Warn("failed to set brightness for matrix", "matrix", matrixConfig.Name, "error", err)
 		}
 
+		mc.mu.Lock()
 		mc.clients[matrixConfig.Name] = client
 		configCopy := matrixConfig
 		mc.config[matrixConfig.Name] = &configCopy
+		mc.mu.Unlock()
 
 		logging.Info("successfully connected matrix", "matrix", matrixConfig.Name, "port", portToUse)
 	}
 
-	if len(mc.clients) == 0 {
+	mc.mu.RLock()
+	clientCount := len(mc.clients)
+	mc.mu.RUnlock()
+
+	if clientCount == 0 {
 		return fmt.Errorf("failed to connect to any LED matrices")
 	}
 
@@ -288,21 +296,38 @@ func (mc *MultiClient) DiscoverAndConnect(matrices []SingleMatrixConfig, baudRat
 
 // GetClient returns the Client instance for the specified matrix name.
 func (mc *MultiClient) GetClient(name string) *Client {
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
+
 	return mc.clients[name]
 }
 
 // GetClients returns all connected Client instances mapped by matrix name.
 func (mc *MultiClient) GetClients() map[string]*Client {
-	return mc.clients
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
+
+	snapshot := make(map[string]*Client, len(mc.clients))
+	for k, v := range mc.clients {
+		snapshot[k] = v
+	}
+
+	return snapshot
 }
 
 // GetConfig returns the configuration for the specified matrix name.
 func (mc *MultiClient) GetConfig(name string) *SingleMatrixConfig {
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
+
 	return mc.config[name]
 }
 
 // Disconnect closes all matrix connections and returns any errors encountered.
 func (mc *MultiClient) Disconnect() error {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+
 	var errors []error
 
 	for name, client := range mc.clients {
@@ -320,5 +345,8 @@ func (mc *MultiClient) Disconnect() error {
 
 // HasMultipleMatrices returns true if more than one matrix is connected.
 func (mc *MultiClient) HasMultipleMatrices() bool {
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
+
 	return len(mc.clients) > 1
 }
