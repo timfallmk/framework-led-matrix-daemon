@@ -281,7 +281,6 @@ func (mv *MultiVisualizer) updatePercentageMode(summary *stats.StatsSummary) err
 	for metric, value := range statsMap {
 		if err := mv.multiDisplay.UpdateMetric(metric, value, statsMap); err != nil {
 			lastErr = err
-			logging.Error("failed to update metric", "metric", metric, "error", err)
 		}
 	}
 
