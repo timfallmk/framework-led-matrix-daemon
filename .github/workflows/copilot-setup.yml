@@ -45,15 +45,10 @@ jobs:
           fi
 
       - name: Validate markdown formatting
-        uses: DavidAnson/markdownlint-action@v1
+        uses: DavidAnson/markdownlint-cli2-action@v22
         with:
-          files: '.github/copilot-instructions.md'
-          config: |
-            {
-              "MD013": false,
-              "MD033": false,
-              "MD041": false
-            }
+          globs: '.github/copilot-instructions.md'
+          config: '.markdownlint.json'
         continue-on-error: true
 
       - name: Check for required sections
