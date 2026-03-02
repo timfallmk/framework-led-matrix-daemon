@@ -83,7 +83,7 @@ func (dm *DisplayManager) UpdatePercentage(key string, percent float64) error {
 
 	dm.currentState[key] = percent
 	dm.markUpdatedUnsafe()
-	logging.Info("updated percentage display", "key", key, "percent", percent)
+	logging.Debug("updated percentage display", "key", key, "percent", percent)
 
 	return nil
 }
@@ -111,7 +111,7 @@ func (dm *DisplayManager) ShowActivity(active bool) error {
 	}
 
 	dm.markUpdatedUnsafe()
-	logging.Info("updated activity display", "active", active)
+	logging.Debug("updated activity display", "active", active)
 
 	return nil
 }
@@ -143,7 +143,7 @@ func (dm *DisplayManager) ShowStatus(status string) error {
 
 	dm.currentState["status"] = status
 	dm.markUpdatedUnsafe()
-	logging.Info("updated status display", "status", status)
+	logging.Debug("updated status display", "status", status)
 
 	return nil
 }
@@ -159,7 +159,7 @@ func (dm *DisplayManager) SetBrightness(level byte) error {
 
 	dm.currentState["brightness"] = level
 	dm.markUpdatedUnsafe()
-	logging.Info("set brightness", "level", level)
+	logging.Debug("set brightness", "level", level)
 
 	return nil
 }
@@ -268,7 +268,7 @@ func (mdm *MultiDisplayManager) updateSplitMode(metricName string, value float64
 				lastErr = err
 				logging.Error("failed to update split display", "matrix", name, "metric", metricName, "error", err)
 			} else {
-				logging.Info("updated matrix", "matrix", name, "metric", metricName, "percent", value)
+				logging.Debug("updated matrix", "matrix", name, "metric", metricName, "percent", value)
 			}
 		} else {
 			// If this matrix has no assigned metrics, show primary metric
