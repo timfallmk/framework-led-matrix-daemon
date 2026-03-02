@@ -149,7 +149,7 @@ func (c *Client) ReadResponse(expectedBytes int) ([]byte, error) {
 	buffer := make([]byte, expectedBytes)
 
 	if err := c.port.SetReadTimeout(DefaultTimeout); err != nil {
-		logging.Warn("failed to set read timeout", "error", err)
+		return nil, fmt.Errorf("failed to set read timeout: %w", err)
 	}
 
 	n, err := c.port.Read(buffer)
