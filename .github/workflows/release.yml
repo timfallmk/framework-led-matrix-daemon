@@ -126,7 +126,7 @@ jobs:
           fi
 
       - name: Upload release artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: framework-led-daemon-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
@@ -156,7 +156,7 @@ jobs:
           mv sbom.spdx.json framework-led-daemon-${VERSION}-sbom.spdx.json
           mv sbom.syft.json framework-led-daemon-${VERSION}-sbom.syft.json
       - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: framework-led-daemon-sbom
           path: |
@@ -211,7 +211,7 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Upload changelog
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: changelog
           path: CHANGELOG.md
