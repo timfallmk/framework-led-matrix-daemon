@@ -81,6 +81,7 @@ func NewService(cfg *config.Config) (*Service, error) {
 	// Set as global logger
 	logging.SetGlobalLogger(logger)
 
+	//nolint:gosec // G118 false positive: cancel stored in Service.cancel, called in Stop()
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Initialize observability components
