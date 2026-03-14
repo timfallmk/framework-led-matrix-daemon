@@ -81,7 +81,7 @@ func NewService(cfg *config.Config) (*Service, error) {
 	// Set as global logger
 	logging.SetGlobalLogger(logger)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is stored in Service.cancel and called in Stop()
 
 	// Initialize observability components
 	metricsCollector := observability.NewMetricsCollector(logger, 30*time.Second)
