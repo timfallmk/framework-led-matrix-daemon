@@ -4,7 +4,7 @@ package main
 
 import (
 	"context"
-	"sync"
+	"math/rand"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -26,7 +26,6 @@ type GUIApp struct {
 	statusBar *widget.Label
 	ctx       context.Context
 	cancel    context.CancelFunc
-	mu        sync.Mutex
 }
 
 // NewGUIApp creates a new GUI application.
@@ -74,6 +73,13 @@ func (g *GUIApp) Run() {
 }
 
 func (g *GUIApp) connectionLoop() {
+	const (
+		minBackoff = 1 * time.Second
+		maxBackoff = 30 * time.Second
+	)
+
+	backoff := minBackoff
+
 	for {
 		select {
 		case <-g.ctx.Done():
@@ -83,18 +89,33 @@ func (g *GUIApp) connectionLoop() {
 
 		if err := g.client.Connect(); err != nil {
 			g.statusBar.SetText("Disconnected - daemon not running")
-			time.Sleep(3 * time.Second)
+
+			// Exponential backoff with jitter
+			jitter := time.Duration(rand.Int63n(int64(backoff / 2)))
+			sleep := backoff + jitter
+
+			select {
+			case <-g.ctx.Done():
+				return
+			case <-time.After(sleep):
+			}
+
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
 
 			continue
 		}
 
+		// Successfully connected; reset backoff
+		backoff = minBackoff
 		g.statusBar.SetText("Connected")
 		g.pollLoop()
 
 		// If we get here, we got disconnected
 		g.statusBar.SetText("Disconnected - reconnecting...")
 		g.client.Close()
-		time.Sleep(2 * time.Second)
 	}
 }
 

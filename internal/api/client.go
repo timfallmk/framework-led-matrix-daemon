@@ -2,6 +2,7 @@ package api
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -135,8 +136,8 @@ func (c *Client) Call(method string, params interface{}) (*Response, error) {
 }
 
 // Subscribe sends a subscription request and calls the callback for each streamed response.
-// It blocks until the context is cancelled or an error occurs.
-func (c *Client) Subscribe(method string, params interface{}, callback func(*Response)) error {
+// It blocks until ctx is cancelled, the connection is closed, or an error occurs.
+func (c *Client) Subscribe(ctx context.Context, method string, params interface{}, callback func(*Response)) error {
 	c.mu.Lock()
 
 	if c.conn == nil {
@@ -191,6 +192,12 @@ func (c *Client) Subscribe(method string, params interface{}, callback func(*Res
 
 	// Stream responses
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if err := conn.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
 			return fmt.Errorf("failed to set read deadline: %w", err)
 		}

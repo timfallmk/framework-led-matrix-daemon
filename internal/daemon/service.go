@@ -42,6 +42,7 @@ type Service struct {
 	healthMonitor    *observability.HealthMonitor
 	matrix           *matrix.Client
 	apiServer        *api.Server
+	apiCancel        context.CancelFunc // Cancels only the API server goroutine
 	cancel           context.CancelFunc
 	config           *config.Config
 	stopCh           chan struct{}
@@ -326,12 +327,15 @@ func (s *Service) Start() error {
 			Display:    s,
 		})
 
+		apiCtx, apiCancel := context.WithCancel(s.ctx)
+		s.apiCancel = apiCancel
+
 		s.wg.Add(1)
 
 		go func() {
 			defer s.wg.Done()
 
-			if err := s.apiServer.Serve(s.ctx); err != nil {
+			if err := s.apiServer.Serve(apiCtx); err != nil {
 				s.eventLogger.LogDaemon(logging.LevelWarn, "API server stopped", "api", map[string]interface{}{
 					"error": err.Error(),
 				})
@@ -609,6 +613,9 @@ func (s *Service) reloadConfig() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	oldAPIEnabled := s.config.API.Enabled
+	oldSocketPath := s.config.API.SocketPath
+
 	s.config = newConfig
 
 	s.collector.SetThresholds(stats.Thresholds{
@@ -624,7 +631,54 @@ func (s *Service) reloadConfig() error {
 		s.visualizer.UpdateConfig(newConfig)
 	}
 
-	if s.apiServer != nil {
+	// Restart API server if the enabled flag or socket path changed
+	apiSettingsChanged := oldAPIEnabled != newConfig.API.Enabled || oldSocketPath != newConfig.API.SocketPath
+	if apiSettingsChanged {
+		// Stop the existing API server if running
+		if s.apiCancel != nil {
+			s.apiCancel()
+			s.apiCancel = nil
+		}
+
+		if s.apiServer != nil {
+			if err := s.apiServer.Close(); err != nil && !os.IsNotExist(err) {
+				s.eventLogger.LogDaemon(logging.LevelWarn, "failed to close API server during reload", "api", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+
+			s.apiServer = nil
+		}
+
+		if newConfig.API.Enabled {
+			s.apiServer = api.NewServer(api.ServerConfig{
+				SocketPath: newConfig.API.SocketPath,
+				Collector:  s.collector,
+				Config:     newConfig,
+				Health:     s.healthMonitor,
+				Display:    s,
+			})
+
+			apiCtx, apiCancel := context.WithCancel(s.ctx)
+			s.apiCancel = apiCancel
+
+			s.wg.Add(1)
+
+			go func() {
+				defer s.wg.Done()
+
+				if err := s.apiServer.Serve(apiCtx); err != nil {
+					s.eventLogger.LogDaemon(logging.LevelWarn, "API server stopped", "api", map[string]interface{}{
+						"error": err.Error(),
+					})
+				}
+			}()
+
+			s.eventLogger.LogDaemon(logging.LevelInfo, "API server restarted after config reload", "api", map[string]interface{}{
+				"socket": newConfig.API.SocketPath,
+			})
+		}
+	} else if s.apiServer != nil {
 		s.apiServer.UpdateConfig(newConfig)
 	}
 

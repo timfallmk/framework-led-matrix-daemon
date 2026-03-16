@@ -14,15 +14,14 @@ import (
 
 // Settings provides configuration editing controls.
 type Settings struct {
-	client         *api.Client
-	modeSelect     *widget.Select
-	metricSelect   *widget.Select
+	client           *api.Client
+	modeSelect       *widget.Select
+	metricSelect     *widget.Select
 	brightnessSlider *widget.Slider
 	brightnessLabel  *widget.Label
-	animationCheck *widget.Check
-	logLevelSelect *widget.Select
-	statusLabel    *widget.Label
-	container      *fyne.Container
+	logLevelSelect   *widget.Select
+	statusLabel      *widget.Label
+	container        *fyne.Container
 }
 
 // NewSettings creates a new settings editor.
@@ -76,11 +75,6 @@ func NewSettings(client *api.Client) *Settings {
 		}
 	}
 
-	// Animation toggle
-	s.animationCheck = widget.NewCheck("Enable Animation", func(checked bool) {
-		// Animation toggle is applied via config update
-	})
-
 	// Log level
 	s.logLevelSelect = widget.NewSelect(
 		[]string{"debug", "info", "warn", "error"},
@@ -96,7 +90,6 @@ func NewSettings(client *api.Client) *Settings {
 		s.modeSelect,
 		widget.NewLabel("Primary Metric:"),
 		s.metricSelect,
-		s.animationCheck,
 	)
 
 	matrixSection := container.NewVBox(
