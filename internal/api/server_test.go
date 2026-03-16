@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"os"
+	"net"
 	"path/filepath"
 	"testing"
 	"time"
@@ -45,9 +45,27 @@ func (m *mockDisplayController) IsMultiMatrix() bool {
 	return false
 }
 
+// waitForSocket polls until the Unix socket at path is connectable or the timeout elapses.
+func waitForSocket(t *testing.T, path string, timeout time.Duration) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("unix", path, 20*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("socket %s not available after %s", path, timeout)
+}
+
 func TestServerStartStop(t *testing.T) {
-	socketPath := filepath.Join(os.TempDir(), "test-api-server.sock")
-	defer os.Remove(socketPath)
+	socketPath := filepath.Join(t.TempDir(), "test-api-server.sock")
 
 	cfg := config.DefaultConfig()
 	display := &mockDisplayController{}
@@ -65,13 +83,7 @@ func TestServerStartStop(t *testing.T) {
 		errCh <- server.Serve(ctx)
 	}()
 
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
-
-	// Verify socket file exists
-	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
-		t.Fatal("socket file was not created")
-	}
+	waitForSocket(t, socketPath, 5*time.Second)
 
 	// Stop server
 	cancel()
@@ -87,8 +99,7 @@ func TestServerStartStop(t *testing.T) {
 }
 
 func TestServerClientRoundTrip(t *testing.T) {
-	socketPath := filepath.Join(os.TempDir(), "test-api-roundtrip.sock")
-	defer os.Remove(socketPath)
+	socketPath := filepath.Join(t.TempDir(), "test-api-roundtrip.sock")
 
 	cfg := config.DefaultConfig()
 	display := &mockDisplayController{mode: "percentage", brightness: 100, metric: "cpu"}
@@ -104,8 +115,7 @@ func TestServerClientRoundTrip(t *testing.T) {
 
 	go server.Serve(ctx)
 
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
+	waitForSocket(t, socketPath, 5*time.Second)
 
 	client := NewClient(socketPath)
 	if err := client.Connect(); err != nil {
@@ -216,8 +226,7 @@ func TestClientNotConnected(t *testing.T) {
 }
 
 func TestClientReconnect(t *testing.T) {
-	socketPath := filepath.Join(os.TempDir(), "test-api-reconnect.sock")
-	defer os.Remove(socketPath)
+	socketPath := filepath.Join(t.TempDir(), "test-api-reconnect.sock")
 
 	cfg := config.DefaultConfig()
 	display := &mockDisplayController{}
@@ -232,7 +241,7 @@ func TestClientReconnect(t *testing.T) {
 	defer cancel()
 
 	go server.Serve(ctx)
-	time.Sleep(100 * time.Millisecond)
+	waitForSocket(t, socketPath, 5*time.Second)
 
 	client := NewClient(socketPath)
 	if err := client.Connect(); err != nil {

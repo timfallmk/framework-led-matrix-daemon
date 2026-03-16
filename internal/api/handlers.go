@@ -8,6 +8,7 @@ import (
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
 )
 
+// handleMetricsGet returns a one-shot snapshot of current system metrics.
 func (s *Server) handleMetricsGet(req Request) Response {
 	if s.collector == nil {
 		return Response{
@@ -49,6 +50,7 @@ func (s *Server) handleMetricsGet(req Request) Response {
 	return Response{ID: req.ID, Result: data}
 }
 
+// handleConfigGet returns the current daemon configuration as JSON.
 func (s *Server) handleConfigGet(req Request) Response {
 	cfg := s.getConfig()
 	if cfg == nil {
@@ -69,6 +71,7 @@ func (s *Server) handleConfigGet(req Request) Response {
 	return Response{ID: req.ID, Result: data}
 }
 
+// handleConfigUpdate applies a partial config update sent by the client.
 func (s *Server) handleConfigUpdate(req Request) Response {
 	if req.Params == nil {
 		return Response{
@@ -153,6 +156,7 @@ func (s *Server) handleConfigUpdate(req Request) Response {
 	return Response{ID: req.ID, Result: result}
 }
 
+// handleDisplaySetMode changes the daemon's active display mode.
 func (s *Server) handleDisplaySetMode(req Request) Response {
 	var params SetModeParams
 	if err := json.Unmarshal(req.Params, &params); err != nil {
@@ -193,6 +197,7 @@ func (s *Server) handleDisplaySetMode(req Request) Response {
 	return Response{ID: req.ID, Result: result}
 }
 
+// handleDisplaySetBrightness updates the LED matrix brightness level.
 func (s *Server) handleDisplaySetBrightness(req Request) Response {
 	var params SetBrightnessParams
 	if err := json.Unmarshal(req.Params, &params); err != nil {
@@ -234,6 +239,7 @@ func (s *Server) handleDisplaySetBrightness(req Request) Response {
 	return Response{ID: req.ID, Result: result}
 }
 
+// handleDisplaySetMetric sets the primary metric used for the display.
 func (s *Server) handleDisplaySetMetric(req Request) Response {
 	var params SetMetricParams
 	if err := json.Unmarshal(req.Params, &params); err != nil {
@@ -274,6 +280,7 @@ func (s *Server) handleDisplaySetMetric(req Request) Response {
 	return Response{ID: req.ID, Result: result}
 }
 
+// handleHealthGet returns the results of all registered health checks.
 func (s *Server) handleHealthGet(req Request) Response {
 	if s.health == nil {
 		return Response{
@@ -307,6 +314,7 @@ func (s *Server) handleHealthGet(req Request) Response {
 	return Response{ID: req.ID, Result: data}
 }
 
+// handleStatusGet returns current daemon status including uptime, display mode, metric, and brightness.
 func (s *Server) handleStatusGet(req Request) Response {
 	cfg := s.getConfig()
 
@@ -338,6 +346,7 @@ func (s *Server) handleStatusGet(req Request) Response {
 	return Response{ID: req.ID, Result: data}
 }
 
+// handleMatrixGetState returns the raw display state from the active DisplayController.
 func (s *Server) handleMatrixGetState(req Request) Response {
 	if s.display == nil {
 		return Response{

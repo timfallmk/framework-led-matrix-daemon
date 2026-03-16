@@ -68,9 +68,13 @@ func NewServer(cfg ServerConfig) *Server {
 
 // Serve starts the API server and listens for connections until the context is cancelled.
 func (s *Server) Serve(ctx context.Context) error {
-	// Remove stale socket file if it exists
-	if err := os.Remove(s.socketPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove stale socket: %w", err)
+	// Remove stale socket file only if it is actually a Unix socket
+	if info, err := os.Lstat(s.socketPath); err == nil {
+		if info.Mode()&os.ModeSocket != 0 {
+			if removeErr := os.Remove(s.socketPath); removeErr != nil && !os.IsNotExist(removeErr) {
+				return fmt.Errorf("failed to remove stale socket: %w", removeErr)
+			}
+		}
 	}
 
 	listener, err := net.Listen("unix", s.socketPath)
@@ -128,7 +132,12 @@ func (s *Server) Close() error {
 		_ = listener.Close()
 	}
 
-	return os.Remove(s.socketPath)
+	err := os.Remove(s.socketPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+
+	return err
 }
 
 // UpdateConfig updates the config reference held by the server.
@@ -139,6 +148,7 @@ func (s *Server) UpdateConfig(cfg *config.Config) {
 	s.config = cfg
 }
 
+// getConfig returns the current config under a read lock.
 func (s *Server) getConfig() *config.Config {
 	s.configMu.RLock()
 	defer s.configMu.RUnlock()
@@ -146,6 +156,7 @@ func (s *Server) getConfig() *config.Config {
 	return s.config
 }
 
+// handleConnection reads JSON requests from conn until the connection is closed or ctx is cancelled.
 func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
@@ -177,6 +188,8 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 	}
 }
 
+// writeResponse marshals resp to JSON, appends a newline, and writes all bytes to conn.
+// It loops until all bytes are written and discards the response silently on error.
 func (s *Server) writeResponse(conn net.Conn, resp Response) {
 	data, err := json.Marshal(resp)
 	if err != nil {
@@ -187,6 +200,8 @@ func (s *Server) writeResponse(conn net.Conn, resp Response) {
 	conn.Write(data)
 }
 
+// handleRequest routes req to the appropriate handler and returns the response.
+// For metrics.subscribe, the stream is handled in a blocking call and an empty ack is returned.
 func (s *Server) handleRequest(ctx context.Context, conn net.Conn, req Request) Response {
 	switch req.Method {
 	case MethodMetricsGet:
@@ -219,6 +234,7 @@ func (s *Server) handleRequest(ctx context.Context, conn net.Conn, req Request) 
 	}
 }
 
+// handleMetricsSubscribe streams periodic metrics snapshots to conn until ctx is cancelled or conn is closed.
 func (s *Server) handleMetricsSubscribe(ctx context.Context, conn net.Conn, req Request) {
 	var params SubscribeParams
 	if req.Params != nil {
