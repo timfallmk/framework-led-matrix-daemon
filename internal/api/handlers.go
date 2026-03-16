@@ -228,6 +228,12 @@ func (s *Server) handleDisplaySetBrightness(req Request) Response {
 		}
 	}
 
+	// Update config to keep status reports consistent with hardware state
+	cfg := s.getConfig()
+	if cfg != nil {
+		cfg.Matrix.Brightness = byte(params.Brightness)
+	}
+
 	result, err := json.Marshal(map[string]string{"status": "ok"})
 	if err != nil {
 		return Response{

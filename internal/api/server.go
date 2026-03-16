@@ -82,8 +82,8 @@ func (s *Server) Serve(ctx context.Context) error {
 		return fmt.Errorf("failed to listen on %s: %w", s.socketPath, err)
 	}
 
-	// Set permissions so non-root users can connect
-	if err := os.Chmod(s.socketPath, 0o666); err != nil {
+	// Set permissions so the owning user and group can connect
+	if err := os.Chmod(s.socketPath, 0o660); err != nil {
 		_ = listener.Close()
 
 		return fmt.Errorf("failed to set socket permissions: %w", err)
@@ -183,6 +183,13 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 			continue
 		}
 
+		// Subscribe takes over the connection for streaming
+		if req.Method == MethodMetricsSubscribe {
+			s.handleMetricsSubscribe(ctx, conn, req)
+
+			return
+		}
+
 		resp := s.handleRequest(ctx, conn, req)
 		s.writeResponse(conn, resp)
 	}
@@ -197,19 +204,22 @@ func (s *Server) writeResponse(conn net.Conn, resp Response) {
 	}
 
 	data = append(data, '\n')
-	conn.Write(data)
+
+	for len(data) > 0 {
+		n, err := conn.Write(data)
+		if err != nil {
+			return
+		}
+
+		data = data[n:]
+	}
 }
 
 // handleRequest routes req to the appropriate handler and returns the response.
-// For metrics.subscribe, the stream is handled in a blocking call and an empty ack is returned.
-func (s *Server) handleRequest(ctx context.Context, conn net.Conn, req Request) Response {
+func (s *Server) handleRequest(_ context.Context, _ net.Conn, req Request) Response {
 	switch req.Method {
 	case MethodMetricsGet:
 		return s.handleMetricsGet(req)
-	case MethodMetricsSubscribe:
-		s.handleMetricsSubscribe(ctx, conn, req)
-		// Subscribe doesn't return a single response; it streams
-		return Response{ID: req.ID}
 	case MethodConfigGet:
 		return s.handleConfigGet(req)
 	case MethodConfigUpdate:
@@ -238,13 +248,23 @@ func (s *Server) handleRequest(ctx context.Context, conn net.Conn, req Request) 
 func (s *Server) handleMetricsSubscribe(ctx context.Context, conn net.Conn, req Request) {
 	var params SubscribeParams
 	if req.Params != nil {
-		json.Unmarshal(req.Params, &params)
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			s.writeResponse(conn, Response{
+				ID:    req.ID,
+				Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: "invalid subscribe params"},
+			})
+
+			return
+		}
 	}
 
 	interval := time.Duration(params.IntervalMs) * time.Millisecond
 	if interval <= 0 {
 		interval = 2 * time.Second
 	}
+
+	// Send ack before starting the stream
+	s.writeResponse(conn, Response{ID: req.ID, Result: json.RawMessage(`{"subscribed":true}`)})
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

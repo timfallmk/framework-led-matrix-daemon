@@ -373,11 +373,10 @@ func (s *Service) Stop() error {
 	s.eventLogger.LogDaemon(logging.LevelInfo, "stopping Framework LED Matrix daemon", "stop", nil)
 
 	s.stopOnce.Do(func() { close(s.stopCh) })
-	s.cancel()
 
-	s.wg.Wait()
-
-	// Stop API server
+	// Close API server before cancelling context and waiting, since the API
+	// server goroutine is tracked by wg. Closing the listener unblocks
+	// Serve() so the goroutine can exit and wg.Wait() won't deadlock.
 	if s.apiServer != nil {
 		if err := s.apiServer.Close(); err != nil {
 			s.eventLogger.LogDaemon(logging.LevelWarn, "failed to close API server", "api", map[string]interface{}{
@@ -385,6 +384,10 @@ func (s *Service) Stop() error {
 			})
 		}
 	}
+
+	s.cancel()
+
+	s.wg.Wait()
 
 	// Stop observability components
 	s.healthMonitor.Stop()
@@ -730,10 +733,14 @@ func (s *Service) SetDisplayMode(mode string) error {
 		return fmt.Errorf("invalid display mode: %s", mode)
 	}
 
+	s.mu.Lock()
 	s.config.Display.Mode = mode
+	cfg := s.config
+	vis := s.visualizer
+	s.mu.Unlock()
 
-	if s.visualizer != nil {
-		s.visualizer.UpdateConfig(s.config)
+	if vis != nil {
+		vis.UpdateConfig(cfg)
 	}
 
 	return nil
@@ -765,10 +772,14 @@ func (s *Service) SetPrimaryMetric(metric string) error {
 		return fmt.Errorf("invalid metric: %s", metric)
 	}
 
+	s.mu.Lock()
 	s.config.Display.PrimaryMetric = metric
+	cfg := s.config
+	vis := s.visualizer
+	s.mu.Unlock()
 
-	if s.visualizer != nil {
-		s.visualizer.UpdateConfig(s.config)
+	if vis != nil {
+		vis.UpdateConfig(cfg)
 	}
 
 	return nil
