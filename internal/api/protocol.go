@@ -6,17 +6,22 @@ import "encoding/json"
 
 // API method constants.
 const (
-	MethodMetricsGet         = "metrics.get"
-	MethodMetricsSubscribe   = "metrics.subscribe"
-	MethodConfigGet          = "config.get"
-	MethodConfigUpdate       = "config.update"
-	MethodDisplaySetMode     = "display.set_mode"
-	MethodDisplaySetBright   = "display.set_brightness"
-	MethodDisplaySetMetric   = "display.set_metric"
-	MethodHealthGet          = "health.get"
-	MethodStatusGet          = "status.get"
-	MethodMatrixGetState     = "matrix.get_state"
-	MethodMatrixSetDualMode  = "matrix.set_dual_mode"
+	MethodMetricsGet        = "metrics.get"
+	MethodMetricsSubscribe  = "metrics.subscribe"
+	MethodConfigGet         = "config.get"
+	MethodConfigUpdate      = "config.update"
+	MethodDisplaySetMode    = "display.set_mode"
+	MethodDisplaySetBright  = "display.set_brightness"
+	MethodDisplaySetMetric  = "display.set_metric"
+	MethodHealthGet         = "health.get"
+	MethodStatusGet         = "status.get"
+	MethodMatrixGetState    = "matrix.get_state"
+	MethodMatrixSetDualMode = "matrix.set_dual_mode"
+)
+
+// Matrix mode constants.
+const (
+	MatrixModeSingle = "single"
 )
 
 // Request represents a JSON-RPC-style request from a client.
@@ -71,9 +76,9 @@ type StatusResult struct {
 	DisplayMode   string       `json:"display_mode"`
 	PrimaryMetric string       `json:"primary_metric"`
 	MatrixMode    string       `json:"matrix_mode"`
+	Matrices      []MatrixInfo `json:"matrices,omitempty"`
 	Brightness    int          `json:"brightness"`
 	Connected     bool         `json:"connected"`
-	Matrices      []MatrixInfo `json:"matrices,omitempty"`
 }
 
 // HealthCheckResult represents a single health check entry.

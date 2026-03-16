@@ -76,7 +76,7 @@ func NewServer(cfg ServerConfig) *Server {
 func (s *Server) Serve(ctx context.Context) error {
 	// Ensure the socket directory exists
 	socketDir := filepath.Dir(s.socketPath)
-	if err := os.MkdirAll(socketDir, 0o750); err != nil { //nolint:gosec // G301: daemon directory
+	if err := os.MkdirAll(socketDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create socket directory %s: %w", socketDir, err)
 	}
 

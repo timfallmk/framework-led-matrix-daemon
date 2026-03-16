@@ -339,7 +339,7 @@ func (c *Client) SetPrimaryMetric(metric string) error {
 
 // Reconnect attempts to re-establish the connection.
 func (c *Client) Reconnect() error {
-	_ = c.Close()
+	_ = c.Close() //nolint:errcheck // best-effort close before reconnect
 
 	return c.Connect()
 }

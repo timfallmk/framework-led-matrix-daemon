@@ -277,8 +277,8 @@ func TestClientReconnect(t *testing.T) {
 		t.Fatalf("failed to get status after reconnect: %v", err)
 	}
 
-	if status.MatrixMode != "single" {
-		t.Errorf("expected matrix mode 'single', got %q", status.MatrixMode)
+	if status.MatrixMode != MatrixModeSingle {
+		t.Errorf("expected matrix mode %q, got %q", MatrixModeSingle, status.MatrixMode)
 	}
 
 	client.Close()

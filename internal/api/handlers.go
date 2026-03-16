@@ -80,7 +80,7 @@ func (s *Server) handleConfigUpdate(req Request) Response {
 		}
 	}
 
-	// Parse partial config update as a map
+	// Parse partial config update as a nested map
 	var updates map[string]json.RawMessage
 	if err := json.Unmarshal(req.Params, &updates); err != nil {
 		return Response{
@@ -97,7 +97,7 @@ func (s *Server) handleConfigUpdate(req Request) Response {
 		}
 	}
 
-	// Re-marshal the full config, apply updates on top, then unmarshal back
+	// Re-marshal the full config, then deep-merge updates on top
 	fullData, err := json.Marshal(cfg)
 	if err != nil {
 		return Response{
@@ -106,19 +106,30 @@ func (s *Server) handleConfigUpdate(req Request) Response {
 		}
 	}
 
-	var merged map[string]json.RawMessage
-	if unmarshalErr := json.Unmarshal(fullData, &merged); unmarshalErr != nil {
+	var fullMap map[string]json.RawMessage
+	if unmarshalErr := json.Unmarshal(fullData, &fullMap); unmarshalErr != nil {
 		return Response{
 			ID:    req.ID,
 			Error: &ErrorInfo{Code: ErrCodeInternal, Message: unmarshalErr.Error()},
 		}
 	}
 
+	// Deep merge: for each update key, if both old and new are JSON objects, merge recursively
 	for k, v := range updates {
-		merged[k] = v
+		existing, exists := fullMap[k]
+		if exists {
+			merged, mergeErr := deepMergeJSON(existing, v)
+			if mergeErr == nil {
+				fullMap[k] = merged
+
+				continue
+			}
+		}
+		// Non-object or new key: direct replacement
+		fullMap[k] = v
 	}
 
-	mergedData, err := json.Marshal(merged)
+	mergedData, err := json.Marshal(fullMap)
 	if err != nil {
 		return Response{
 			ID:    req.ID,
@@ -151,6 +162,35 @@ func (s *Server) handleConfigUpdate(req Request) Response {
 	}
 
 	return okResponse(req.ID)
+}
+
+// deepMergeJSON merges patch into base when both are JSON objects.
+// For non-object values, returns patch unchanged.
+func deepMergeJSON(base, patch json.RawMessage) (json.RawMessage, error) {
+	var baseMap, patchMap map[string]json.RawMessage
+
+	if err := json.Unmarshal(base, &baseMap); err != nil {
+		return patch, err //nolint:wrapcheck // caller handles fallback
+	}
+
+	if err := json.Unmarshal(patch, &patchMap); err != nil {
+		return patch, err //nolint:wrapcheck // caller handles fallback
+	}
+
+	for k, v := range patchMap {
+		if existing, exists := baseMap[k]; exists {
+			merged, mergeErr := deepMergeJSON(existing, v)
+			if mergeErr == nil {
+				baseMap[k] = merged
+
+				continue
+			}
+		}
+
+		baseMap[k] = v
+	}
+
+	return json.Marshal(baseMap) //nolint:wrapcheck // internal helper
 }
 
 // displayAction executes a display controller action, returning an error response if the
@@ -229,7 +269,7 @@ func (s *Server) handleDisplaySetBrightness(req Request) Response {
 	}
 
 	if errResp := s.displayAction(req.ID, func() error {
-		return s.display.SetBrightness(byte(params.Brightness))
+		return s.display.SetBrightness(byte(params.Brightness)) //nolint:gosec // G115: brightness validated 0-255 above
 	}); errResp != nil {
 		return *errResp
 	}
@@ -331,7 +371,7 @@ func (s *Server) handleStatusGet(req Request) Response {
 				})
 			}
 		} else {
-			result.MatrixMode = "single"
+			result.MatrixMode = MatrixModeSingle
 		}
 	}
 
@@ -379,24 +419,28 @@ func (s *Server) handleMatrixSetDualMode(req Request) Response {
 	}
 
 	validModes := map[string]bool{
-		"single": true, "mirror": true, "split": true,
+		MatrixModeSingle: true, "mirror": true, "split": true,
 		"extended": true, "independent": true,
 	}
 	if !validModes[params.Mode] {
 		return Response{
-			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: "mode must be one of: single, mirror, split, extended, independent"},
+			ID: req.ID,
+			Error: &ErrorInfo{
+				Code:    ErrCodeInvalidParams,
+				Message: "mode must be one of: single, mirror, split, extended, independent",
+			},
 		}
 	}
 
 	s.configMu.Lock()
 	if s.config != nil {
-		if params.Mode == "single" {
+		if params.Mode == MatrixModeSingle {
 			s.config.Matrix.DualMode = ""
 		} else {
 			s.config.Matrix.DualMode = params.Mode
 		}
 	}
+
 	cfg := s.config
 	s.configMu.Unlock()
 

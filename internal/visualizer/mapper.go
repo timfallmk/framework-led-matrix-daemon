@@ -369,6 +369,18 @@ func (mv *MultiVisualizer) determineSystemStatus(summary *stats.StatsSummary) st
 	return "normal"
 }
 
+// UpdateConfig updates the multi-visualizer configuration at runtime.
+func (mv *MultiVisualizer) UpdateConfig(cfg *config.Config) {
+	mv.config = cfg
+	mv.multiDisplay.SetUpdateRate(cfg.Display.UpdateRate)
+
+	if cfg.Matrix.Brightness != 0 {
+		if err := mv.multiDisplay.SetBrightness(cfg.Matrix.Brightness); err != nil {
+			logging.Warn("failed to set multi-display brightness", "error", err)
+		}
+	}
+}
+
 // UpdateConfig updates the visualizer configuration and applies new settings including update rate and brightness.
 func (v *Visualizer) UpdateConfig(cfg *config.Config) {
 	v.config = cfg

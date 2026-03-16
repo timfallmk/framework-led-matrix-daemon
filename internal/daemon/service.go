@@ -43,6 +43,7 @@ type Service struct {
 	matrix           *matrix.Client
 	apiServer        *api.Server
 	apiCancel        context.CancelFunc // Cancels only the API server goroutine
+	apiDone          chan struct{}      // Closed when API server goroutine exits
 	cancel           context.CancelFunc
 	config           *config.Config
 	stopCh           chan struct{}
@@ -326,17 +327,21 @@ func (s *Service) Start() error {
 			Health:     s.healthMonitor,
 			Display:    s,
 		})
+		s.apiServer.ConfigUpdateFunc = s.applyConfigFromAPI
 
 		//nolint:gosec // G118: cancel stored in s.apiCancel, called in Stop/reload
 		apiCtx, apiCancel := context.WithCancel(s.ctx)
 		s.apiCancel = apiCancel
+		s.apiDone = make(chan struct{})
 
 		s.wg.Add(1)
 
 		apiSrv := s.apiServer // capture for goroutine
+		apiDone := s.apiDone  // capture for goroutine
 
 		go func() {
 			defer s.wg.Done()
+			defer close(apiDone)
 
 			if err := apiSrv.Serve(apiCtx); err != nil {
 				s.eventLogger.LogDaemon(logging.LevelWarn, "API server stopped", "api", map[string]interface{}{
@@ -642,7 +647,7 @@ func (s *Service) reloadConfig() error {
 	// Restart API server if the enabled flag or socket path changed
 	apiSettingsChanged := oldAPIEnabled != newConfig.API.Enabled || oldSocketPath != newConfig.API.SocketPath
 	if apiSettingsChanged {
-		// Stop the existing API server if running
+		// Stop the existing API server and wait for it to finish
 		if s.apiCancel != nil {
 			s.apiCancel()
 			s.apiCancel = nil
@@ -657,6 +662,12 @@ func (s *Service) reloadConfig() error {
 				)
 			}
 
+			// Wait for the old server goroutine to exit before starting a new one
+			if s.apiDone != nil {
+				<-s.apiDone
+				s.apiDone = nil
+			}
+
 			s.apiServer = nil
 		}
 
@@ -668,17 +679,21 @@ func (s *Service) reloadConfig() error {
 				Health:     s.healthMonitor,
 				Display:    s,
 			})
+			s.apiServer.ConfigUpdateFunc = s.applyConfigFromAPI
 
 			//nolint:gosec // G118: cancel stored in s.apiCancel, called in Stop/reload
 			apiCtx, apiCancel := context.WithCancel(s.ctx)
 			s.apiCancel = apiCancel
+			s.apiDone = make(chan struct{})
 
 			s.wg.Add(1)
 
 			apiSrv := s.apiServer // capture for goroutine
+			apiDone := s.apiDone  // capture for goroutine
 
 			go func() {
 				defer s.wg.Done()
+				defer close(apiDone)
 
 				if err := apiSrv.Serve(apiCtx); err != nil {
 					s.eventLogger.LogDaemon(logging.LevelWarn, "API server stopped", "api", map[string]interface{}{
@@ -747,9 +762,13 @@ func (s *Service) SetDisplayMode(mode string) error {
 	s.config.Display.Mode = mode
 	cfg := s.config
 	vis := s.visualizer
+	multiVis := s.multiVisualizer
+	isMulti := s.usingMultiple
 	s.mu.Unlock()
 
-	if vis != nil {
+	if isMulti && multiVis != nil {
+		multiVis.UpdateConfig(cfg)
+	} else if vis != nil {
 		vis.UpdateConfig(cfg)
 	}
 
@@ -786,9 +805,13 @@ func (s *Service) SetPrimaryMetric(metric string) error {
 	s.config.Display.PrimaryMetric = metric
 	cfg := s.config
 	vis := s.visualizer
+	multiVis := s.multiVisualizer
+	isMulti := s.usingMultiple
 	s.mu.Unlock()
 
-	if vis != nil {
+	if isMulti && multiVis != nil {
+		multiVis.UpdateConfig(cfg)
+	} else if vis != nil {
 		vis.UpdateConfig(cfg)
 	}
 
@@ -799,6 +822,13 @@ func (s *Service) SetPrimaryMetric(metric string) error {
 func (s *Service) GetDisplayState() map[string]interface{} {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	if s.usingMultiple && s.multiDisplay != nil {
+		// Return primary matrix state from multi-display manager
+		if primary := s.multiDisplay.GetDisplayManager("primary"); primary != nil {
+			return primary.GetCurrentState()
+		}
+	}
 
 	if s.display != nil {
 		return s.display.GetCurrentState()
@@ -813,4 +843,21 @@ func (s *Service) IsMultiMatrix() bool {
 	defer s.mu.RUnlock()
 
 	return s.usingMultiple
+}
+
+// applyConfigFromAPI is the callback for api.Server.ConfigUpdateFunc.
+// It applies a config update received via the API to the running daemon.
+func (s *Service) applyConfigFromAPI(cfg *config.Config) {
+	s.mu.Lock()
+	s.config = cfg
+	vis := s.visualizer
+	multiVis := s.multiVisualizer
+	isMulti := s.usingMultiple
+	s.mu.Unlock()
+
+	if isMulti && multiVis != nil {
+		multiVis.UpdateConfig(cfg)
+	} else if vis != nil {
+		vis.UpdateConfig(cfg)
+	}
 }
