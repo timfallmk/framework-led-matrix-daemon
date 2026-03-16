@@ -21,7 +21,8 @@ const (
 
 // Matrix mode constants.
 const (
-	MatrixModeSingle = "single"
+	MatrixModeSingle    = "single"
+	DisplayModeGradient = "gradient"
 )
 
 // Request represents a JSON-RPC-style request from a client.

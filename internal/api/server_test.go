@@ -48,11 +48,11 @@ func (m *mockDisplayController) IsMultiMatrix() bool {
 	return false
 }
 
-// waitForSocket polls until the Unix socket at path is connectable or the timeout elapses.
-func waitForSocket(t *testing.T, path string, timeout time.Duration) {
+// waitForSocket polls until the Unix socket at path is connectable or 5 seconds elapses.
+func waitForSocket(t *testing.T, path string) {
 	t.Helper()
 
-	deadline := time.Now().Add(timeout)
+	deadline := time.Now().Add(5 * time.Second)
 
 	for time.Now().Before(deadline) {
 		dialer := net.Dialer{Timeout: 20 * time.Millisecond}
@@ -67,7 +67,7 @@ func waitForSocket(t *testing.T, path string, timeout time.Duration) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	t.Fatalf("socket %s not available after %s", path, timeout)
+	t.Fatalf("socket %s not available after 5s", path)
 }
 
 func TestServerStartStop(t *testing.T) {
@@ -90,7 +90,7 @@ func TestServerStartStop(t *testing.T) {
 		errCh <- server.Serve(ctx)
 	}()
 
-	waitForSocket(t, socketPath, 5*time.Second)
+	waitForSocket(t, socketPath)
 
 	// Stop server
 	cancel()
@@ -122,7 +122,7 @@ func TestServerClientRoundTrip(t *testing.T) {
 
 	go server.Serve(ctx)
 
-	waitForSocket(t, socketPath, 5*time.Second)
+	waitForSocket(t, socketPath)
 
 	client := NewClient(socketPath)
 	if err := client.Connect(); err != nil {
@@ -162,11 +162,11 @@ func TestServerClientRoundTrip(t *testing.T) {
 	})
 
 	t.Run("DisplaySetMode", func(t *testing.T) {
-		if err := client.SetDisplayMode("gradient"); err != nil {
+		if err := client.SetDisplayMode(DisplayModeGradient); err != nil {
 			t.Fatalf("failed to set mode: %v", err)
 		}
 
-		if display.mode != "gradient" {
+		if display.mode != DisplayModeGradient {
 			t.Errorf("expected mode 'gradient', got %q", display.mode)
 		}
 	})
@@ -249,7 +249,7 @@ func TestClientReconnect(t *testing.T) {
 
 	go server.Serve(ctx)
 
-	waitForSocket(t, socketPath, 5*time.Second)
+	waitForSocket(t, socketPath)
 
 	client := NewClient(socketPath)
 	if err := client.Connect(); err != nil {
