@@ -80,7 +80,8 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	// Set permissions so non-root users can connect
 	if err := os.Chmod(s.socketPath, 0o666); err != nil {
-		listener.Close()
+		_ = listener.Close()
+
 		return fmt.Errorf("failed to set socket permissions: %w", err)
 	}
 
@@ -93,7 +94,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	// Close listener when context is cancelled
 	go func() {
 		<-ctx.Done()
-		listener.Close()
+		_ = listener.Close()
 	}()
 
 	for {
@@ -124,7 +125,7 @@ func (s *Server) Close() error {
 	s.mu.Unlock()
 
 	if listener != nil {
-		listener.Close()
+		_ = listener.Close()
 	}
 
 	return os.Remove(s.socketPath)

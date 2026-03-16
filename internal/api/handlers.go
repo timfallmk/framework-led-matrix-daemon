@@ -142,7 +142,13 @@ func (s *Server) handleConfigUpdate(req Request) Response {
 	s.config = &newCfg
 	s.configMu.Unlock()
 
-	result, _ := json.Marshal(map[string]string{"status": "ok"})
+	result, err := json.Marshal(map[string]string{"status": "ok"})
+	if err != nil {
+		return Response{
+			ID:    req.ID,
+			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
+		}
+	}
 
 	return Response{ID: req.ID, Result: result}
 }
@@ -176,7 +182,13 @@ func (s *Server) handleDisplaySetMode(req Request) Response {
 		cfg.Display.Mode = params.Mode
 	}
 
-	result, _ := json.Marshal(map[string]string{"status": "ok"})
+	result, err := json.Marshal(map[string]string{"status": "ok"})
+	if err != nil {
+		return Response{
+			ID:    req.ID,
+			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
+		}
+	}
 
 	return Response{ID: req.ID, Result: result}
 }
@@ -211,7 +223,13 @@ func (s *Server) handleDisplaySetBrightness(req Request) Response {
 		}
 	}
 
-	result, _ := json.Marshal(map[string]string{"status": "ok"})
+	result, err := json.Marshal(map[string]string{"status": "ok"})
+	if err != nil {
+		return Response{
+			ID:    req.ID,
+			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
+		}
+	}
 
 	return Response{ID: req.ID, Result: result}
 }
@@ -245,7 +263,13 @@ func (s *Server) handleDisplaySetMetric(req Request) Response {
 		cfg.Display.PrimaryMetric = params.Metric
 	}
 
-	result, _ := json.Marshal(map[string]string{"status": "ok"})
+	result, err := json.Marshal(map[string]string{"status": "ok"})
+	if err != nil {
+		return Response{
+			ID:    req.ID,
+			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
+		}
+	}
 
 	return Response{ID: req.ID, Result: result}
 }

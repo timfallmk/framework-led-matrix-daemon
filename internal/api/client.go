@@ -110,7 +110,9 @@ func (c *Client) Call(method string, params interface{}) (*Response, error) {
 	}
 
 	// Set read deadline
-	c.conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	if err := c.conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		return nil, fmt.Errorf("failed to set read deadline: %w", err)
+	}
 
 	if !c.scanner.Scan() {
 		err := c.scanner.Err()
@@ -179,14 +181,19 @@ func (c *Client) Subscribe(method string, params interface{}, callback func(*Res
 	c.mu.Unlock()
 
 	// Read the initial ack response
-	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	if err := conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		return fmt.Errorf("failed to set read deadline: %w", err)
+	}
+
 	if scanner.Scan() {
 		// Initial ack, discard
 	}
 
 	// Stream responses
 	for {
-		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		if err := conn.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
+			return fmt.Errorf("failed to set read deadline: %w", err)
+		}
 
 		if !scanner.Scan() {
 			if err := scanner.Err(); err != nil {
@@ -306,7 +313,7 @@ func (c *Client) SetPrimaryMetric(metric string) error {
 
 // Reconnect attempts to re-establish the connection.
 func (c *Client) Reconnect() error {
-	c.Close()
+	_ = c.Close()
 
 	return c.Connect()
 }
