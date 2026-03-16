@@ -332,10 +332,11 @@ func (s *Service) Start() error {
 
 		s.wg.Add(1)
 
+		apiSrv := s.apiServer // capture for goroutine
 		go func() {
 			defer s.wg.Done()
 
-			if err := s.apiServer.Serve(apiCtx); err != nil {
+			if err := apiSrv.Serve(apiCtx); err != nil {
 				s.eventLogger.LogDaemon(logging.LevelWarn, "API server stopped", "api", map[string]interface{}{
 					"error": err.Error(),
 				})
@@ -619,7 +620,9 @@ func (s *Service) reloadConfig() error {
 	oldAPIEnabled := s.config.API.Enabled
 	oldSocketPath := s.config.API.SocketPath
 
+	s.mu.Lock()
 	s.config = newConfig
+	s.mu.Unlock()
 
 	s.collector.SetThresholds(stats.Thresholds{
 		CPUWarning:     newConfig.Stats.Thresholds.CPUWarning,
@@ -667,10 +670,11 @@ func (s *Service) reloadConfig() error {
 
 			s.wg.Add(1)
 
+			apiSrv := s.apiServer // capture for goroutine
 			go func() {
 				defer s.wg.Done()
 
-				if err := s.apiServer.Serve(apiCtx); err != nil {
+				if err := apiSrv.Serve(apiCtx); err != nil {
 					s.eventLogger.LogDaemon(logging.LevelWarn, "API server stopped", "api", map[string]interface{}{
 						"error": err.Error(),
 					})

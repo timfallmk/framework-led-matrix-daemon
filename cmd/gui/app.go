@@ -156,6 +156,7 @@ func (g *GUIApp) fetchAndUpdate() error {
 
 	g.statusBar.SetText("Connected | Mode: " + status.DisplayMode + " | Metric: " + status.PrimaryMetric)
 	g.settings.UpdateFromStatus(status)
+	g.ledPreview.SetBrightnessDisplay(status.Brightness)
 
 	// Fetch health
 	health, err := g.client.GetHealth()

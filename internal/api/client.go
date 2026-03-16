@@ -186,8 +186,22 @@ func (c *Client) Subscribe(ctx context.Context, method string, params interface{
 		return fmt.Errorf("failed to set read deadline: %w", err)
 	}
 
-	if scanner.Scan() {
-		// Initial ack, discard
+	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("failed to read subscribe ack: %w", err)
+		}
+
+		return fmt.Errorf("connection closed before ack")
+	}
+
+	// Verify the ack response
+	var ackResp Response
+	if err := json.Unmarshal(scanner.Bytes(), &ackResp); err != nil {
+		return fmt.Errorf("failed to parse subscribe ack: %w", err)
+	}
+
+	if ackResp.Error != nil {
+		return fmt.Errorf("subscribe rejected: %s", ackResp.Error.Message)
 	}
 
 	// Stream responses

@@ -145,6 +145,11 @@ func (s *Server) handleConfigUpdate(req Request) Response {
 	s.config = &newCfg
 	s.configMu.Unlock()
 
+	// Notify the service so it can apply the updated config to the running daemon
+	if s.ConfigUpdateFunc != nil {
+		s.ConfigUpdateFunc(&newCfg)
+	}
+
 	result, err := json.Marshal(map[string]string{"status": "ok"})
 	if err != nil {
 		return Response{
@@ -180,11 +185,12 @@ func (s *Server) handleDisplaySetMode(req Request) Response {
 		}
 	}
 
-	// Also update config
-	cfg := s.getConfig()
-	if cfg != nil {
-		cfg.Display.Mode = params.Mode
+	// Also update config under write lock
+	s.configMu.Lock()
+	if s.config != nil {
+		s.config.Display.Mode = params.Mode
 	}
+	s.configMu.Unlock()
 
 	result, err := json.Marshal(map[string]string{"status": "ok"})
 	if err != nil {
@@ -228,11 +234,12 @@ func (s *Server) handleDisplaySetBrightness(req Request) Response {
 		}
 	}
 
-	// Update config to keep status reports consistent with hardware state
-	cfg := s.getConfig()
-	if cfg != nil {
-		cfg.Matrix.Brightness = byte(params.Brightness)
+	// Update config under write lock to keep status reports consistent with hardware state
+	s.configMu.Lock()
+	if s.config != nil {
+		s.config.Matrix.Brightness = byte(params.Brightness)
 	}
+	s.configMu.Unlock()
 
 	result, err := json.Marshal(map[string]string{"status": "ok"})
 	if err != nil {
@@ -269,11 +276,12 @@ func (s *Server) handleDisplaySetMetric(req Request) Response {
 		}
 	}
 
-	// Also update config
-	cfg := s.getConfig()
-	if cfg != nil {
-		cfg.Display.PrimaryMetric = params.Metric
+	// Also update config under write lock
+	s.configMu.Lock()
+	if s.config != nil {
+		s.config.Display.PrimaryMetric = params.Metric
 	}
+	s.configMu.Unlock()
 
 	result, err := json.Marshal(map[string]string{"status": "ok"})
 	if err != nil {

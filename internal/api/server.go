@@ -16,7 +16,7 @@ import (
 )
 
 // DefaultSocketPath is the default Unix domain socket path for the API server.
-const DefaultSocketPath = "/tmp/framework-led-daemon.sock"
+const DefaultSocketPath = "/run/framework-led-daemon/daemon.sock"
 
 // DisplayController provides methods the API server uses to control the display.
 type DisplayController interface {
@@ -47,6 +47,14 @@ type Server struct {
 	startTime  time.Time
 	mu         sync.RWMutex
 	configMu   sync.RWMutex
+
+	// Active connection tracking for clean shutdown
+	connMu    sync.Mutex
+	activeConns map[net.Conn]struct{}
+
+	// ConfigUpdateFunc is called when a client updates config via the API.
+	// If set, the server notifies the service to apply the new config.
+	ConfigUpdateFunc func(cfg *config.Config)
 }
 
 // NewServer creates a new API server with the given configuration.
@@ -57,12 +65,13 @@ func NewServer(cfg ServerConfig) *Server {
 	}
 
 	return &Server{
-		socketPath: socketPath,
-		collector:  cfg.Collector,
-		config:     cfg.Config,
-		health:     cfg.Health,
-		display:    cfg.Display,
-		startTime:  time.Now(),
+		socketPath:  socketPath,
+		collector:   cfg.Collector,
+		config:      cfg.Config,
+		health:      cfg.Health,
+		display:     cfg.Display,
+		startTime:   time.Now(),
+		activeConns: make(map[net.Conn]struct{}),
 	}
 }
 
@@ -95,10 +104,11 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	var wg sync.WaitGroup
 
-	// Close listener when context is cancelled
+	// Close listener and all active connections when context is cancelled
 	go func() {
 		<-ctx.Done()
 		_ = listener.Close()
+		s.closeAllConns()
 	}()
 
 	for {
@@ -109,14 +119,25 @@ func (s *Server) Serve(ctx context.Context) error {
 				wg.Wait()
 				return nil
 			default:
+			}
+
+			// Treat non-temporary errors (e.g., closed listener) as terminal
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				continue
 			}
+
+			wg.Wait()
+
+			return fmt.Errorf("accept error: %w", err)
 		}
+
+		s.trackConn(conn)
 
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
+			defer s.untrackConn(conn)
 			s.handleConnection(ctx, conn)
 		}()
 	}
@@ -146,6 +167,26 @@ func (s *Server) UpdateConfig(cfg *config.Config) {
 	defer s.configMu.Unlock()
 
 	s.config = cfg
+}
+
+func (s *Server) trackConn(conn net.Conn) {
+	s.connMu.Lock()
+	s.activeConns[conn] = struct{}{}
+	s.connMu.Unlock()
+}
+
+func (s *Server) untrackConn(conn net.Conn) {
+	s.connMu.Lock()
+	delete(s.activeConns, conn)
+	s.connMu.Unlock()
+}
+
+func (s *Server) closeAllConns() {
+	s.connMu.Lock()
+	for conn := range s.activeConns {
+		_ = conn.Close()
+	}
+	s.connMu.Unlock()
 }
 
 // getConfig returns the current config under a read lock.

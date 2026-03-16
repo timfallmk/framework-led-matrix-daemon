@@ -22,6 +22,12 @@ type Settings struct {
 	logLevelSelect   *widget.Select
 	statusLabel      *widget.Label
 	container        *fyne.Container
+
+	// Track whether the user has manually changed each setting.
+	// Once a user edits a value, we stop overwriting it from daemon polls.
+	userEditedMode       bool
+	userEditedMetric     bool
+	userEditedBrightness bool
 }
 
 // NewSettings creates a new settings editor.
@@ -35,6 +41,7 @@ func NewSettings(client *api.Client) *Settings {
 	s.modeSelect = widget.NewSelect(
 		[]string{"percentage", "gradient", "activity", "status"},
 		func(mode string) {
+			s.userEditedMode = true
 			if err := client.SetDisplayMode(mode); err != nil {
 				s.statusLabel.SetText("Error: " + err.Error())
 			} else {
@@ -48,6 +55,7 @@ func NewSettings(client *api.Client) *Settings {
 	s.metricSelect = widget.NewSelect(
 		[]string{"cpu", "memory", "disk", "network"},
 		func(metric string) {
+			s.userEditedMetric = true
 			if err := client.SetPrimaryMetric(metric); err != nil {
 				s.statusLabel.SetText("Error: " + err.Error())
 			} else {
@@ -68,6 +76,7 @@ func NewSettings(client *api.Client) *Settings {
 	}
 	s.brightnessSlider.OnChangeEnded = func(val float64) {
 		level := int(val)
+		s.userEditedBrightness = true
 		if err := client.SetBrightness(level); err != nil {
 			s.statusLabel.SetText("Error: " + err.Error())
 		} else {
@@ -125,20 +134,24 @@ func (s *Settings) Container() *fyne.Container {
 }
 
 // UpdateFromStatus refreshes the settings display with current daemon values.
+// It skips fields the user has explicitly edited to avoid overwriting active changes.
 func (s *Settings) UpdateFromStatus(status *api.StatusResult) {
 	if status == nil {
 		return
 	}
 
-	// Only update if user hasn't changed the value (avoid overwriting user edits)
-	if s.modeSelect.Selected == "" {
+	if !s.userEditedMode {
 		s.modeSelect.SetSelected(status.DisplayMode)
+		s.userEditedMode = false // SetSelected fires callback, reset the flag
 	}
 
-	if s.metricSelect.Selected == "" {
+	if !s.userEditedMetric {
 		s.metricSelect.SetSelected(status.PrimaryMetric)
+		s.userEditedMetric = false
 	}
 
-	s.brightnessSlider.SetValue(float64(status.Brightness))
-	s.brightnessLabel.SetText("Brightness: " + strconv.Itoa(status.Brightness))
+	if !s.userEditedBrightness {
+		s.brightnessSlider.SetValue(float64(status.Brightness))
+		s.brightnessLabel.SetText("Brightness: " + strconv.Itoa(status.Brightness))
+	}
 }

@@ -169,8 +169,8 @@ func DefaultConfig() *Config {
 			LogFile:     "/var/log/framework-led-daemon.log",
 		},
 		API: APIConfig{
-			Enabled:    true,
-			SocketPath: "/tmp/framework-led-daemon.sock",
+			Enabled:    false,
+			SocketPath: "/run/framework-led-daemon/daemon.sock",
 		},
 		Logging: LoggingConfig{
 			Level:           "info",
@@ -323,6 +323,11 @@ func (c *Config) Validate() error {
 	// Validate logging configuration
 	if err := c.validateLogging(); err != nil {
 		return fmt.Errorf("logging configuration: %w", err)
+	}
+
+	// Validate API configuration
+	if c.API.Enabled && c.API.SocketPath == "" {
+		return fmt.Errorf("api.socket_path must be set when api is enabled")
 	}
 
 	return nil
@@ -724,6 +729,15 @@ func (c *Config) ValidateDetailed() []ValidationError {
 		})
 	}
 
+	// API configuration validation
+	if c.API.Enabled && c.API.SocketPath == "" {
+		errors = append(errors, ValidationError{
+			Field:   "api.socket_path",
+			Value:   c.API.SocketPath,
+			Message: "must be set when api is enabled",
+		})
+	}
+
 	return errors
 }
 
@@ -776,6 +790,8 @@ func (c *Config) ApplyEnvironmentOverrides() {
 				c.Logging.EventBufferSize = i
 			}
 		},
+		"FRAMEWORK_LED_API_ENABLED":     func(v string) { c.API.Enabled = strings.ToLower(v) == stringTrue },
+		"FRAMEWORK_LED_API_SOCKET_PATH": func(v string) { c.API.SocketPath = v },
 	}
 
 	for envVar, applyFunc := range envOverrides {
