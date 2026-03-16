@@ -52,6 +52,10 @@ daemon:
   pid_file: "/var/run/framework-led-daemon.pid"
   log_file: "/var/log/framework-led-daemon.log"
 
+api:
+  enabled: true                # Enable the API server for GUI/CLI control
+  socket_path: "/run/framework-led-daemon/daemon.sock"  # Unix socket path
+
 logging:
   level: "info"              # Log level: debug, info, warn, error
   format: "text"             # Log format: text, json

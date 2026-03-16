@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -73,6 +74,12 @@ func NewServer(cfg ServerConfig) *Server {
 
 // Serve starts the API server and listens for connections until the context is cancelled.
 func (s *Server) Serve(ctx context.Context) error {
+	// Ensure the socket directory exists
+	socketDir := filepath.Dir(s.socketPath)
+	if err := os.MkdirAll(socketDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create socket directory %s: %w", socketDir, err)
+	}
+
 	// Remove stale socket file only if it is actually a Unix socket
 	if info, err := os.Lstat(s.socketPath); err == nil {
 		if info.Mode()&os.ModeSocket != 0 {
@@ -89,8 +96,8 @@ func (s *Server) Serve(ctx context.Context) error {
 		return fmt.Errorf("failed to listen on %s: %w", s.socketPath, err)
 	}
 
-	// Set permissions so the owning user can connect
-	if err := os.Chmod(s.socketPath, 0o600); err != nil {
+	// Set permissions so the owning user and group can connect
+	if err := os.Chmod(s.socketPath, 0o660); err != nil { //nolint:gosec // G302: group access needed for non-root GUI clients
 		_ = listener.Close()
 
 		return fmt.Errorf("failed to set socket permissions: %w", err)
