@@ -50,6 +50,10 @@ simulator: deps
 	./$(BINARY_DIR)/framework-led-simulator $(ARGS)
 
 # Build the GUI application (requires CGO for Fyne)
+# Build the GUI application (requires CGO and system graphics libraries).
+# Debian/Ubuntu: sudo apt-get install libgl1-mesa-dev xorg-dev
+# Fedora: sudo dnf install gcc libXcursor-devel libXrandr-devel mesa-libGL-devel libXi-devel libXinerama-devel libXxf86vm-devel
+# See https://docs.fyne.io/started/quick/ for other platforms.
 gui: deps
 	@echo "Building $(GUI_BINARY_NAME)..."
 	@mkdir -p $(BINARY_DIR)
