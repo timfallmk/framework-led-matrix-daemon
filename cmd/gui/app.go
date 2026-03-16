@@ -166,10 +166,21 @@ func (g *GUIApp) fetchAndUpdate() error {
 	// Apply all UI updates on the Fyne main thread
 	fyne.Do(func() {
 		g.dashboard.Update(metrics)
+		g.dashboard.UpdateMatrixInfo(status)
+
+		matrixMode := status.MatrixMode
+		if matrixMode == "" {
+			matrixMode = "single"
+		}
+		isDual := matrixMode != "single"
+		g.ledPreview.SetDualMode(isDual, matrixMode)
 		g.ledPreview.UpdateFromMetrics(metrics)
 
-		g.statusBar.SetText("Connected | Mode: " + status.DisplayMode + " | Metric: " + status.PrimaryMetric)
+		g.statusBar.SetText("Connected | Mode: " + status.DisplayMode +
+			" | Metric: " + status.PrimaryMetric +
+			" | Matrix: " + matrixMode)
 		g.settings.UpdateFromStatus(status)
+		g.settings.UpdateMatrixInfo(status)
 		g.ledPreview.SetBrightnessDisplay(status.Brightness)
 
 		g.health.Update(health)

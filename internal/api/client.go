@@ -343,3 +343,17 @@ func (c *Client) Reconnect() error {
 
 	return c.Connect()
 }
+
+// SetDualMode changes the dual-matrix mode on the daemon.
+func (c *Client) SetDualMode(mode string) error {
+	resp, err := c.Call(MethodMatrixSetDualMode, SetDualModeParams{Mode: mode})
+	if err != nil {
+		return err
+	}
+
+	if resp.Error != nil {
+		return fmt.Errorf("API error: %s", resp.Error.Message)
+	}
+
+	return nil
+}

@@ -287,6 +287,8 @@ func (s *Server) handleRequest(_ context.Context, _ net.Conn, req Request) Respo
 		return s.handleStatusGet(req)
 	case MethodMatrixGetState:
 		return s.handleMatrixGetState(req)
+	case MethodMatrixSetDualMode:
+		return s.handleMatrixSetDualMode(req)
 	default:
 		return Response{
 			ID:    req.ID,

@@ -344,6 +344,18 @@ func (s *Server) handleStatusGet(req Request) Response {
 
 		if cfg.Matrix.DualMode != "" {
 			result.MatrixMode = cfg.Matrix.DualMode
+
+			// Populate per-matrix info from config
+			matrices := cfg.ConvertMatrices()
+			for _, m := range matrices {
+				result.Matrices = append(result.Matrices, MatrixInfo{
+					Name:       m.Name,
+					Role:       m.Role,
+					Metrics:    m.Metrics,
+					Brightness: int(m.Brightness),
+					Connected:  s.display != nil,
+				})
+			}
 		} else {
 			result.MatrixMode = "single"
 		}
@@ -380,4 +392,51 @@ func (s *Server) handleMatrixGetState(req Request) Response {
 	}
 
 	return Response{ID: req.ID, Result: data}
+}
+
+// handleMatrixSetDualMode changes the dual-matrix mode.
+func (s *Server) handleMatrixSetDualMode(req Request) Response {
+var params SetDualModeParams
+if err := json.Unmarshal(req.Params, &params); err != nil {
+return Response{
+ID:    req.ID,
+Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("invalid params: %v", err)},
+}
+}
+
+validModes := map[string]bool{
+"single": true, "mirror": true, "split": true,
+"extended": true, "independent": true,
+}
+if !validModes[params.Mode] {
+return Response{
+ID:    req.ID,
+Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: "mode must be one of: single, mirror, split, extended, independent"},
+}
+}
+
+s.configMu.Lock()
+if s.config != nil {
+if params.Mode == "single" {
+s.config.Matrix.DualMode = ""
+} else {
+s.config.Matrix.DualMode = params.Mode
+}
+}
+cfg := s.config
+s.configMu.Unlock()
+
+if s.ConfigUpdateFunc != nil && cfg != nil {
+s.ConfigUpdateFunc(cfg)
+}
+
+result, err := json.Marshal(map[string]string{"status": "ok"})
+if err != nil {
+return Response{
+ID:    req.ID,
+Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
+}
+}
+
+return Response{ID: req.ID, Result: result}
 }

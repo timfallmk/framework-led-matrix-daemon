@@ -16,30 +16,34 @@ import (
 
 // Dashboard displays real-time system metrics.
 type Dashboard struct {
-	cpuBar      *widget.ProgressBar
-	cpuLabel    *widget.Label
-	memBar      *widget.ProgressBar
-	memLabel    *widget.Label
-	diskLabel   *widget.Label
-	netLabel    *widget.Label
-	statusRect  *canvas.Rectangle
-	statusLabel *widget.Label
-	container   *fyne.Container
+	cpuBar              *widget.ProgressBar
+	cpuLabel            *widget.Label
+	memBar              *widget.ProgressBar
+	memLabel            *widget.Label
+	diskLabel           *widget.Label
+	netLabel            *widget.Label
+	statusRect          *canvas.Rectangle
+	statusLabel         *widget.Label
+	matrixModeLabel     *widget.Label
+	matrixInfoContainer *fyne.Container
+	container           *fyne.Container
 }
 
 // NewDashboard creates a new metrics dashboard.
 func NewDashboard() *Dashboard {
 	d := &Dashboard{
-		cpuBar:      widget.NewProgressBar(),
-		cpuLabel:    widget.NewLabel("CPU: --"),
-		memBar:      widget.NewProgressBar(),
-		memLabel:    widget.NewLabel("Memory: --"),
-		diskLabel:   widget.NewLabel("Disk I/O: --"),
-		netLabel:    widget.NewLabel("Network: --"),
-		statusRect:  canvas.NewRectangle(color.NRGBA{R: 128, G: 128, B: 128, A: 255}),
-		statusLabel: widget.NewLabel("Status: Unknown"),
+		cpuBar:          widget.NewProgressBar(),
+		cpuLabel:        widget.NewLabel("CPU: --"),
+		memBar:          widget.NewProgressBar(),
+		memLabel:        widget.NewLabel("Memory: --"),
+		diskLabel:       widget.NewLabel("Disk I/O: --"),
+		netLabel:        widget.NewLabel("Network: --"),
+		statusRect:      canvas.NewRectangle(color.NRGBA{R: 128, G: 128, B: 128, A: 255}),
+		statusLabel:     widget.NewLabel("Status: Unknown"),
+		matrixModeLabel: widget.NewLabel("Matrix: single"),
 	}
 
+	d.matrixInfoContainer = container.NewVBox(d.matrixModeLabel)
 	d.statusRect.SetMinSize(fyne.NewSize(20, 20))
 	d.statusRect.CornerRadius = 10
 
@@ -66,6 +70,11 @@ func NewDashboard() *Dashboard {
 		d.statusLabel,
 	)
 
+	matrixSection := container.NewVBox(
+		widget.NewLabelWithStyle("Matrix Info", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		d.matrixInfoContainer,
+	)
+
 	d.container = container.NewVBox(
 		widget.NewLabelWithStyle("System Metrics", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		widget.NewSeparator(),
@@ -76,6 +85,8 @@ func NewDashboard() *Dashboard {
 		ioSection,
 		widget.NewSeparator(),
 		statusSection,
+		widget.NewSeparator(),
+		matrixSection,
 	)
 
 	return d
@@ -117,4 +128,39 @@ func (d *Dashboard) Update(m *api.MetricsResult) {
 	}
 
 	d.statusRect.Refresh()
+}
+
+// UpdateMatrixInfo refreshes the matrix information display.
+func (d *Dashboard) UpdateMatrixInfo(status *api.StatusResult) {
+if status == nil {
+return
+}
+
+mode := status.MatrixMode
+if mode == "" {
+mode = "single"
+}
+d.matrixModeLabel.SetText(fmt.Sprintf("Matrix Mode: %s", mode))
+
+// Rebuild per-matrix info
+d.matrixInfoContainer.RemoveAll()
+d.matrixInfoContainer.Add(d.matrixModeLabel)
+
+if len(status.Matrices) > 0 {
+for _, m := range status.Matrices {
+info := fmt.Sprintf("  %s (%s)", m.Name, m.Role)
+if len(m.Metrics) > 0 {
+info += " — metrics: "
+for i, metric := range m.Metrics {
+if i > 0 {
+info += ", "
+}
+info += metric
+}
+}
+d.matrixInfoContainer.Add(widget.NewLabel(info))
+}
+}
+
+d.matrixInfoContainer.Refresh()
 }
