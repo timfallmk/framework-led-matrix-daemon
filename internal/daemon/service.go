@@ -14,6 +14,7 @@ import (
 
 	"github.com/takama/daemon"
 
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/api"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/matrix"
@@ -40,6 +41,7 @@ type Service struct {
 	multiClient      *matrix.MultiClient
 	healthMonitor    *observability.HealthMonitor
 	matrix           *matrix.Client
+	apiServer        *api.Server
 	cancel           context.CancelFunc
 	config           *config.Config
 	stopCh           chan struct{}
@@ -314,6 +316,33 @@ func (s *Service) Start() error {
 		return fmt.Errorf("failed to initialize service: %w", err)
 	}
 
+	// Start API server if enabled
+	if s.config.API.Enabled {
+		s.apiServer = api.NewServer(api.ServerConfig{
+			SocketPath: s.config.API.SocketPath,
+			Collector:  s.collector,
+			Config:     s.config,
+			Health:     s.healthMonitor,
+			Display:    s,
+		})
+
+		s.wg.Add(1)
+
+		go func() {
+			defer s.wg.Done()
+
+			if err := s.apiServer.Serve(s.ctx); err != nil {
+				s.eventLogger.LogDaemon(logging.LevelWarn, "API server stopped", "api", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}()
+
+		s.eventLogger.LogDaemon(logging.LevelInfo, "API server started", "api", map[string]interface{}{
+			"socket": s.config.API.SocketPath,
+		})
+	}
+
 	s.wg.Add(1)
 
 	go s.runSystemLoop()
@@ -343,6 +372,15 @@ func (s *Service) Stop() error {
 	s.cancel()
 
 	s.wg.Wait()
+
+	// Stop API server
+	if s.apiServer != nil {
+		if err := s.apiServer.Close(); err != nil {
+			s.eventLogger.LogDaemon(logging.LevelWarn, "failed to close API server", "api", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
 
 	// Stop observability components
 	s.healthMonitor.Stop()
@@ -586,6 +624,10 @@ func (s *Service) reloadConfig() error {
 		s.visualizer.UpdateConfig(newConfig)
 	}
 
+	if s.apiServer != nil {
+		s.apiServer.UpdateConfig(newConfig)
+	}
+
 	duration := timer.StopWithSuccess(true)
 	s.appMetrics.RecordConfigReload(true, duration)
 
@@ -619,4 +661,81 @@ func (s *Service) StartService() (string, error) {
 // StopService stops the system service.
 func (s *Service) StopService() (string, error) {
 	return s.Daemon.Stop()
+}
+
+// SetDisplayMode implements api.DisplayController by updating the display mode.
+func (s *Service) SetDisplayMode(mode string) error {
+	validModes := map[string]bool{
+		"percentage": true,
+		"gradient":   true,
+		"activity":   true,
+		"status":     true,
+		"custom":     true,
+	}
+	if !validModes[mode] {
+		return fmt.Errorf("invalid display mode: %s", mode)
+	}
+
+	s.config.Display.Mode = mode
+
+	if s.visualizer != nil {
+		s.visualizer.UpdateConfig(s.config)
+	}
+
+	return nil
+}
+
+// SetBrightness implements api.DisplayController by updating the brightness.
+func (s *Service) SetBrightness(level byte) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.usingMultiple && s.multiDisplay != nil {
+		return s.multiDisplay.SetBrightness(level)
+	} else if s.display != nil {
+		return s.display.SetBrightness(level)
+	}
+
+	return fmt.Errorf("no display available")
+}
+
+// SetPrimaryMetric implements api.DisplayController by updating the primary metric.
+func (s *Service) SetPrimaryMetric(metric string) error {
+	validMetrics := map[string]bool{
+		"cpu":     true,
+		"memory":  true,
+		"disk":    true,
+		"network": true,
+	}
+	if !validMetrics[metric] {
+		return fmt.Errorf("invalid metric: %s", metric)
+	}
+
+	s.config.Display.PrimaryMetric = metric
+
+	if s.visualizer != nil {
+		s.visualizer.UpdateConfig(s.config)
+	}
+
+	return nil
+}
+
+// GetDisplayState implements api.DisplayController by returning current display state.
+func (s *Service) GetDisplayState() map[string]interface{} {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.display != nil {
+		return s.display.GetCurrentState()
+	}
+
+	return map[string]interface{}{}
+}
+
+// IsMultiMatrix implements api.DisplayController.
+func (s *Service) IsMultiMatrix() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.usingMultiple
 }
