@@ -327,7 +327,8 @@ func (s *Service) Start() error {
 			Display:    s,
 		})
 
-		apiCtx, apiCancel := context.WithCancel(s.ctx) //nolint:govet // cancel stored in s.apiCancel, called in Stop/reload
+		//nolint:gosec // G118: cancel stored in s.apiCancel, called in Stop/reload
+		apiCtx, apiCancel := context.WithCancel(s.ctx)
 		s.apiCancel = apiCancel
 
 		s.wg.Add(1)
@@ -668,6 +669,7 @@ func (s *Service) reloadConfig() error {
 				Display:    s,
 			})
 
+			//nolint:gosec // G118: cancel stored in s.apiCancel, called in Stop/reload
 			apiCtx, apiCancel := context.WithCancel(s.ctx)
 			s.apiCancel = apiCancel
 

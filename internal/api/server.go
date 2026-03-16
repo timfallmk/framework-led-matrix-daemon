@@ -76,7 +76,7 @@ func NewServer(cfg ServerConfig) *Server {
 func (s *Server) Serve(ctx context.Context) error {
 	// Ensure the socket directory exists
 	socketDir := filepath.Dir(s.socketPath)
-	if err := os.MkdirAll(socketDir, 0o755); err != nil {
+	if err := os.MkdirAll(socketDir, 0o750); err != nil { //nolint:gosec // G301: daemon directory
 		return fmt.Errorf("failed to create socket directory %s: %w", socketDir, err)
 	}
 
@@ -96,9 +96,10 @@ func (s *Server) Serve(ctx context.Context) error {
 		return fmt.Errorf("failed to listen on %s: %w", s.socketPath, err)
 	}
 
-	// Set permissions so any local user can connect (standard for local daemon sockets)
-	if err := os.Chmod(s.socketPath, 0o666); err != nil { //nolint:gosec // G302: local Unix socket, network access impossible
-		_ = listener.Close()
+	// Local Unix socket — network access impossible
+	//nolint:gosec // G302: world-accessible socket is standard for local daemons
+	if err := os.Chmod(s.socketPath, 0o666); err != nil {
+		_ = listener.Close() //nolint:errcheck // best-effort cleanup
 
 		return fmt.Errorf("failed to set socket permissions: %w", err)
 	}
@@ -113,7 +114,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 
-		_ = listener.Close()
+		_ = listener.Close() //nolint:errcheck // best-effort cleanup on shutdown
 
 		s.closeAllConns()
 	}()
@@ -160,7 +161,7 @@ func (s *Server) Close() error {
 	s.mu.Unlock()
 
 	if listener != nil {
-		_ = listener.Close()
+		_ = listener.Close() //nolint:errcheck // best-effort cleanup
 	}
 
 	err := os.Remove(s.socketPath)
@@ -194,7 +195,7 @@ func (s *Server) untrackConn(conn net.Conn) {
 func (s *Server) closeAllConns() {
 	s.connMu.Lock()
 	for conn := range s.activeConns {
-		_ = conn.Close()
+		_ = conn.Close() //nolint:errcheck // best-effort cleanup
 	}
 	s.connMu.Unlock()
 }
@@ -209,7 +210,7 @@ func (s *Server) getConfig() *config.Config {
 
 // handleConnection reads JSON requests from conn until the connection is closed or ctx is cancelled.
 func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
-	defer conn.Close()
+	defer conn.Close() //nolint:errcheck // best-effort cleanup
 
 	scanner := bufio.NewScanner(conn)
 	// Allow up to 1MB messages

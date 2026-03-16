@@ -482,6 +482,8 @@ func (e ValidationError) Error() string {
 }
 
 // ValidateDetailed performs comprehensive validation with detailed error reporting.
+//
+//nolint:gocognit // complex validation logic is inherently branchy
 func (c *Config) ValidateDetailed() []ValidationError {
 	var errors []ValidationError
 

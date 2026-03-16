@@ -150,15 +150,40 @@ func (s *Server) handleConfigUpdate(req Request) Response {
 		s.ConfigUpdateFunc(&newCfg)
 	}
 
-	result, err := json.Marshal(map[string]string{"status": "ok"})
-	if err != nil {
-		return Response{
-			ID:    req.ID,
+	return okResponse(req.ID)
+}
+
+// displayAction executes a display controller action, returning an error response if the
+// display is unavailable or the action fails. Returns nil on success.
+func (s *Server) displayAction(reqID string, action func() error) *Response {
+	if s.display == nil {
+		return &Response{
+			ID:    reqID,
+			Error: &ErrorInfo{Code: ErrCodeInternal, Message: "display controller not available"},
+		}
+	}
+
+	if err := action(); err != nil {
+		return &Response{
+			ID:    reqID,
 			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
 		}
 	}
 
-	return Response{ID: req.ID, Result: result}
+	return nil
+}
+
+// okResponse returns a JSON-encoded {"status":"ok"} response.
+func okResponse(reqID string) Response {
+	result, err := json.Marshal(map[string]string{"status": "ok"})
+	if err != nil {
+		return Response{
+			ID:    reqID,
+			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
+		}
+	}
+
+	return Response{ID: reqID, Result: result}
 }
 
 // handleDisplaySetMode changes the daemon's active display mode.
@@ -171,36 +196,19 @@ func (s *Server) handleDisplaySetMode(req Request) Response {
 		}
 	}
 
-	if s.display == nil {
-		return Response{
-			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInternal, Message: "display controller not available"},
-		}
+	if errResp := s.displayAction(req.ID, func() error {
+		return s.display.SetDisplayMode(params.Mode)
+	}); errResp != nil {
+		return *errResp
 	}
 
-	if err := s.display.SetDisplayMode(params.Mode); err != nil {
-		return Response{
-			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
-		}
-	}
-
-	// Also update config under write lock
 	s.configMu.Lock()
 	if s.config != nil {
 		s.config.Display.Mode = params.Mode
 	}
 	s.configMu.Unlock()
 
-	result, err := json.Marshal(map[string]string{"status": "ok"})
-	if err != nil {
-		return Response{
-			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
-		}
-	}
-
-	return Response{ID: req.ID, Result: result}
+	return okResponse(req.ID)
 }
 
 // handleDisplaySetBrightness updates the LED matrix brightness level.
@@ -220,36 +228,19 @@ func (s *Server) handleDisplaySetBrightness(req Request) Response {
 		}
 	}
 
-	if s.display == nil {
-		return Response{
-			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInternal, Message: "display controller not available"},
-		}
+	if errResp := s.displayAction(req.ID, func() error {
+		return s.display.SetBrightness(byte(params.Brightness))
+	}); errResp != nil {
+		return *errResp
 	}
 
-	if err := s.display.SetBrightness(byte(params.Brightness)); err != nil {
-		return Response{
-			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
-		}
-	}
-
-	// Update config under write lock to keep status reports consistent with hardware state
 	s.configMu.Lock()
 	if s.config != nil {
 		s.config.Matrix.Brightness = byte(params.Brightness)
 	}
 	s.configMu.Unlock()
 
-	result, err := json.Marshal(map[string]string{"status": "ok"})
-	if err != nil {
-		return Response{
-			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
-		}
-	}
-
-	return Response{ID: req.ID, Result: result}
+	return okResponse(req.ID)
 }
 
 // handleDisplaySetMetric sets the primary metric used for the display.
@@ -262,36 +253,19 @@ func (s *Server) handleDisplaySetMetric(req Request) Response {
 		}
 	}
 
-	if s.display == nil {
-		return Response{
-			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInternal, Message: "display controller not available"},
-		}
+	if errResp := s.displayAction(req.ID, func() error {
+		return s.display.SetPrimaryMetric(params.Metric)
+	}); errResp != nil {
+		return *errResp
 	}
 
-	if err := s.display.SetPrimaryMetric(params.Metric); err != nil {
-		return Response{
-			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
-		}
-	}
-
-	// Also update config under write lock
 	s.configMu.Lock()
 	if s.config != nil {
 		s.config.Display.PrimaryMetric = params.Metric
 	}
 	s.configMu.Unlock()
 
-	result, err := json.Marshal(map[string]string{"status": "ok"})
-	if err != nil {
-		return Response{
-			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
-		}
-	}
-
-	return Response{ID: req.ID, Result: result}
+	return okResponse(req.ID)
 }
 
 // handleHealthGet returns the results of all registered health checks.
@@ -396,47 +370,39 @@ func (s *Server) handleMatrixGetState(req Request) Response {
 
 // handleMatrixSetDualMode changes the dual-matrix mode.
 func (s *Server) handleMatrixSetDualMode(req Request) Response {
-var params SetDualModeParams
-if err := json.Unmarshal(req.Params, &params); err != nil {
-return Response{
-ID:    req.ID,
-Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("invalid params: %v", err)},
-}
-}
+	var params SetDualModeParams
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return Response{
+			ID:    req.ID,
+			Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("invalid params: %v", err)},
+		}
+	}
 
-validModes := map[string]bool{
-"single": true, "mirror": true, "split": true,
-"extended": true, "independent": true,
-}
-if !validModes[params.Mode] {
-return Response{
-ID:    req.ID,
-Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: "mode must be one of: single, mirror, split, extended, independent"},
-}
-}
+	validModes := map[string]bool{
+		"single": true, "mirror": true, "split": true,
+		"extended": true, "independent": true,
+	}
+	if !validModes[params.Mode] {
+		return Response{
+			ID:    req.ID,
+			Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: "mode must be one of: single, mirror, split, extended, independent"},
+		}
+	}
 
-s.configMu.Lock()
-if s.config != nil {
-if params.Mode == "single" {
-s.config.Matrix.DualMode = ""
-} else {
-s.config.Matrix.DualMode = params.Mode
-}
-}
-cfg := s.config
-s.configMu.Unlock()
+	s.configMu.Lock()
+	if s.config != nil {
+		if params.Mode == "single" {
+			s.config.Matrix.DualMode = ""
+		} else {
+			s.config.Matrix.DualMode = params.Mode
+		}
+	}
+	cfg := s.config
+	s.configMu.Unlock()
 
-if s.ConfigUpdateFunc != nil && cfg != nil {
-s.ConfigUpdateFunc(cfg)
-}
+	if s.ConfigUpdateFunc != nil && cfg != nil {
+		s.ConfigUpdateFunc(cfg)
+	}
 
-result, err := json.Marshal(map[string]string{"status": "ok"})
-if err != nil {
-return Response{
-ID:    req.ID,
-Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
-}
-}
-
-return Response{ID: req.ID, Result: result}
+	return okResponse(req.ID)
 }

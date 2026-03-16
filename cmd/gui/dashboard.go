@@ -132,35 +132,35 @@ func (d *Dashboard) Update(m *api.MetricsResult) {
 
 // UpdateMatrixInfo refreshes the matrix information display.
 func (d *Dashboard) UpdateMatrixInfo(status *api.StatusResult) {
-if status == nil {
-return
-}
+	if status == nil {
+		return
+	}
 
-mode := status.MatrixMode
-if mode == "" {
-mode = "single"
-}
-d.matrixModeLabel.SetText(fmt.Sprintf("Matrix Mode: %s", mode))
+	mode := status.MatrixMode
+	if mode == "" {
+		mode = "single"
+	}
+	d.matrixModeLabel.SetText(fmt.Sprintf("Matrix Mode: %s", mode))
 
-// Rebuild per-matrix info
-d.matrixInfoContainer.RemoveAll()
-d.matrixInfoContainer.Add(d.matrixModeLabel)
+	// Rebuild per-matrix info
+	d.matrixInfoContainer.RemoveAll()
+	d.matrixInfoContainer.Add(d.matrixModeLabel)
 
-if len(status.Matrices) > 0 {
-for _, m := range status.Matrices {
-info := fmt.Sprintf("  %s (%s)", m.Name, m.Role)
-if len(m.Metrics) > 0 {
-info += " — metrics: "
-for i, metric := range m.Metrics {
-if i > 0 {
-info += ", "
-}
-info += metric
-}
-}
-d.matrixInfoContainer.Add(widget.NewLabel(info))
-}
-}
+	if len(status.Matrices) > 0 {
+		for _, m := range status.Matrices {
+			info := fmt.Sprintf("  %s (%s)", m.Name, m.Role)
+			if len(m.Metrics) > 0 {
+				info += " — metrics: "
+				for i, metric := range m.Metrics {
+					if i > 0 {
+						info += ", "
+					}
+					info += metric
+				}
+			}
+			d.matrixInfoContainer.Add(widget.NewLabel(info))
+		}
+	}
 
-d.matrixInfoContainer.Refresh()
+	d.matrixInfoContainer.Refresh()
 }
