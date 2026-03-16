@@ -19,8 +19,12 @@ BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 # LDFLAGS with version information
 LDFLAGS=-ldflags="-w -s -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME)"
 
-# Build targets  
-.PHONY: all build clean install uninstall test test-coverage test-race test-short test-bench test-ci test-clean fmt vet deps cross-compile simulator help
+# GUI configuration
+GUI_BINARY_NAME=framework-led-gui
+GUI_CMD_DIR=cmd/gui
+
+# Build targets
+.PHONY: all build clean install uninstall test test-coverage test-race test-short test-bench test-ci test-clean fmt vet deps cross-compile simulator gui gui-run help
 .PHONY: lint lint-fix gofumpt golangci-lint security-scan vuln-check sbom quality-check dev-tools-check
 .PHONY: build-linux-amd64 build-linux-arm64 build-windows-amd64 release-linux-amd64 release-linux-arm64 release-windows-amd64
 
@@ -44,6 +48,19 @@ simulator: deps
 	@echo "Starting simulator (Press Ctrl+C to stop)..."
 	@echo "Try: make simulator ARGS='-mode activity -metric cpu -duration 60s'"
 	./$(BINARY_DIR)/framework-led-simulator $(ARGS)
+
+# Build the GUI application (requires CGO for Fyne)
+gui: deps
+	@echo "Building $(GUI_BINARY_NAME)..."
+	@mkdir -p $(BINARY_DIR)
+	CGO_ENABLED=1 go build -tags gui $(GO_BUILD_FLAGS) $(LDFLAGS) \
+		-o $(BINARY_DIR)/$(GUI_BINARY_NAME) ./$(GUI_CMD_DIR)
+	@echo "Build complete: $(BINARY_DIR)/$(GUI_BINARY_NAME)"
+
+# Build and run the GUI application
+gui-run: gui
+	@echo "Starting GUI application..."
+	./$(BINARY_DIR)/$(GUI_BINARY_NAME) $(ARGS)
 
 # Clean build artifacts
 clean:
@@ -344,6 +361,8 @@ help:
 	@echo "Available targets:"
 	@echo "  all                - Build, format, vet, test with coverage (default)"
 	@echo "  build              - Build the binary"
+	@echo "  gui                - Build the GUI application (requires CGO)"
+	@echo "  gui-run            - Build and run the GUI application"
 	@echo "  simulator          - Build and run LED matrix simulator (no hardware needed)"
 	@echo "  clean              - Clean build artifacts"
 	@echo ""

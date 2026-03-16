@@ -26,13 +26,21 @@ const (
 )
 
 // Config represents the main configuration structure for the Framework LED Matrix daemon.
-// It contains all configuration sections including display, daemon, matrix, logging, and stats settings.
+// It contains all configuration sections including display, daemon, matrix, logging, stats, and API settings.
 type Config struct {
 	Display DisplayConfig `yaml:"display"`
 	Daemon  DaemonConfig  `yaml:"daemon"`
 	Matrix  MatrixConfig  `yaml:"matrix"`
 	Logging LoggingConfig `yaml:"logging"`
 	Stats   StatsConfig   `yaml:"stats"`
+	API     APIConfig     `yaml:"api"`
+}
+
+// APIConfig holds configuration for the Unix domain socket API server
+// used for GUI communication.
+type APIConfig struct {
+	SocketPath string `yaml:"socket_path"`
+	Enabled    bool   `yaml:"enabled"`
 }
 
 // MatrixConfig holds configuration settings for LED matrix hardware communication.
@@ -159,6 +167,10 @@ func DefaultConfig() *Config {
 			Group:       "",
 			PidFile:     "/var/run/framework-led-daemon.pid",
 			LogFile:     "/var/log/framework-led-daemon.log",
+		},
+		API: APIConfig{
+			Enabled:    true,
+			SocketPath: "/tmp/framework-led-daemon.sock",
 		},
 		Logging: LoggingConfig{
 			Level:           "info",
