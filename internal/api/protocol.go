@@ -21,21 +21,21 @@ const (
 // Request represents a JSON-RPC-style request from a client.
 type Request struct {
 	Method string          `json:"method"`
-	Params json.RawMessage `json:"params,omitempty"`
 	ID     string          `json:"id"`
+	Params json.RawMessage `json:"params,omitempty"`
 }
 
 // Response represents a JSON-RPC-style response to a client.
 type Response struct {
-	Result json.RawMessage `json:"result,omitempty"`
 	Error  *ErrorInfo      `json:"error,omitempty"`
 	ID     string          `json:"id"`
+	Result json.RawMessage `json:"result,omitempty"`
 }
 
 // ErrorInfo contains error details in a response.
 type ErrorInfo struct {
-	Code    int    `json:"code"`
 	Message string `json:"message"`
+	Code    int    `json:"code"`
 }
 
 // Error code constants.
@@ -47,12 +47,12 @@ const (
 
 // MetricsResult contains a snapshot of system metrics.
 type MetricsResult struct {
+	Status          string  `json:"status"`
+	Timestamp       string  `json:"timestamp"`
 	CPUUsage        float64 `json:"cpu_usage"`
 	MemoryUsage     float64 `json:"memory_usage"`
 	DiskActivity    float64 `json:"disk_activity"`
 	NetworkActivity float64 `json:"network_activity"`
-	Status          string  `json:"status"`
-	Timestamp       string  `json:"timestamp"`
 }
 
 // StatusResult contains daemon status information.
@@ -60,8 +60,8 @@ type StatusResult struct {
 	Uptime        string `json:"uptime"`
 	DisplayMode   string `json:"display_mode"`
 	PrimaryMetric string `json:"primary_metric"`
-	Brightness    int    `json:"brightness"`
 	MatrixMode    string `json:"matrix_mode"`
+	Brightness    int    `json:"brightness"`
 	Connected     bool   `json:"connected"`
 }
 

@@ -16,16 +16,16 @@ import (
 
 // GUIApp is the main GUI application.
 type GUIApp struct {
-	app       fyne.App
-	window    fyne.Window
-	client    *api.Client
-	dashboard *Dashboard
+	app        fyne.App
+	window     fyne.Window
+	client     *api.Client
+	dashboard  *Dashboard
 	ledPreview *LEDPreview
-	settings  *Settings
-	health    *HealthView
-	statusBar *widget.Label
-	ctx       context.Context
-	cancel    context.CancelFunc
+	settings   *Settings
+	health     *HealthView
+	statusBar  *widget.Label
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 // NewGUIApp creates a new GUI application.
@@ -88,7 +88,9 @@ func (g *GUIApp) connectionLoop() {
 		}
 
 		if err := g.client.Connect(); err != nil {
-			g.statusBar.SetText("Disconnected - daemon not running")
+			fyne.Do(func() {
+				g.statusBar.SetText("Disconnected - daemon not running")
+			})
 
 			// Exponential backoff with jitter
 			jitter := time.Duration(rand.Int63n(int64(backoff / 2)))
@@ -110,11 +112,15 @@ func (g *GUIApp) connectionLoop() {
 
 		// Successfully connected; reset backoff
 		backoff = minBackoff
-		g.statusBar.SetText("Connected")
+		fyne.Do(func() {
+			g.statusBar.SetText("Connected")
+		})
 		g.pollLoop()
 
 		// If we get here, we got disconnected
-		g.statusBar.SetText("Disconnected - reconnecting...")
+		fyne.Do(func() {
+			g.statusBar.SetText("Disconnected - reconnecting...")
+		})
 		g.client.Close()
 	}
 }
@@ -145,18 +151,11 @@ func (g *GUIApp) fetchAndUpdate() error {
 		return err
 	}
 
-	g.dashboard.Update(metrics)
-	g.ledPreview.UpdateFromMetrics(metrics)
-
 	// Fetch status
 	status, err := g.client.GetStatus()
 	if err != nil {
 		return err
 	}
-
-	g.statusBar.SetText("Connected | Mode: " + status.DisplayMode + " | Metric: " + status.PrimaryMetric)
-	g.settings.UpdateFromStatus(status)
-	g.ledPreview.SetBrightnessDisplay(status.Brightness)
 
 	// Fetch health
 	health, err := g.client.GetHealth()
@@ -164,7 +163,17 @@ func (g *GUIApp) fetchAndUpdate() error {
 		return err
 	}
 
-	g.health.Update(health)
+	// Apply all UI updates on the Fyne main thread
+	fyne.Do(func() {
+		g.dashboard.Update(metrics)
+		g.ledPreview.UpdateFromMetrics(metrics)
+
+		g.statusBar.SetText("Connected | Mode: " + status.DisplayMode + " | Metric: " + status.PrimaryMetric)
+		g.settings.UpdateFromStatus(status)
+		g.ledPreview.SetBrightnessDisplay(status.Brightness)
+
+		g.health.Update(health)
+	})
 
 	return nil
 }

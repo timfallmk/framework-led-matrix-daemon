@@ -327,12 +327,13 @@ func (s *Service) Start() error {
 			Display:    s,
 		})
 
-		apiCtx, apiCancel := context.WithCancel(s.ctx)
+		apiCtx, apiCancel := context.WithCancel(s.ctx) //nolint:govet // cancel stored in s.apiCancel, called in Stop/reload
 		s.apiCancel = apiCancel
 
 		s.wg.Add(1)
 
 		apiSrv := s.apiServer // capture for goroutine
+
 		go func() {
 			defer s.wg.Done()
 
@@ -647,10 +648,12 @@ func (s *Service) reloadConfig() error {
 		}
 
 		if s.apiServer != nil {
-			if err := s.apiServer.Close(); err != nil && !os.IsNotExist(err) {
-				s.eventLogger.LogDaemon(logging.LevelWarn, "failed to close API server during reload", "api", map[string]interface{}{
-					"error": err.Error(),
-				})
+			closeErr := s.apiServer.Close()
+			if closeErr != nil && !os.IsNotExist(closeErr) {
+				s.eventLogger.LogDaemon(
+					logging.LevelWarn, "failed to close API server during reload", "api",
+					map[string]interface{}{"error": closeErr.Error()},
+				)
 			}
 
 			s.apiServer = nil
@@ -671,6 +674,7 @@ func (s *Service) reloadConfig() error {
 			s.wg.Add(1)
 
 			apiSrv := s.apiServer // capture for goroutine
+
 			go func() {
 				defer s.wg.Done()
 

@@ -16,27 +16,27 @@ import (
 
 // Dashboard displays real-time system metrics.
 type Dashboard struct {
-	cpuBar     *widget.ProgressBar
-	cpuLabel   *widget.Label
-	memBar     *widget.ProgressBar
-	memLabel   *widget.Label
-	diskLabel  *widget.Label
-	netLabel   *widget.Label
-	statusRect *canvas.Rectangle
+	cpuBar      *widget.ProgressBar
+	cpuLabel    *widget.Label
+	memBar      *widget.ProgressBar
+	memLabel    *widget.Label
+	diskLabel   *widget.Label
+	netLabel    *widget.Label
+	statusRect  *canvas.Rectangle
 	statusLabel *widget.Label
-	container  *fyne.Container
+	container   *fyne.Container
 }
 
 // NewDashboard creates a new metrics dashboard.
 func NewDashboard() *Dashboard {
 	d := &Dashboard{
-		cpuBar:     widget.NewProgressBar(),
-		cpuLabel:   widget.NewLabel("CPU: --"),
-		memBar:     widget.NewProgressBar(),
-		memLabel:   widget.NewLabel("Memory: --"),
-		diskLabel:  widget.NewLabel("Disk I/O: --"),
-		netLabel:   widget.NewLabel("Network: --"),
-		statusRect: canvas.NewRectangle(color.NRGBA{R: 128, G: 128, B: 128, A: 255}),
+		cpuBar:      widget.NewProgressBar(),
+		cpuLabel:    widget.NewLabel("CPU: --"),
+		memBar:      widget.NewProgressBar(),
+		memLabel:    widget.NewLabel("Memory: --"),
+		diskLabel:   widget.NewLabel("Disk I/O: --"),
+		netLabel:    widget.NewLabel("Network: --"),
+		statusRect:  canvas.NewRectangle(color.NRGBA{R: 128, G: 128, B: 128, A: 255}),
 		statusLabel: widget.NewLabel("Status: Unknown"),
 	}
 

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -29,32 +30,27 @@ type DisplayController interface {
 
 // ServerConfig holds the configuration for the API server.
 type ServerConfig struct {
-	SocketPath string
+	Display    DisplayController
 	Collector  *stats.Collector
 	Config     *config.Config
 	Health     *observability.HealthMonitor
-	Display    DisplayController
+	SocketPath string
 }
 
 // Server is a Unix domain socket API server that exposes daemon state and controls.
 type Server struct {
-	config     *config.Config
-	collector  *stats.Collector
-	health     *observability.HealthMonitor
-	display    DisplayController
-	listener   net.Listener
-	socketPath string
-	startTime  time.Time
-	mu         sync.RWMutex
-	configMu   sync.RWMutex
-
-	// Active connection tracking for clean shutdown
-	connMu    sync.Mutex
-	activeConns map[net.Conn]struct{}
-
-	// ConfigUpdateFunc is called when a client updates config via the API.
-	// If set, the server notifies the service to apply the new config.
+	startTime        time.Time
+	display          DisplayController
+	listener         net.Listener
+	config           *config.Config
+	collector        *stats.Collector
+	health           *observability.HealthMonitor
+	activeConns      map[net.Conn]struct{}
 	ConfigUpdateFunc func(cfg *config.Config)
+	socketPath       string
+	mu               sync.RWMutex
+	configMu         sync.RWMutex
+	connMu           sync.Mutex
 }
 
 // NewServer creates a new API server with the given configuration.
@@ -86,13 +82,15 @@ func (s *Server) Serve(ctx context.Context) error {
 		}
 	}
 
-	listener, err := net.Listen("unix", s.socketPath)
+	lc := net.ListenConfig{}
+
+	listener, err := lc.Listen(ctx, "unix", s.socketPath)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", s.socketPath, err)
 	}
 
-	// Set permissions so the owning user and group can connect
-	if err := os.Chmod(s.socketPath, 0o660); err != nil {
+	// Set permissions so the owning user can connect
+	if err := os.Chmod(s.socketPath, 0o600); err != nil {
 		_ = listener.Close()
 
 		return fmt.Errorf("failed to set socket permissions: %w", err)
@@ -107,7 +105,9 @@ func (s *Server) Serve(ctx context.Context) error {
 	// Close listener and all active connections when context is cancelled
 	go func() {
 		<-ctx.Done()
+
 		_ = listener.Close()
+
 		s.closeAllConns()
 	}()
 
@@ -117,12 +117,14 @@ func (s *Server) Serve(ctx context.Context) error {
 			select {
 			case <-ctx.Done():
 				wg.Wait()
+
 				return nil
 			default:
 			}
 
 			// Treat non-temporary errors (e.g., closed listener) as terminal
-			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+			var ne net.Error
+			if errors.As(err, &ne) {
 				continue
 			}
 
@@ -138,6 +140,7 @@ func (s *Server) Serve(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			defer s.untrackConn(conn)
+
 			s.handleConnection(ctx, conn)
 		}()
 	}

@@ -36,7 +36,9 @@ func (c *Client) Connect() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	conn, err := net.DialTimeout("unix", c.socketPath, 5*time.Second)
+	dialer := net.Dialer{Timeout: 5 * time.Second}
+
+	conn, err := dialer.DialContext(context.Background(), "unix", c.socketPath)
 	if err != nil {
 		return fmt.Errorf("failed to connect to daemon at %s: %w", c.socketPath, err)
 	}
@@ -142,6 +144,7 @@ func (c *Client) Subscribe(ctx context.Context, method string, params interface{
 
 	if c.conn == nil {
 		c.mu.Unlock()
+
 		return fmt.Errorf("not connected")
 	}
 
@@ -156,6 +159,7 @@ func (c *Client) Subscribe(ctx context.Context, method string, params interface{
 		data, err := json.Marshal(params)
 		if err != nil {
 			c.mu.Unlock()
+
 			return fmt.Errorf("failed to marshal params: %w", err)
 		}
 
@@ -165,6 +169,7 @@ func (c *Client) Subscribe(ctx context.Context, method string, params interface{
 	reqData, err := json.Marshal(req)
 	if err != nil {
 		c.mu.Unlock()
+
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 

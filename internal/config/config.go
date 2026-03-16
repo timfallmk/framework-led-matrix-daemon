@@ -28,12 +28,12 @@ const (
 // Config represents the main configuration structure for the Framework LED Matrix daemon.
 // It contains all configuration sections including display, daemon, matrix, logging, stats, and API settings.
 type Config struct {
-	Display DisplayConfig `yaml:"display"`
 	Daemon  DaemonConfig  `yaml:"daemon"`
+	API     APIConfig     `yaml:"api"`
+	Display DisplayConfig `yaml:"display"`
 	Matrix  MatrixConfig  `yaml:"matrix"`
 	Logging LoggingConfig `yaml:"logging"`
 	Stats   StatsConfig   `yaml:"stats"`
-	API     APIConfig     `yaml:"api"`
 }
 
 // APIConfig holds configuration for the Unix domain socket API server

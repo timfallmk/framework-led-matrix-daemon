@@ -24,16 +24,16 @@ const (
 
 // LEDPreview renders a visual preview of the LED matrix state.
 type LEDPreview struct {
-	cells      [matrixRows][matrixCols]*canvas.Rectangle
-	modeLabel  *widget.Label
+	cells       [matrixRows][matrixCols]*canvas.Rectangle
+	modeLabel   *widget.Label
 	brightLabel *widget.Label
-	container  *fyne.Container
+	container   *fyne.Container
 }
 
 // NewLEDPreview creates a new LED matrix preview widget.
 func NewLEDPreview() *LEDPreview {
 	l := &LEDPreview{
-		modeLabel:  widget.NewLabel("Mode: --"),
+		modeLabel:   widget.NewLabel("Mode: --"),
 		brightLabel: widget.NewLabel("Brightness: --"),
 	}
 

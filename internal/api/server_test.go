@@ -14,22 +14,25 @@ import (
 // mockDisplayController implements DisplayController for testing.
 type mockDisplayController struct {
 	mode       string
-	brightness byte
 	metric     string
+	brightness byte
 }
 
 func (m *mockDisplayController) SetDisplayMode(mode string) error {
 	m.mode = mode
+
 	return nil
 }
 
 func (m *mockDisplayController) SetBrightness(level byte) error {
 	m.brightness = level
+
 	return nil
 }
 
 func (m *mockDisplayController) SetPrimaryMetric(metric string) error {
 	m.metric = metric
+
 	return nil
 }
 
@@ -52,9 +55,12 @@ func waitForSocket(t *testing.T, path string, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("unix", path, 20*time.Millisecond)
+		dialer := net.Dialer{Timeout: 20 * time.Millisecond}
+
+		conn, err := dialer.DialContext(context.Background(), "unix", path)
 		if err == nil {
-			conn.Close()
+			_ = conn.Close()
+
 			return
 		}
 
@@ -79,6 +85,7 @@ func TestServerStartStop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	errCh := make(chan error, 1)
+
 	go func() {
 		errCh <- server.Serve(ctx)
 	}()
@@ -241,6 +248,7 @@ func TestClientReconnect(t *testing.T) {
 	defer cancel()
 
 	go server.Serve(ctx)
+
 	waitForSocket(t, socketPath, 5*time.Second)
 
 	client := NewClient(socketPath)

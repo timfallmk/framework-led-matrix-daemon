@@ -107,10 +107,10 @@ func (s *Server) handleConfigUpdate(req Request) Response {
 	}
 
 	var merged map[string]json.RawMessage
-	if err := json.Unmarshal(fullData, &merged); err != nil {
+	if unmarshalErr := json.Unmarshal(fullData, &merged); unmarshalErr != nil {
 		return Response{
 			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInternal, Message: err.Error()},
+			Error: &ErrorInfo{Code: ErrCodeInternal, Message: unmarshalErr.Error()},
 		}
 	}
 
@@ -127,17 +127,17 @@ func (s *Server) handleConfigUpdate(req Request) Response {
 	}
 
 	var newCfg config.Config
-	if err := json.Unmarshal(mergedData, &newCfg); err != nil {
+	if unmarshalErr := json.Unmarshal(mergedData, &newCfg); unmarshalErr != nil {
 		return Response{
 			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("invalid config: %v", err)},
+			Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("invalid config: %v", unmarshalErr)},
 		}
 	}
 
-	if err := newCfg.Validate(); err != nil {
+	if validateErr := newCfg.Validate(); validateErr != nil {
 		return Response{
 			ID:    req.ID,
-			Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("validation failed: %v", err)},
+			Error: &ErrorInfo{Code: ErrCodeInvalidParams, Message: fmt.Sprintf("validation failed: %v", validateErr)},
 		}
 	}
 
