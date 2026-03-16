@@ -96,8 +96,8 @@ func (s *Server) Serve(ctx context.Context) error {
 		return fmt.Errorf("failed to listen on %s: %w", s.socketPath, err)
 	}
 
-	// Set permissions so the owning user and group can connect
-	if err := os.Chmod(s.socketPath, 0o660); err != nil { //nolint:gosec // G302: group access needed for non-root GUI clients
+	// Set permissions so any local user can connect (standard for local daemon sockets)
+	if err := os.Chmod(s.socketPath, 0o666); err != nil { //nolint:gosec // G302: local Unix socket, network access impossible
 		_ = listener.Close()
 
 		return fmt.Errorf("failed to set socket permissions: %w", err)
