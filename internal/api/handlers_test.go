@@ -154,7 +154,7 @@ func TestDeepMergeJSON(t *testing.T) {
 func setupTestServer(t *testing.T, scfg ServerConfig) (*Server, *Client) {
 	t.Helper()
 
-	socketPath := filepath.Join(t.TempDir(), "test-handler.sock")
+	socketPath := filepath.Join(t.TempDir(), "h.sock")
 	scfg.SocketPath = socketPath
 
 	server := NewServer(scfg)
