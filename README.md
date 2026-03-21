@@ -487,6 +487,26 @@ make cross-compile
 make release
 ```
 
+### GUI Application
+
+The optional GUI application requires CGO and system graphics libraries (the daemon itself does not).
+
+**System prerequisites (install once):**
+
+- **Debian / Ubuntu:** `sudo apt-get install libgl1-mesa-dev xorg-dev`
+- **Fedora:** `sudo dnf install gcc libXcursor-devel libXrandr-devel mesa-libGL-devel libXi-devel libXinerama-devel libXxf86vm-devel`
+- **Arch Linux:** `sudo pacman -S xorg-server-devel libxcursor libxrandr libxinerama libxi`
+- **Windows:** Install [MSYS2](https://www.msys2.org/) with `pacman -S mingw-w64-x86_64-toolchain`
+- See the [Fyne prerequisites](https://docs.fyne.io/started/quick/) for other platforms.
+
+```bash
+# Build the GUI
+make gui
+
+# Build and run
+make gui-run
+```
+
 ## Installation
 
 ### Linux (systemd)

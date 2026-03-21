@@ -14,6 +14,7 @@ import (
 
 	"github.com/takama/daemon"
 
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/api"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/matrix"
@@ -40,6 +41,9 @@ type Service struct {
 	multiClient      *matrix.MultiClient
 	healthMonitor    *observability.HealthMonitor
 	matrix           *matrix.Client
+	apiServer        *api.Server
+	apiCancel        context.CancelFunc // Cancels only the API server goroutine
+	apiDone          chan struct{}      // Closed when API server goroutine exits
 	cancel           context.CancelFunc
 	config           *config.Config
 	stopCh           chan struct{}
@@ -314,6 +318,43 @@ func (s *Service) Start() error {
 		return fmt.Errorf("failed to initialize service: %w", err)
 	}
 
+	// Start API server if enabled
+	if s.config.API.Enabled {
+		s.apiServer = api.NewServer(api.ServerConfig{
+			SocketPath: s.config.API.SocketPath,
+			Collector:  s.collector,
+			Config:     s.config,
+			Health:     s.healthMonitor,
+			Display:    s,
+		})
+		s.apiServer.ConfigUpdateFunc = s.applyConfigFromAPI
+
+		//nolint:gosec // G118: cancel stored in s.apiCancel, called in Stop/reload
+		apiCtx, apiCancel := context.WithCancel(s.ctx)
+		s.apiCancel = apiCancel
+		s.apiDone = make(chan struct{})
+
+		s.wg.Add(1)
+
+		apiSrv := s.apiServer // capture for goroutine
+		apiDone := s.apiDone  // capture for goroutine
+
+		go func() {
+			defer s.wg.Done()
+			defer close(apiDone)
+
+			if err := apiSrv.Serve(apiCtx); err != nil {
+				s.eventLogger.LogDaemon(logging.LevelWarn, "API server stopped", "api", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}()
+
+		s.eventLogger.LogDaemon(logging.LevelInfo, "API server started", "api", map[string]interface{}{
+			"socket": s.config.API.SocketPath,
+		})
+	}
+
 	s.wg.Add(1)
 
 	go s.runSystemLoop()
@@ -340,6 +381,18 @@ func (s *Service) Stop() error {
 	s.eventLogger.LogDaemon(logging.LevelInfo, "stopping Framework LED Matrix daemon", "stop", nil)
 
 	s.stopOnce.Do(func() { close(s.stopCh) })
+
+	// Close API server before cancelling context and waiting, since the API
+	// server goroutine is tracked by wg. Closing the listener unblocks
+	// Serve() so the goroutine can exit and wg.Wait() won't deadlock.
+	if s.apiServer != nil {
+		if err := s.apiServer.Close(); err != nil {
+			s.eventLogger.LogDaemon(logging.LevelWarn, "failed to close API server", "api", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
+
 	s.cancel()
 
 	s.wg.Wait()
@@ -571,7 +624,12 @@ func (s *Service) reloadConfig() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	oldAPIEnabled := s.config.API.Enabled
+	oldSocketPath := s.config.API.SocketPath
+
+	s.mu.Lock()
 	s.config = newConfig
+	s.mu.Unlock()
 
 	s.collector.SetThresholds(stats.Thresholds{
 		CPUWarning:     newConfig.Stats.Thresholds.CPUWarning,
@@ -584,6 +642,72 @@ func (s *Service) reloadConfig() error {
 
 	if s.visualizer != nil {
 		s.visualizer.UpdateConfig(newConfig)
+	}
+
+	// Restart API server if the enabled flag or socket path changed
+	apiSettingsChanged := oldAPIEnabled != newConfig.API.Enabled || oldSocketPath != newConfig.API.SocketPath
+	if apiSettingsChanged {
+		// Stop the existing API server and wait for it to finish
+		if s.apiCancel != nil {
+			s.apiCancel()
+			s.apiCancel = nil
+		}
+
+		if s.apiServer != nil {
+			closeErr := s.apiServer.Close()
+			if closeErr != nil && !os.IsNotExist(closeErr) {
+				s.eventLogger.LogDaemon(
+					logging.LevelWarn, "failed to close API server during reload", "api",
+					map[string]interface{}{"error": closeErr.Error()},
+				)
+			}
+
+			// Wait for the old server goroutine to exit before starting a new one
+			if s.apiDone != nil {
+				<-s.apiDone
+				s.apiDone = nil
+			}
+
+			s.apiServer = nil
+		}
+
+		if newConfig.API.Enabled {
+			s.apiServer = api.NewServer(api.ServerConfig{
+				SocketPath: newConfig.API.SocketPath,
+				Collector:  s.collector,
+				Config:     newConfig,
+				Health:     s.healthMonitor,
+				Display:    s,
+			})
+			s.apiServer.ConfigUpdateFunc = s.applyConfigFromAPI
+
+			//nolint:gosec // G118: cancel stored in s.apiCancel, called in Stop/reload
+			apiCtx, apiCancel := context.WithCancel(s.ctx)
+			s.apiCancel = apiCancel
+			s.apiDone = make(chan struct{})
+
+			s.wg.Add(1)
+
+			apiSrv := s.apiServer // capture for goroutine
+			apiDone := s.apiDone  // capture for goroutine
+
+			go func() {
+				defer s.wg.Done()
+				defer close(apiDone)
+
+				if err := apiSrv.Serve(apiCtx); err != nil {
+					s.eventLogger.LogDaemon(logging.LevelWarn, "API server stopped", "api", map[string]interface{}{
+						"error": err.Error(),
+					})
+				}
+			}()
+
+			s.eventLogger.LogDaemon(logging.LevelInfo, "API server restarted after config reload", "api", map[string]interface{}{
+				"socket": newConfig.API.SocketPath,
+			})
+		}
+	} else if s.apiServer != nil {
+		s.apiServer.UpdateConfig(newConfig)
 	}
 
 	duration := timer.StopWithSuccess(true)
@@ -619,4 +743,121 @@ func (s *Service) StartService() (string, error) {
 // StopService stops the system service.
 func (s *Service) StopService() (string, error) {
 	return s.Daemon.Stop()
+}
+
+// SetDisplayMode implements api.DisplayController by updating the display mode.
+func (s *Service) SetDisplayMode(mode string) error {
+	validModes := map[string]bool{
+		"percentage": true,
+		"gradient":   true,
+		"activity":   true,
+		"status":     true,
+		"custom":     true,
+	}
+	if !validModes[mode] {
+		return fmt.Errorf("invalid display mode: %s", mode)
+	}
+
+	s.mu.Lock()
+	s.config.Display.Mode = mode
+	cfg := s.config
+	vis := s.visualizer
+	multiVis := s.multiVisualizer
+	isMulti := s.usingMultiple
+	s.mu.Unlock()
+
+	if isMulti && multiVis != nil {
+		multiVis.UpdateConfig(cfg)
+	} else if vis != nil {
+		vis.UpdateConfig(cfg)
+	}
+
+	return nil
+}
+
+// SetBrightness implements api.DisplayController by updating the brightness.
+func (s *Service) SetBrightness(level byte) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.usingMultiple && s.multiDisplay != nil {
+		return s.multiDisplay.SetBrightness(level)
+	} else if s.display != nil {
+		return s.display.SetBrightness(level)
+	}
+
+	return fmt.Errorf("no display available")
+}
+
+// SetPrimaryMetric implements api.DisplayController by updating the primary metric.
+func (s *Service) SetPrimaryMetric(metric string) error {
+	validMetrics := map[string]bool{
+		"cpu":     true,
+		"memory":  true,
+		"disk":    true,
+		"network": true,
+	}
+	if !validMetrics[metric] {
+		return fmt.Errorf("invalid metric: %s", metric)
+	}
+
+	s.mu.Lock()
+	s.config.Display.PrimaryMetric = metric
+	cfg := s.config
+	vis := s.visualizer
+	multiVis := s.multiVisualizer
+	isMulti := s.usingMultiple
+	s.mu.Unlock()
+
+	if isMulti && multiVis != nil {
+		multiVis.UpdateConfig(cfg)
+	} else if vis != nil {
+		vis.UpdateConfig(cfg)
+	}
+
+	return nil
+}
+
+// GetDisplayState implements api.DisplayController by returning current display state.
+func (s *Service) GetDisplayState() map[string]interface{} {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.usingMultiple && s.multiDisplay != nil {
+		// Return primary matrix state from multi-display manager
+		if primary := s.multiDisplay.GetDisplayManager("primary"); primary != nil {
+			return primary.GetCurrentState()
+		}
+	}
+
+	if s.display != nil {
+		return s.display.GetCurrentState()
+	}
+
+	return map[string]interface{}{}
+}
+
+// IsMultiMatrix implements api.DisplayController.
+func (s *Service) IsMultiMatrix() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.usingMultiple
+}
+
+// applyConfigFromAPI is the callback for api.Server.ConfigUpdateFunc.
+// It applies a config update received via the API to the running daemon.
+func (s *Service) applyConfigFromAPI(cfg *config.Config) {
+	s.mu.Lock()
+	s.config = cfg
+	vis := s.visualizer
+	multiVis := s.multiVisualizer
+	isMulti := s.usingMultiple
+	s.mu.Unlock()
+
+	if isMulti && multiVis != nil {
+		multiVis.UpdateConfig(cfg)
+	} else if vis != nil {
+		vis.UpdateConfig(cfg)
+	}
 }

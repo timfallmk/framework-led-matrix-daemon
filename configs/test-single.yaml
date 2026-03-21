@@ -23,5 +23,9 @@ daemon:
   name: "framework-led-daemon"
   description: "Framework LED Matrix System Statistics Display"
 
+api:
+  enabled: true
+  socket_path: "/run/framework-led-daemon/daemon.sock"
+
 logging:
   level: "info"

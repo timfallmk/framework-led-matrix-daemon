@@ -50,6 +50,10 @@ make test-coverage
 make simulator
 make simulator ARGS="-mode percentage -metric cpu -duration 60s"
 
+# GUI application (requires system graphics libs, see README)
+make gui             # Build only
+make gui-run         # Build and run
+
 # Code quality checks
 make lint          # Full linting suite
 make quality-check # Comprehensive quality checks
@@ -108,6 +112,8 @@ make show-config
 **Dual Matrix Support**: The architecture cleanly separates single and multi-matrix operations. When multiple matrices are detected, the system automatically switches to `MultiDisplayManager` and `MultiVisualizer` coordination.
 
 **Serial Communication**: Matrix communication follows the Framework LED protocol with proper command encoding, error handling, and connection management. The system automatically discovers Framework matrices (VID: 32AC) but falls back to generic USB ports.
+
+**GUI Application**: `cmd/gui/` contains an optional Fyne-based GUI (build tag `//go:build gui`). It connects to the daemon via the Unix socket API (`internal/api/`). Building requires `CGO_ENABLED=1` and system graphics libraries — see the README for per-distro packages. The daemon itself builds with `CGO_ENABLED=0` and has no system dependencies.
 
 ## Testing Strategy
 
