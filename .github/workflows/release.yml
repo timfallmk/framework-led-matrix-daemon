@@ -242,7 +242,7 @@ jobs:
           ls -la framework-led-daemon-* || echo "No files found with framework-led-daemon prefix"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: Release ${{ github.ref_name }}
           body: ${{ needs.changelog.outputs.changelog }}
