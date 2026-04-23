@@ -38,9 +38,19 @@ var (
 
 // Register makes a display available under name. Intended to be called from
 // package-level init() functions so displays self-register on import.
+// Panics on empty name, nil factory, or duplicate registration.
 func Register(name string, f Factory) {
+	if name == "" {
+		panic("display.Register: name must not be empty")
+	}
+	if f == nil {
+		panic("display.Register: factory must not be nil")
+	}
 	mu.Lock()
 	defer mu.Unlock()
+	if _, exists := registry[name]; exists {
+		panic("display.Register: display " + name + " already registered")
+	}
 	registry[name] = f
 }
 

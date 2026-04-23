@@ -37,7 +37,7 @@ stats:
     disk_critical: 95.0      # Disk usage critical threshold (%)
 
 display:
-  update_rate: 200ms         # How often to update the display (each display manages its own internal tick rate)
+  update_rate: 1s            # How often to update the display (each display manages its own internal tick rate)
   mode: "animations"         # Display mode: percentage, gradient, activity, status, custom, animations
   primary_metric: "cpu"      # Primary metric to display: cpu, memory, disk, network
   show_activity: true        # Show activity indicators

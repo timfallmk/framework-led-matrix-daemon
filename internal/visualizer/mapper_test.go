@@ -3,6 +3,7 @@ package visualizer
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -947,5 +948,106 @@ func BenchmarkVisualizerIsSystemActive(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		visualizer.isSystemActive(summary)
+	}
+}
+
+// --- MockMultiDisplayManager ---
+
+type drawFrameCall struct {
+	name  string
+	frame [9][34]byte
+}
+
+type MockMultiDisplayManager struct {
+	drawFrameCalls []drawFrameCall
+	drawFrameErr   error
+}
+
+func (m *MockMultiDisplayManager) UpdateMetric(_ string, _ float64, _ map[string]float64) error {
+	return nil
+}
+func (m *MockMultiDisplayManager) UpdateActivity(_ bool) error  { return nil }
+func (m *MockMultiDisplayManager) UpdateStatus(_ string) error  { return nil }
+func (m *MockMultiDisplayManager) SetBrightness(_ byte) error   { return nil }
+func (m *MockMultiDisplayManager) SetUpdateRate(_ time.Duration) {}
+func (m *MockMultiDisplayManager) HasMultipleDisplays() bool    { return true }
+func (m *MockMultiDisplayManager) DrawFrame(name string, frame [9][34]byte) error {
+	m.drawFrameCalls = append(m.drawFrameCalls, drawFrameCall{name: name, frame: frame})
+	return m.drawFrameErr
+}
+
+// TestVisualizer_AnimationsMode_ReturnsError verifies that a single-matrix Visualizer
+// with mode=animations returns a descriptive error directing the user to multi-matrix config.
+func TestVisualizer_AnimationsMode_ReturnsError(t *testing.T) {
+	mockDisplay := NewMockDisplayManager()
+	cfg := config.DefaultConfig()
+	cfg.Display.Mode = "animations"
+	v := NewVisualizer(mockDisplay, cfg)
+
+	err := v.UpdateDisplay(&stats.StatsSummary{})
+	if err == nil {
+		t.Fatal("UpdateDisplay() with animations mode on single-matrix: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "animations mode requires multiple matrices") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+// TestMultiVisualizer_AnimationsMode_CallsDrawFramePerPanel verifies that each configured
+// panel receives exactly one DrawFrame call per UpdateDisplay invocation.
+func TestMultiVisualizer_AnimationsMode_CallsDrawFramePerPanel(t *testing.T) {
+	mock := &MockMultiDisplayManager{}
+	cfg := config.DefaultConfig()
+	cfg.Display.Mode = "animations"
+	cfg.Display.Panels = map[string]string{"primary": "off", "secondary": "off"}
+	mv := NewMultiVisualizer(mock, cfg)
+
+	if err := mv.UpdateDisplay(&stats.StatsSummary{}); err != nil {
+		t.Fatalf("UpdateDisplay() unexpected error: %v", err)
+	}
+
+	if len(mock.drawFrameCalls) != 2 {
+		t.Fatalf("DrawFrame called %d times, want 2 (one per panel)", len(mock.drawFrameCalls))
+	}
+	called := map[string]bool{}
+	for _, c := range mock.drawFrameCalls {
+		called[c.name] = true
+	}
+	for _, panel := range []string{"primary", "secondary"} {
+		if !called[panel] {
+			t.Errorf("DrawFrame not called for panel %q", panel)
+		}
+	}
+}
+
+// TestMultiVisualizer_AnimationsMode_PropagatesDrawFrameError verifies that a DrawFrame
+// failure surfaces as an error from UpdateDisplay.
+func TestMultiVisualizer_AnimationsMode_PropagatesDrawFrameError(t *testing.T) {
+	mock := &MockMultiDisplayManager{drawFrameErr: errors.New("port failure")}
+	cfg := config.DefaultConfig()
+	cfg.Display.Mode = "animations"
+	cfg.Display.Panels = map[string]string{"primary": "off"}
+	mv := NewMultiVisualizer(mock, cfg)
+
+	if err := mv.UpdateDisplay(&stats.StatsSummary{}); err == nil {
+		t.Fatal("UpdateDisplay() should propagate DrawFrame error, got nil")
+	}
+}
+
+// TestMultiVisualizer_AnimationsMode_EmptyPanels verifies that an empty panels map
+// returns an actionable error instead of silently succeeding.
+func TestMultiVisualizer_AnimationsMode_EmptyPanels(t *testing.T) {
+	mock := &MockMultiDisplayManager{}
+	cfg := config.DefaultConfig()
+	cfg.Display.Mode = "animations"
+	// Default config has no panels configured.
+	mv := NewMultiVisualizer(mock, cfg)
+
+	err := mv.UpdateDisplay(&stats.StatsSummary{})
+	if err == nil {
+		t.Fatal("UpdateDisplay() with empty panels: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no panels configured") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }

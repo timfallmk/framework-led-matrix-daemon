@@ -6,6 +6,7 @@ package visualizer
 import (
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
@@ -49,6 +50,7 @@ type MultiVisualizer struct {
 	config        *config.Config
 	lastUpdate    time.Time
 	panelDisplays map[string]display.MatrixDisplay
+	panelMu       sync.RWMutex
 }
 
 // NewVisualizer creates a new Visualizer with the specified display manager and configuration.
@@ -70,16 +72,21 @@ func NewMultiVisualizer(multiDisplay MultiDisplayManagerInterface, cfg *config.C
 }
 
 // initPanelDisplays builds the per-panel display map from the Panels config.
+// Unknown display names fall back to the built-in "off" (blank) display so that
+// a misconfigured panel produces a clear visual signal rather than stale content.
 func (mv *MultiVisualizer) initPanelDisplays(cfg *config.Config) {
-	mv.panelDisplays = make(map[string]display.MatrixDisplay, len(cfg.Display.Panels))
+	panels := make(map[string]display.MatrixDisplay, len(cfg.Display.Panels))
 	for matrixName, displayName := range cfg.Display.Panels {
 		d, err := display.New(displayName)
 		if err != nil {
-			logging.Warn("unknown display for panel, skipping", "matrix", matrixName, "display", displayName, "available", display.Registered())
-			continue
+			logging.Warn("unknown display for panel, falling back to off", "matrix", matrixName, "display", displayName, "available", display.Registered())
+			d, _ = display.New("off")
 		}
-		mv.panelDisplays[matrixName] = d
+		panels[matrixName] = d
 	}
+	mv.panelMu.Lock()
+	mv.panelDisplays = panels
+	mv.panelMu.Unlock()
 }
 
 // UpdateDisplay updates the LED matrix display based on the current system statistics and configured display mode.
@@ -292,8 +299,16 @@ func (mv *MultiVisualizer) UpdateDisplay(summary *stats.StatsSummary) error {
 // updateAnimationsMode renders each panel's registered display, passing through
 // system stats so metric-driven displays can use them.
 func (mv *MultiVisualizer) updateAnimationsMode(summary *stats.StatsSummary) error {
+	mv.panelMu.RLock()
+	panels := mv.panelDisplays
+	mv.panelMu.RUnlock()
+
+	if len(panels) == 0 {
+		return fmt.Errorf("animations mode: no panels configured (set display.panels in config)")
+	}
+
 	var lastErr error
-	for matrixName, d := range mv.panelDisplays {
+	for matrixName, d := range panels {
 		frame := d.Render(summary)
 		if err := mv.multiDisplay.DrawFrame(matrixName, frame); err != nil {
 			logging.Warn("animations: failed to draw frame", "matrix", matrixName, "error", err)
