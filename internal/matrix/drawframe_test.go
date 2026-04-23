@@ -34,7 +34,7 @@ func TestDrawFrame_AllColumnsStaged(t *testing.T) {
 	// FlushColumns write:     [MagicByte1, MagicByte2, CmdFlushCols]                =  3 bytes
 	const wantLen = 9*38 + 3
 	if got := len(mockPort.writeData); got != wantLen {
-		t.Errorf("DrawFrame() wrote %d bytes, want %d", got, wantLen)
+		t.Fatalf("DrawFrame() wrote %d bytes, want %d", got, wantLen)
 	}
 
 	// Verify each column's magic header and column-index byte.
