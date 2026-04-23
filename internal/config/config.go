@@ -81,6 +81,7 @@ type Thresholds struct {
 // It defines display modes, update rates, and custom pattern configurations.
 type DisplayConfig struct {
 	CustomPatterns  map[string]PatternConfig `yaml:"custom_patterns"`
+	Panels          map[string]string        `yaml:"panels"`
 	Mode            string                   `yaml:"mode"`
 	PrimaryMetric   string                   `yaml:"primary_metric"`
 	UpdateRate      time.Duration            `yaml:"update_rate"`
@@ -159,6 +160,7 @@ func DefaultConfig() *Config {
 			ShowActivity:    true,
 			EnableAnimation: false,
 			CustomPatterns:  make(map[string]PatternConfig),
+			Panels:          make(map[string]string),
 		},
 		Daemon: DaemonConfig{
 			Name:        "framework-led-daemon",

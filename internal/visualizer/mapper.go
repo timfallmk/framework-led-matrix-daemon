@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/display"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
 )
@@ -44,33 +45,40 @@ type Visualizer struct {
 
 // MultiVisualizer converts system metrics into visual patterns for multiple LED matrix displays.
 type MultiVisualizer struct {
-	multiDisplay MultiDisplayManagerInterface
-	config       *config.Config
-	lastUpdate   time.Time
-	gol          *GameOfLife
-	faces        *FaceAnimator
-	golLastTick  time.Time
+	multiDisplay  MultiDisplayManagerInterface
+	config        *config.Config
+	lastUpdate    time.Time
+	panelDisplays map[string]display.MatrixDisplay
 }
 
-// golTickRate controls how fast Game of Life advances. One generation every ~350ms
-// gives a lively but readable simulation on the 9×34 matrix.
-const golTickRate = 350 * time.Millisecond
-
 // NewVisualizer creates a new Visualizer with the specified display manager and configuration.
-func NewVisualizer(display DisplayManagerInterface, cfg *config.Config) *Visualizer {
+func NewVisualizer(d DisplayManagerInterface, cfg *config.Config) *Visualizer {
 	return &Visualizer{
-		display: display,
+		display: d,
 		config:  cfg,
 	}
 }
 
 // NewMultiVisualizer creates a new MultiVisualizer with the specified multi-display manager and configuration.
 func NewMultiVisualizer(multiDisplay MultiDisplayManagerInterface, cfg *config.Config) *MultiVisualizer {
-	return &MultiVisualizer{
+	mv := &MultiVisualizer{
 		multiDisplay: multiDisplay,
 		config:       cfg,
-		gol:          NewGameOfLife(),
-		faces:        NewFaceAnimator(),
+	}
+	mv.initPanelDisplays(cfg)
+	return mv
+}
+
+// initPanelDisplays builds the per-panel display map from the Panels config.
+func (mv *MultiVisualizer) initPanelDisplays(cfg *config.Config) {
+	mv.panelDisplays = make(map[string]display.MatrixDisplay, len(cfg.Display.Panels))
+	for matrixName, displayName := range cfg.Display.Panels {
+		d, err := display.New(displayName)
+		if err != nil {
+			logging.Warn("unknown display for panel, skipping", "matrix", matrixName, "display", displayName, "available", display.Registered())
+			continue
+		}
+		mv.panelDisplays[matrixName] = d
 	}
 }
 
@@ -275,39 +283,24 @@ func (mv *MultiVisualizer) UpdateDisplay(summary *stats.StatsSummary) error {
 	case "status":
 		return mv.updateStatusMode(summary)
 	case "animations":
-		return mv.updateAnimationsMode()
+		return mv.updateAnimationsMode(summary)
 	default:
 		return mv.updatePercentageMode(summary)
 	}
 }
 
-// updateAnimationsMode runs Game of Life on the primary (left) matrix and
-// cycles through kawaii/anime/punk facial expressions on the secondary (right) matrix.
-func (mv *MultiVisualizer) updateAnimationsMode() error {
-	now := time.Now()
-
-	// Advance Game of Life on its own tick rate.
-	if now.Sub(mv.golLastTick) >= golTickRate {
-		mv.gol.Tick()
-		mv.golLastTick = now
-	}
-
-	// Advance face expression on each face's individual hold duration.
-	mv.faces.Tick()
-
+// updateAnimationsMode renders each panel's registered display, passing through
+// system stats so metric-driven displays can use them.
+func (mv *MultiVisualizer) updateAnimationsMode(summary *stats.StatsSummary) error {
 	var lastErr error
-
-	if err := mv.multiDisplay.DrawFrame("primary", mv.gol.Frame()); err != nil {
-		logging.Warn("animations: failed to draw GoL frame", "error", err)
-		lastErr = fmt.Errorf("draw primary animation frame: %w", err)
+	for matrixName, d := range mv.panelDisplays {
+		frame := d.Render(summary)
+		if err := mv.multiDisplay.DrawFrame(matrixName, frame); err != nil {
+			logging.Warn("animations: failed to draw frame", "matrix", matrixName, "error", err)
+			lastErr = fmt.Errorf("draw %s animation frame: %w", matrixName, err)
+		}
 	}
-
-	if err := mv.multiDisplay.DrawFrame("secondary", mv.faces.Frame()); err != nil {
-		logging.Warn("animations: failed to draw face frame", "error", err)
-		lastErr = fmt.Errorf("draw secondary animation frame: %w", err)
-	}
-
-	mv.lastUpdate = now
+	mv.lastUpdate = time.Now()
 	return lastErr
 }
 
@@ -418,6 +411,7 @@ func (mv *MultiVisualizer) determineSystemStatus(summary *stats.StatsSummary) st
 func (mv *MultiVisualizer) UpdateConfig(cfg *config.Config) {
 	mv.config = cfg
 	mv.multiDisplay.SetUpdateRate(cfg.Display.UpdateRate)
+	mv.initPanelDisplays(cfg)
 
 	if cfg.Matrix.Brightness != 0 {
 		if err := mv.multiDisplay.SetBrightness(cfg.Matrix.Brightness); err != nil {

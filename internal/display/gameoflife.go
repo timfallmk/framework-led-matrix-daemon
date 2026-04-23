@@ -1,19 +1,26 @@
-package visualizer
+package display
 
 import (
 	"hash/fnv"
 	"math/rand"
 	"time"
+
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
 )
+
+func init() {
+	Register("gameoflife", func() MatrixDisplay { return newGameOfLifeDisplay() })
+}
 
 const (
 	golWidth        = 9  // physical columns
 	golHeight       = 34 // physical rows
 	staleHistoryLen = 16 // detect oscillators up to period 16
+	golTickRate     = 350 * time.Millisecond
 )
 
-// GameOfLife runs Conway's Game of Life on a 9×34 LED matrix grid.
-type GameOfLife struct {
+// gameOfLife is the raw simulation — a 9×34 toroidal Conway's Game of Life.
+type gameOfLife struct {
 	grid         [golWidth][golHeight]bool
 	recentHashes [staleHistoryLen]uint64
 	rng          *rand.Rand
@@ -21,16 +28,15 @@ type GameOfLife struct {
 	gen          int
 }
 
-// NewGameOfLife creates and randomly seeds a new Game of Life instance.
-func NewGameOfLife() *GameOfLife {
-	g := &GameOfLife{
+func newGameOfLife() *gameOfLife {
+	g := &gameOfLife{
 		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	g.seed()
 	return g
 }
 
-func (g *GameOfLife) seed() {
+func (g *gameOfLife) seed() {
 	for col := range g.grid {
 		for row := range g.grid[col] {
 			g.grid[col][row] = g.rng.Float64() < 0.35
@@ -44,7 +50,7 @@ func (g *GameOfLife) seed() {
 // gridHash returns a 64-bit FNV-1a hash of the current grid state so that
 // oscillators (blinkers, beehives, spaceships) are detected as stagnant rather
 // than being confused with a stable alive-count.
-func (g *GameOfLife) gridHash() uint64 {
+func (g *gameOfLife) gridHash() uint64 {
 	h := fnv.New64a()
 	var buf [(golWidth*golHeight + 7) / 8]byte
 	for col := 0; col < golWidth; col++ {
@@ -59,14 +65,13 @@ func (g *GameOfLife) gridHash() uint64 {
 	return h.Sum64()
 }
 
-func (g *GameOfLife) neighbors(col, row int) int {
+func (g *gameOfLife) neighbors(col, row int) int {
 	n := 0
 	for dc := -1; dc <= 1; dc++ {
 		for dr := -1; dr <= 1; dr++ {
 			if dc == 0 && dr == 0 {
 				continue
 			}
-			// Toroidal wrap so patterns flow continuously on the small grid.
 			c := (col + dc + golWidth) % golWidth
 			r := (row + dr + golHeight) % golHeight
 			if g.grid[c][r] {
@@ -77,14 +82,9 @@ func (g *GameOfLife) neighbors(col, row int) int {
 	return n
 }
 
-// Tick advances the simulation by one generation and re-seeds if it stagnates.
-// Stagnation is detected by comparing the current grid hash against the last
-// staleHistoryLen hashes, catching oscillators that the naive alive-count check
-// would miss.
-func (g *GameOfLife) Tick() {
+func (g *gameOfLife) tick() {
 	var next [golWidth][golHeight]bool
 	alive := 0
-
 	for col := 0; col < golWidth; col++ {
 		for row := 0; row < golHeight; row++ {
 			n := g.neighbors(col, row)
@@ -98,7 +98,6 @@ func (g *GameOfLife) Tick() {
 			}
 		}
 	}
-
 	g.grid = next
 	g.gen++
 
@@ -122,8 +121,7 @@ func (g *GameOfLife) Tick() {
 	}
 }
 
-// Frame returns the current grid as a column-major [9][34]byte brightness array.
-func (g *GameOfLife) Frame() [golWidth][golHeight]byte {
+func (g *gameOfLife) frame() [golWidth][golHeight]byte {
 	var f [golWidth][golHeight]byte
 	for col := 0; col < golWidth; col++ {
 		for row := 0; row < golHeight; row++ {
@@ -133,4 +131,28 @@ func (g *GameOfLife) Frame() [golWidth][golHeight]byte {
 		}
 	}
 	return f
+}
+
+// GameOfLifeDisplay wraps the simulation and manages its own tick rate so it
+// advances at ~350 ms regardless of the daemon's update_rate setting.
+type GameOfLifeDisplay struct {
+	gol      *gameOfLife
+	lastTick time.Time
+}
+
+func newGameOfLifeDisplay() *GameOfLifeDisplay {
+	return &GameOfLifeDisplay{
+		gol:      newGameOfLife(),
+		lastTick: time.Now(),
+	}
+}
+
+// Render advances the simulation if enough time has elapsed, then returns
+// the current generation as a brightness frame. stats is unused.
+func (d *GameOfLifeDisplay) Render(_ *stats.StatsSummary) [9][34]byte {
+	if time.Since(d.lastTick) >= golTickRate {
+		d.gol.tick()
+		d.lastTick = time.Now()
+	}
+	return d.gol.frame()
 }
