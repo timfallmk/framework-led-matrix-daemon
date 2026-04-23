@@ -377,10 +377,10 @@ func (mdm *MultiDisplayManager) HasMultipleDisplays() bool {
 // StageColumn / FlushColumns protocol. frame[col][row] is the brightness (0-255)
 // for each of the 9 columns and 34 rows.
 func (mdm *MultiDisplayManager) DrawFrame(name string, frame [9][34]byte) error {
-	mdm.mu.RLock()
-	client := mdm.multiClient.GetClient(name)
-	mdm.mu.RUnlock()
+	mdm.mu.Lock()
+	defer mdm.mu.Unlock()
 
+	client := mdm.multiClient.GetClient(name)
 	if client == nil {
 		return fmt.Errorf("matrix %q not found", name)
 	}

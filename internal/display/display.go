@@ -55,14 +55,17 @@ func Register(name string, f Factory) {
 }
 
 // New returns a fresh instance of the named display, or an error if the name
-// has not been registered.
+// has not been registered. The factory is called outside the registry lock to
+// avoid holding the lock during potentially expensive construction.
 func New(name string) (MatrixDisplay, error) {
 	mu.RLock()
-	defer mu.RUnlock()
 	f, ok := registry[name]
 	if !ok {
-		return nil, fmt.Errorf("display %q not registered (available: %v)", name, registered())
+		available := registered()
+		mu.RUnlock()
+		return nil, fmt.Errorf("display %q not registered (available: %v)", name, available)
 	}
+	mu.RUnlock()
 	return f(), nil
 }
 
