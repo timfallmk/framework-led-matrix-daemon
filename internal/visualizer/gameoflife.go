@@ -37,6 +37,7 @@ func (g *GameOfLife) seed() {
 	}
 	g.gen = 0
 	g.staleCount = 0
+	g.lastAlive = -1
 }
 
 func (g *GameOfLife) neighbors(col, row int) int {

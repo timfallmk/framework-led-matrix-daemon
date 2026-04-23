@@ -91,6 +91,8 @@ func (v *Visualizer) UpdateDisplay(summary *stats.StatsSummary) error {
 		return v.updateStatusMode(summary)
 	case "custom":
 		return v.updateCustomMode(summary)
+	case "animations":
+		return fmt.Errorf("animations mode requires multiple matrices; configure matrix.matrices in your config")
 	default:
 		return fmt.Errorf("unknown display mode: %s", v.config.Display.Mode)
 	}
@@ -259,11 +261,8 @@ func (v *Visualizer) GetCurrentState() map[string]interface{} {
 
 // UpdateDisplay updates multiple LED matrix displays based on system statistics and dual mode configuration.
 func (mv *MultiVisualizer) UpdateDisplay(summary *stats.StatsSummary) error {
-	// Animations mode manages its own internal timing; skip the outer rate limiter.
-	if mv.config.Display.Mode != "animations" {
-		if time.Since(mv.lastUpdate) < mv.config.Display.UpdateRate {
-			return nil
-		}
+	if time.Since(mv.lastUpdate) < mv.config.Display.UpdateRate {
+		return nil
 	}
 
 	switch mv.config.Display.Mode {
@@ -296,16 +295,20 @@ func (mv *MultiVisualizer) updateAnimationsMode() error {
 	// Advance face expression on each face's individual hold duration.
 	mv.faces.Tick()
 
+	var lastErr error
+
 	if err := mv.multiDisplay.DrawFrame("primary", mv.gol.Frame()); err != nil {
 		logging.Warn("animations: failed to draw GoL frame", "error", err)
+		lastErr = fmt.Errorf("draw primary animation frame: %w", err)
 	}
 
 	if err := mv.multiDisplay.DrawFrame("secondary", mv.faces.Frame()); err != nil {
 		logging.Warn("animations: failed to draw face frame", "error", err)
+		lastErr = fmt.Errorf("draw secondary animation frame: %w", err)
 	}
 
 	mv.lastUpdate = now
-	return nil
+	return lastErr
 }
 
 func (mv *MultiVisualizer) updatePercentageMode(summary *stats.StatsSummary) error {
