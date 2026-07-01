@@ -137,6 +137,12 @@ linters:
     unused:
       exported-fields-are-used: false
 
+    # Repeated string literals — ignore test files; prod threshold set above the pre-existing
+    # baseline so the check only catches new egregious cases, not pre-existing domain strings
+    goconst:
+      ignore-tests: true
+      min-occurrences: 5
+
     # Whitespace
     wsl_v5:
       allow-first-in-block: true
@@ -171,6 +177,12 @@ linters:
       - source: "^//go:generate "
         linters:
           - lll
+
+      # goconst: exclude files with many pre-existing repeated domain/config strings
+      # that were not flagged by the previous golangci-lint version
+      - path: 'internal/(config/config|daemon/service|logging/logger|observability/metrics)\.go'
+        linters:
+          - goconst
 
 formatters:
   enable:
