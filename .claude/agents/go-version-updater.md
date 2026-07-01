@@ -1,12 +1,14 @@
-# Go Version Updater Agent
-
-This agent checks for the latest stable Go release and updates all Go version references across the repository.
-
-## Agent Configuration
-
-- **Name**: go-version-updater
-- **Description**: Checks the latest stable Go version and updates all version references in the repository
-- **Allowed Tools**: WebSearch, WebFetch, Read, Edit, Write, Grep, Glob, Bash
+---
+name: go-version-updater
+description: Checks the latest stable Go version from go.dev and updates all version references in the repository (go.mod, Dockerfile, CI/CD workflows, README, CONTRIBUTING)
+tools:
+  - WebSearch
+  - WebFetch
+  - Read
+  - Edit
+  - Write
+  - Bash
+---
 
 ## Instructions
 
