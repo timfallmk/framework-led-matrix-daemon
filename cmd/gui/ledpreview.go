@@ -169,7 +169,8 @@ func (l *LEDPreview) SetDualMode(isDual bool, mode string) {
 			l.secondary.label.SetText("Secondary")
 		}
 
-		l.gridArea.Add(container.NewGridWithColumns(2,
+		l.gridArea.Add(container.NewGridWithColumns(
+			2,
 			l.primary.container,
 			l.secondary.container,
 		))
