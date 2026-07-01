@@ -1,6 +1,6 @@
 module github.com/timfallmk/framework-led-matrix-daemon
 
-go 1.26.1
+go 1.26.4
 
 require (
 	fyne.io/fyne/v2 v2.7.3
