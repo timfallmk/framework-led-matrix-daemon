@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	fyne.io/fyne/v2 v2.7.3
-	github.com/fsnotify/fsnotify v1.9.0
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/takama/daemon v1.0.0
 	go.bug.st/serial v1.6.4
