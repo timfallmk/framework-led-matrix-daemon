@@ -31,6 +31,8 @@ type MultiDisplayManagerInterface interface {
 	SetBrightness(level byte) error
 	SetUpdateRate(rate time.Duration)
 	HasMultipleDisplays() bool
+	// DrawFrame renders a raw pixel frame on the named matrix (used by animations mode).
+	DrawFrame(name string, frame [9][34]byte) error
 }
 
 // Visualizer converts system metrics into visual patterns for single LED matrix displays.
@@ -45,7 +47,14 @@ type MultiVisualizer struct {
 	multiDisplay MultiDisplayManagerInterface
 	config       *config.Config
 	lastUpdate   time.Time
+	gol          *GameOfLife
+	faces        *FaceAnimator
+	golLastTick  time.Time
 }
+
+// golTickRate controls how fast Game of Life advances. One generation every ~350ms
+// gives a lively but readable simulation on the 9×34 matrix.
+const golTickRate = 350 * time.Millisecond
 
 // NewVisualizer creates a new Visualizer with the specified display manager and configuration.
 func NewVisualizer(display DisplayManagerInterface, cfg *config.Config) *Visualizer {
@@ -60,6 +69,8 @@ func NewMultiVisualizer(multiDisplay MultiDisplayManagerInterface, cfg *config.C
 	return &MultiVisualizer{
 		multiDisplay: multiDisplay,
 		config:       cfg,
+		gol:          NewGameOfLife(),
+		faces:        NewFaceAnimator(),
 	}
 }
 
@@ -80,6 +91,8 @@ func (v *Visualizer) UpdateDisplay(summary *stats.StatsSummary) error {
 		return v.updateStatusMode(summary)
 	case "custom":
 		return v.updateCustomMode(summary)
+	case "animations":
+		return fmt.Errorf("animations mode requires multiple matrices; configure matrix.matrices in your config")
 	default:
 		return fmt.Errorf("unknown display mode: %s", v.config.Display.Mode)
 	}
@@ -261,9 +274,41 @@ func (mv *MultiVisualizer) UpdateDisplay(summary *stats.StatsSummary) error {
 		return mv.updateActivityMode(summary)
 	case "status":
 		return mv.updateStatusMode(summary)
+	case "animations":
+		return mv.updateAnimationsMode()
 	default:
 		return mv.updatePercentageMode(summary)
 	}
+}
+
+// updateAnimationsMode runs Game of Life on the primary (left) matrix and
+// cycles through kawaii/anime/punk facial expressions on the secondary (right) matrix.
+func (mv *MultiVisualizer) updateAnimationsMode() error {
+	now := time.Now()
+
+	// Advance Game of Life on its own tick rate.
+	if now.Sub(mv.golLastTick) >= golTickRate {
+		mv.gol.Tick()
+		mv.golLastTick = now
+	}
+
+	// Advance face expression on each face's individual hold duration.
+	mv.faces.Tick()
+
+	var lastErr error
+
+	if err := mv.multiDisplay.DrawFrame("primary", mv.gol.Frame()); err != nil {
+		logging.Warn("animations: failed to draw GoL frame", "error", err)
+		lastErr = fmt.Errorf("draw primary animation frame: %w", err)
+	}
+
+	if err := mv.multiDisplay.DrawFrame("secondary", mv.faces.Frame()); err != nil {
+		logging.Warn("animations: failed to draw face frame", "error", err)
+		lastErr = fmt.Errorf("draw secondary animation frame: %w", err)
+	}
+
+	mv.lastUpdate = now
+	return lastErr
 }
 
 func (mv *MultiVisualizer) updatePercentageMode(summary *stats.StatsSummary) error {
