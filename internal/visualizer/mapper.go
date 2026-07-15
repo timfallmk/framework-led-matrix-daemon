@@ -6,9 +6,11 @@ package visualizer
 import (
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/config"
+	"github.com/timfallmk/framework-led-matrix-daemon/internal/display"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/logging"
 	"github.com/timfallmk/framework-led-matrix-daemon/internal/stats"
 )
@@ -31,6 +33,8 @@ type MultiDisplayManagerInterface interface {
 	SetBrightness(level byte) error
 	SetUpdateRate(rate time.Duration)
 	HasMultipleDisplays() bool
+	// DrawFrame renders a raw pixel frame on the named matrix (used by animations mode).
+	DrawFrame(name string, frame [9][34]byte) error
 }
 
 // Visualizer converts system metrics into visual patterns for single LED matrix displays.
@@ -42,25 +46,47 @@ type Visualizer struct {
 
 // MultiVisualizer converts system metrics into visual patterns for multiple LED matrix displays.
 type MultiVisualizer struct {
-	multiDisplay MultiDisplayManagerInterface
-	config       *config.Config
-	lastUpdate   time.Time
+	multiDisplay  MultiDisplayManagerInterface
+	config        *config.Config
+	lastUpdate    time.Time
+	panelDisplays map[string]display.MatrixDisplay
+	panelMu       sync.RWMutex
 }
 
 // NewVisualizer creates a new Visualizer with the specified display manager and configuration.
-func NewVisualizer(display DisplayManagerInterface, cfg *config.Config) *Visualizer {
+func NewVisualizer(d DisplayManagerInterface, cfg *config.Config) *Visualizer {
 	return &Visualizer{
-		display: display,
+		display: d,
 		config:  cfg,
 	}
 }
 
 // NewMultiVisualizer creates a new MultiVisualizer with the specified multi-display manager and configuration.
 func NewMultiVisualizer(multiDisplay MultiDisplayManagerInterface, cfg *config.Config) *MultiVisualizer {
-	return &MultiVisualizer{
+	mv := &MultiVisualizer{
 		multiDisplay: multiDisplay,
 		config:       cfg,
 	}
+	mv.initPanelDisplays(cfg)
+	return mv
+}
+
+// initPanelDisplays builds the per-panel display map from the Panels config.
+// Unknown display names fall back to the built-in "off" (blank) display so that
+// a misconfigured panel produces a clear visual signal rather than stale content.
+func (mv *MultiVisualizer) initPanelDisplays(cfg *config.Config) {
+	panels := make(map[string]display.MatrixDisplay, len(cfg.Display.Panels))
+	for matrixName, displayName := range cfg.Display.Panels {
+		d, err := display.New(displayName)
+		if err != nil {
+			logging.Warn("unknown display for panel, falling back to off", "matrix", matrixName, "display", displayName, "available", display.Registered())
+			d, _ = display.New("off")
+		}
+		panels[matrixName] = d
+	}
+	mv.panelMu.Lock()
+	mv.panelDisplays = panels
+	mv.panelMu.Unlock()
 }
 
 // UpdateDisplay updates the LED matrix display based on the current system statistics and configured display mode.
@@ -80,6 +106,8 @@ func (v *Visualizer) UpdateDisplay(summary *stats.StatsSummary) error {
 		return v.updateStatusMode(summary)
 	case "custom":
 		return v.updateCustomMode(summary)
+	case "animations":
+		return fmt.Errorf("animations mode requires multiple matrices; configure matrix.matrices in your config")
 	default:
 		return fmt.Errorf("unknown display mode: %s", v.config.Display.Mode)
 	}
@@ -261,9 +289,34 @@ func (mv *MultiVisualizer) UpdateDisplay(summary *stats.StatsSummary) error {
 		return mv.updateActivityMode(summary)
 	case "status":
 		return mv.updateStatusMode(summary)
+	case "animations":
+		return mv.updateAnimationsMode(summary)
 	default:
 		return mv.updatePercentageMode(summary)
 	}
+}
+
+// updateAnimationsMode renders each panel's registered display, passing through
+// system stats so metric-driven displays can use them.
+func (mv *MultiVisualizer) updateAnimationsMode(summary *stats.StatsSummary) error {
+	mv.panelMu.RLock()
+	panels := mv.panelDisplays
+	mv.panelMu.RUnlock()
+
+	if len(panels) == 0 {
+		return fmt.Errorf("animations mode: no panels configured (set display.panels in config)")
+	}
+
+	var lastErr error
+	for matrixName, d := range panels {
+		frame := d.Render(summary)
+		if err := mv.multiDisplay.DrawFrame(matrixName, frame); err != nil {
+			logging.Warn("animations: failed to draw frame", "matrix", matrixName, "error", err)
+			lastErr = fmt.Errorf("draw %s animation frame: %w", matrixName, err)
+		}
+	}
+	mv.lastUpdate = time.Now()
+	return lastErr
 }
 
 func (mv *MultiVisualizer) updatePercentageMode(summary *stats.StatsSummary) error {
@@ -373,6 +426,7 @@ func (mv *MultiVisualizer) determineSystemStatus(summary *stats.StatsSummary) st
 func (mv *MultiVisualizer) UpdateConfig(cfg *config.Config) {
 	mv.config = cfg
 	mv.multiDisplay.SetUpdateRate(cfg.Display.UpdateRate)
+	mv.initPanelDisplays(cfg)
 
 	if cfg.Matrix.Brightness != 0 {
 		if err := mv.multiDisplay.SetBrightness(cfg.Matrix.Brightness); err != nil {
