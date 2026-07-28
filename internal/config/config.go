@@ -263,6 +263,7 @@ func (c *Config) Validate() error {
 		"activity":   true,
 		"status":     true,
 		"custom":     true,
+		"animations": true,
 	}
 	if !validModes[c.Display.Mode] {
 		return fmt.Errorf("invalid display mode: %s", c.Display.Mode)
@@ -536,12 +537,13 @@ func (c *Config) ValidateDetailed() []ValidationError {
 		"activity":   true,
 		"status":     true,
 		"custom":     true,
+		"animations": true,
 	}
 	if !validModes[c.Display.Mode] {
 		errors = append(errors, ValidationError{
 			Field:   "display.mode",
 			Value:   c.Display.Mode,
-			Message: "must be one of: percentage, gradient, activity, status, custom",
+			Message: "must be one of: percentage, gradient, activity, status, custom, animations",
 		})
 	}
 

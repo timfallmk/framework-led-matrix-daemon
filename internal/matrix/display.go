@@ -372,3 +372,28 @@ func (mdm *MultiDisplayManager) HasMultipleDisplays() bool {
 
 	return len(mdm.displays) > 1
 }
+
+// DrawFrame renders an arbitrary pixel frame on the named matrix using the
+// StageColumn / FlushColumns protocol. frame[col][row] is the brightness (0-255)
+// for each of the 9 columns and 34 rows.
+func (mdm *MultiDisplayManager) DrawFrame(name string, frame [9][34]byte) error {
+	mdm.mu.Lock()
+	defer mdm.mu.Unlock()
+
+	client := mdm.multiClient.GetClient(name)
+	if client == nil {
+		return fmt.Errorf("matrix %q not found", name)
+	}
+
+	for col := byte(0); col < 9; col++ {
+		if err := client.StageColumn(col, frame[col]); err != nil {
+			return fmt.Errorf("staging column %d: %w", col, err)
+		}
+	}
+
+	if err := client.FlushColumns(); err != nil {
+		return fmt.Errorf("flushing columns for matrix %q: %w", name, err)
+	}
+
+	return nil
+}
