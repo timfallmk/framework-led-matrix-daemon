@@ -165,7 +165,9 @@ jobs:
 
     - name: Install Fyne dependencies (Linux)
       if: runner.os == 'Linux'
-      run: sudo apt-get update -qq && sudo apt-get install -y -qq libgl1-mesa-dev xorg-dev
+      # libwayland-dev and libxkbcommon-dev are required by GLFW v3.4's Wayland
+      # backend, which is unconditionally compiled on Linux by Fyne v2.8+.
+      run: sudo apt-get update -qq && sudo apt-get install -y -qq libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev
 
     - name: Set up MSYS2 (Windows)
       if: runner.os == 'Windows'

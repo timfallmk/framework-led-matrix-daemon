@@ -493,7 +493,7 @@ The optional GUI application requires CGO and system graphics libraries (the dae
 
 **System prerequisites (install once):**
 
-- **Debian / Ubuntu:** `sudo apt-get install libgl1-mesa-dev xorg-dev`
+- **Debian / Ubuntu:** `sudo apt-get install libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev`
 - **Fedora:** `sudo dnf install gcc libXcursor-devel libXrandr-devel mesa-libGL-devel libXi-devel libXinerama-devel libXxf86vm-devel`
 - **Arch Linux:** `sudo pacman -S xorg-server-devel libxcursor libxrandr libxinerama libxi`
 - **Windows:** Install [MSYS2](https://www.msys2.org/) with `pacman -S mingw-w64-x86_64-toolchain`
