@@ -750,6 +750,7 @@ func (s *Service) SetDisplayMode(mode string) error {
 		"activity":   true,
 		"status":     true,
 		"custom":     true,
+		"animations": true,
 	}
 	if !validModes[mode] {
 		return fmt.Errorf("invalid display mode: %s", mode)

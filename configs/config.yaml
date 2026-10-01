@@ -38,11 +38,12 @@ stats:
 
 display:
   update_rate: 1s            # How often to update the display
-  mode: "percentage"         # Display mode: percentage, gradient, activity, status, custom
+  mode: "percentage"         # Display mode: percentage, gradient, activity, status, custom, animations
   primary_metric: "cpu"      # Primary metric to display: cpu, memory, disk, network
   show_activity: true        # Show activity indicators
   enable_animation: false    # Enable pattern animations
   custom_patterns: {}        # Custom pattern configurations
+  # To enable animations mode on dual matrices, set mode: "animations" and update_rate: "200ms"
 
 daemon:
   name: "framework-led-daemon"
