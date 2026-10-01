@@ -7,7 +7,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/takama/daemon v1.0.0
-	go.bug.st/serial v1.7.1
+	go.bug.st/serial v1.8.0
 	golang.org/x/sys v0.47.0
 	gopkg.in/yaml.v3 v3.0.1
 )
