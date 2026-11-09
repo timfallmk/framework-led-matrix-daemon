@@ -37,12 +37,15 @@ stats:
     disk_critical: 95.0      # Disk usage critical threshold (%)
 
 display:
-  update_rate: 1s            # How often to update the display
-  mode: "percentage"         # Display mode: percentage, gradient, activity, status, custom
+  update_rate: 1s            # How often to update the display (each display manages its own internal tick rate)
+  mode: "animations"         # Display mode: percentage, gradient, activity, status, custom, animations
   primary_metric: "cpu"      # Primary metric to display: cpu, memory, disk, network
   show_activity: true        # Show activity indicators
   enable_animation: false    # Enable pattern animations
   custom_patterns: {}        # Custom pattern configurations
+  panels:                    # Per-panel display assignments (used in animations mode)
+    primary: "gameoflife"    # Left matrix: Conway's Game of Life
+    secondary: "faces"       # Right matrix: cycling kawaii/anime/punk expressions
 
 daemon:
   name: "framework-led-daemon"
